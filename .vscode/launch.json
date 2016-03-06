@@ -13,6 +13,18 @@
 			"outDir": "${workspaceRoot}/out"
 		},
 		{
+			"name": "clojure-debug server",
+			"type": "node",
+			"request": "launch",
+			"runtimeArgs": ["--harmony"],
+			"program": "${workspaceRoot}/src/clojureDebug.ts",
+			"stopOnEntry": false,
+			"args": [ "--server=4711" ],
+			"sourceMaps": true,
+			"outDir": "${workspaceRoot}/out",
+			"cwd": "${workspaceRoot}"
+		},
+		{
 			"name": "mock-debug server",
 			"type": "node",
 			"request": "launch",

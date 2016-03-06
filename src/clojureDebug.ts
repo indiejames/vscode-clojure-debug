@@ -4,10 +4,22 @@
 
 "use strict";
 
+///<reference path="node.d.ts"/>
+
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync} from 'fs';
 import {basename} from 'path';
+import {spawn} from 'child_process';
+import nrepl_client = require('nrepl-client');
+
+// Constants to represent the various states of the debugger
+class DebuggerState {
+	public static get PRE_LAUNCH(): string { return "PRE_LAUNCH";}
+	public static get REPL_STARTED(): string {return "REPL_STARTED";}
+	public static get REPL_READY(): string {return "REPL_READY";}
+	public static get LAUNCH_COMPLETE(): string {return "LAUNCH_COMPLETE";}
+}
 
 
 /**
@@ -20,10 +32,14 @@ export interface LaunchRequestArguments {
 	stopOnEntry?: boolean;
 }
 
-class MockDebugSession extends DebugSession {
+class ClojureDebugSession extends DebugSession {
 
 	// we don't support multiple threads, so we can use a hardcoded ID for the default thread
 	private static THREAD_ID = 1;
+
+	// Clojure REPL process
+	private _cdtRepl: any;
+	private _primaryRepl: any;
 
 	private __currentLine: number;
 	private get _currentLine() : number {
@@ -38,7 +54,9 @@ class MockDebugSession extends DebugSession {
 	private _sourceLines: string[];
 	private _breakPoints: any;
 	private _variableHandles: Handles<string>;
-
+	private _connection: nrepl_client.Connection;
+	// Debugger state
+	private _debuggerState: DebuggerState;
 
 	public constructor(debuggerLinesStartAt1: boolean, isServer: boolean = false) {
 		super(debuggerLinesStartAt1, isServer);
@@ -47,6 +65,7 @@ class MockDebugSession extends DebugSession {
 		this._currentLine = 0;
 		this._breakPoints = {};
 		this._variableHandles = new Handles<string>();
+		this._debuggerState = DebuggerState.PRE_LAUNCH;
 	}
 
 	protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
@@ -60,17 +79,53 @@ class MockDebugSession extends DebugSession {
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
 		this._sourceFile = args.program;
 		this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
+		var env = {"JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8030"};
+		var cwd = args["cwd"];
+		this._primaryRepl = spawn('/usr/local/bin/lein', ["repl", ":headless", ":port", "5555"], {cwd: cwd, env: env});
+		this._debuggerState = DebuggerState.REPL_STARTED;
 
-		if (args.stopOnEntry) {
-			this._currentLine = 0;
-			this.sendResponse(response);
+  	this._primaryRepl.stdout.on('data', (data) => {
+    		var output = '' + data;
 
-			// we stop on the first line
-			this.sendEvent(new StoppedEvent("entry", MockDebugSession.THREAD_ID));
-		} else {
-			// we just start to run until we hit a breakpoint or an exception
-			this.continueRequest(response, { threadId: MockDebugSession.THREAD_ID });
-		}
+				// TODO This should check the message instead of assuming the second
+				// message means the REPL is ready to receive connections.
+				if (this._debuggerState == DebuggerState.REPL_READY) {
+					this._debuggerState = DebuggerState.REPL_READY;
+					this._connection = nrepl_client.connect({port: 5555, host: "127.0.0.1", verbose: false});
+
+					this._debuggerState = DebuggerState.LAUNCH_COMPLETE;
+					if (args.stopOnEntry) {
+						this._currentLine = 0;
+						this.sendResponse(response);
+
+						// we stop on the first line
+						this.sendEvent(new StoppedEvent("entry", ClojureDebugSession.THREAD_ID));
+					} else {
+						// we just start to run until we hit a breakpoint or an exception
+						this.continueRequest(response, { threadId: ClojureDebugSession.THREAD_ID });
+					}
+				}
+
+				if (this._debuggerState == DebuggerState.REPL_STARTED) {
+					this._debuggerState = DebuggerState.REPL_READY;
+				}
+
+    		console.log(output);
+
+		});
+
+  		this._primaryRepl.stderr.on('data', (data) => {
+  			console.log(`stderr: ${data}`);
+		});
+
+		this._primaryRepl.on('close', (code) => {
+			if (code !== 0) {
+				console.log(`REPL process exited with code ${code}`);
+			}
+			console.log("REPL closed");
+		});
+
+
 	}
 
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
@@ -114,7 +169,7 @@ class MockDebugSession extends DebugSession {
 		// return the default thread
 		response.body = {
 			threads: [
-				new Thread(MockDebugSession.THREAD_ID, "thread 1")
+				new Thread(ClojureDebugSession.THREAD_ID, "thread 1")
 			]
 		};
 		this.sendResponse(response);
@@ -191,14 +246,14 @@ class MockDebugSession extends DebugSession {
 			if (lines && lines.indexOf(ln) >= 0) {
 				this._currentLine = ln;
 				this.sendResponse(response);
-				this.sendEvent(new StoppedEvent("breakpoint", MockDebugSession.THREAD_ID));
+				this.sendEvent(new StoppedEvent("breakpoint", ClojureDebugSession.THREAD_ID));
 				return;
 			}
 			// if word 'exception' found in source -> throw exception
 			if (this._sourceLines[ln].indexOf("exception") >= 0) {
 				this._currentLine = ln;
 				this.sendResponse(response);
-				this.sendEvent(new StoppedEvent("exception", MockDebugSession.THREAD_ID));
+				this.sendEvent(new StoppedEvent("exception", ClojureDebugSession.THREAD_ID));
 				this.sendEvent(new OutputEvent(`exception in line: ${ln}\n`, 'stderr'));
 				return;
 			}
@@ -214,7 +269,7 @@ class MockDebugSession extends DebugSession {
 			if (this._sourceLines[ln].trim().length > 0) {   // find next non-empty line
 				this._currentLine = ln;
 				this.sendResponse(response);
-				this.sendEvent(new StoppedEvent("step", MockDebugSession.THREAD_ID));
+				this.sendEvent(new StoppedEvent("step", ClojureDebugSession.THREAD_ID));
 				return;
 			}
 		}
@@ -224,12 +279,22 @@ class MockDebugSession extends DebugSession {
 	}
 
 	protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
-		response.body = {
-			result: `evaluate(${args.expression})`,
-			variablesReference: 0
-		};
-		this.sendResponse(response);
+		var expr = args.expression;
+		var self = this;
+		this._connection.eval(expr, (err: any, result: any) => {
+			var value = result.reduce((res: any, msg: any) => {
+				return msg.value ? res + msg.value : res;}, "");
+			//console.log('%s => %s', expr, value);
+			response.body = {
+				result: value,
+				variablesReference: 0
+			};
+			self.sendResponse(response);
+
+		});
+
+
 	}
 }
 
-DebugSession.run(MockDebugSession);
+DebugSession.run(ClojureDebugSession);
