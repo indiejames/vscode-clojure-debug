@@ -57,6 +57,8 @@ class ClojureDebugSession extends DebugSession {
 	private _connection: nrepl_client.Connection;
 	// Debugger state
 	private _debuggerState: DebuggerState;
+	// map of sessions ids to evalulation results
+	private _evalResults: any;
 
 	public constructor(debuggerLinesStartAt1: boolean, isServer: boolean = false) {
 		super(debuggerLinesStartAt1, isServer);
@@ -66,6 +68,22 @@ class ClojureDebugSession extends DebugSession {
 		this._breakPoints = {};
 		this._variableHandles = new Handles<string>();
 		this._debuggerState = DebuggerState.PRE_LAUNCH;
+		this._evalResults = {};
+	}
+
+	// send data form the REPL's stdout to be displayed in the debugger
+	protected output(text, category){
+		var outputEvent = new OutputEvent(text, category);
+		this.sendEvent(outputEvent);
+    console.log(text);
+	}
+
+	protected pout(text){
+	 this.output(text, "stdout");
+	}
+
+	protected perr(text){
+		this.output(text, "stderr");
 	}
 
 	protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
@@ -110,12 +128,13 @@ class ClojureDebugSession extends DebugSession {
 					this._debuggerState = DebuggerState.REPL_READY;
 				}
 
-    		console.log(output);
+				this.pout(output);
 
 		});
 
-  		this._primaryRepl.stderr.on('data', (data) => {
-  			console.log(`stderr: ${data}`);
+  	this._primaryRepl.stderr.on('data', (data) => {
+			this.perr(data);
+  		console.log(`stderr: ${data}`);
 		});
 
 		this._primaryRepl.on('close', (code) => {
@@ -278,18 +297,69 @@ class ClojureDebugSession extends DebugSession {
 		this.sendEvent(new TerminatedEvent());
 	}
 
+	protected handleResult(response: DebugProtocol.EvaluateResponse, replResult: any): void {
+		// forward stdout form the REPL to the debugger
+		var out = replResult["out"];
+		if (out && out != ""){
+			this.pout(out);
+		}
+
+		// forwared stderr from the REPL to the debugger
+		var err = replResult["err"];
+		if (err && err != ""){
+			this.perr(err);
+		}
+
+		var session = replResult["session"];
+		var result = this._evalResults[session] || {};
+		if (replResult["status"] == "done") {
+			response.body = {
+				result: result["value"],
+				// TODO implement this for complex results
+				variablesReference: 0
+			}
+
+			var err = result["error"];
+			if (err && err != "") {
+				response.success = false;
+				response.message = err;
+			}
+
+			this.sendResponse(response);
+			this._evalResults[session] = null;
+
+		} else {
+
+			if (replResult["value"]) {
+				var value = result["value"] || "";
+				result["value"] = value + replResult["value"];
+			}
+			var ex = replResult["ex"];
+			if (ex && ex != "") {
+				var err = result["error"] || "";
+				result["error"] = err + "\n" +  ex;
+			}
+			this._evalResults[session] = result;
+		}
+	}
+
 	protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
 		var expr = args.expression;
 		var self = this;
 		this._connection.eval(expr, (err: any, result: any) => {
-			var value = result.reduce((res: any, msg: any) => {
-				return msg.value ? res + msg.value : res;}, "");
-			//console.log('%s => %s', expr, value);
-			response.body = {
-				result: value,
-				variablesReference: 0
-			};
-			self.sendResponse(response);
+
+			for (var res of result){
+				this.handleResult(response, res);
+			}
+
+			// var value = result.reduce((res: any, msg: any) => {
+			// 	return msg.value ? res + msg.value : res;}, "");
+
+			// response.body = {
+			// 	result: value,
+			// 	variablesReference: 0
+			// };
+			// self.sendResponse(response);
 
 		});
 
