@@ -9,7 +9,7 @@
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync} from 'fs';
-import {basename} from 'path';
+import {basename, dirname} from 'path';
 import {spawn} from 'child_process';
 import nrepl_client = require('nrepl-client');
 
@@ -98,7 +98,8 @@ class ClojureDebugSession extends DebugSession {
 		this._sourceFile = args.program;
 		this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
 		var env = {"JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8030"};
-		var cwd = args["cwd"];
+		var cwd = dirname(args.program);
+
 		this._primaryRepl = spawn('/usr/local/bin/lein', ["repl", ":headless", ":port", "5555"], {cwd: cwd, env: env});
 		this._debuggerState = DebuggerState.REPL_STARTED;
 
