@@ -17,6 +17,7 @@ import nrepl_client = require('nrepl-client');
 class DebuggerState {
 	public static get PRE_LAUNCH(): string { return "PRE_LAUNCH";}
 	public static get REPL_STARTED(): string {return "REPL_STARTED";}
+	public static get DEBUGGER_ATTACHED(): string {return "DEBUGGER_ATTACHED";}
 	public static get REPL_READY(): string {return "REPL_READY";}
 	public static get LAUNCH_COMPLETE(): string {return "LAUNCH_COMPLETE";}
 }
@@ -125,8 +126,12 @@ class ClojureDebugSession extends DebugSession {
 					}
 				}
 
-				if (this._debuggerState == DebuggerState.REPL_STARTED) {
+				if (this._debuggerState == DebuggerState.DEBUGGER_ATTACHED) {
 					this._debuggerState = DebuggerState.REPL_READY;
+				}
+
+				if (this._debuggerState == DebuggerState.REPL_STARTED) {
+					this._debuggerState = DebuggerState.DEBUGGER_ATTACHED;
 				}
 
 				this.pout(output);
@@ -162,6 +167,13 @@ class ClojureDebugSession extends DebugSession {
 		// verify breakpoint locations
 		for (var i = 0; i < clientLines.length; i++) {
 			var l = this.convertClientLineToDebugger(clientLines[i]);
+
+			//this._connection.send({op: 'set-breakpoint', line: l, path: path});
+
+			// this._connection.send({op: 'set-breakpoint', line: l, path: path}, function (err, result) {
+			// 	console.log(result);
+			// });
+
 			var verified = false;
 			if (l < lines.length) {
 				// if a line starts with '+' we don't allow to set a breakpoint but move the breakpoint down
