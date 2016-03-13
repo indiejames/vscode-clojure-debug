@@ -168,7 +168,10 @@ class ClojureDebugSession extends DebugSession {
 		for (var i = 0; i < clientLines.length; i++) {
 			var l = this.convertClientLineToDebugger(clientLines[i]);
 
-			this._connection.send({op: 'set-breakpoint', line: l, path: path});
+			this._connection.send({op: 'set-breakpoint', line: l, path: path}, (err: any, result: any) => {
+				console.log(result);
+			});
+
 
 			// this._connection.send({op: 'set-breakpoint', line: l, path: path}, function (err, result) {
 			// 	console.log(result);

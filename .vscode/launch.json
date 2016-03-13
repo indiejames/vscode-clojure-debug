@@ -25,8 +25,20 @@
 			"cwd": "${workspaceRoot}"
 		},
 		{
-			"name": "mock-debug server",
+			"name": "clojure-debug",
 			"type": "node",
+			"request": "launch",
+			"runtimeArgs": ["--harmony"],
+			"program": "${workspaceRoot}/src/clojureDebug.ts",
+			"stopOnEntry": false,
+			"args": [],
+			"sourceMaps": true,
+			"outDir": "${workspaceRoot}/out",
+			"cwd": "${workspaceRoot}"
+		},
+		{
+			"name": "mock-debug server",
+			"type": "clojure",
 			"request": "launch",
 			"runtimeArgs": ["--harmony"],
 			"program": "${workspaceRoot}/src/mockDebug.ts",

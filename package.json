@@ -1,11 +1,11 @@
 {
-	"name": "mock-debug",
-	"displayName": "Mock Debug",
-	"version": "0.10.18",
-	"publisher": "andreweinand",
-	"description": "Starter extension for developing debug adapters for VS Code.",
+	"name": "clojure-debug",
+	"displayName": "Clojure Debug",
+	"version": "0.1.0",
+	"publisher": "jamesnorton",
+	"description": "Clojure debugger for VS Code.",
 	"author": {
-		"name": "Microsoft Corporation"
+		"name": "James Norton"
 	},
 	"engines": {
 		"vscode": "^0.10.1"
@@ -41,12 +41,12 @@
 	"contributes": {
 		"debuggers": [
 			{
-				"type": "mock",
-				"label": "Mock Debug",
+				"type": "clojure",
+				"label": "Clojure Debug",
 
-				"enableBreakpointsFor": { "languageIds": [ "markdown" ] },
+				"enableBreakpointsFor": { "languageIds": [ "clojure" ] },
 
-				"program": "./out/mockDebug.js",
+				"program": "./out/clojureDebug.js",
 				"runtime": "node",
 
 				"configurationAttributes": {
@@ -69,10 +69,10 @@
 
 				"initialConfigurations": [
 					{
-						"name": "Mock-Debug",
-						"type": "mock",
+						"name": "Clojure-Debug",
+						"type": "clojure",
 						"request": "launch",
-						"program": "readme.md",
+						"program": "${workspaceRoot}/project.clj",
 						"stopOnEntry": true
 					}
 				]

@@ -2081,7 +2081,7 @@ declare module "constants" {
 declare module "nrepl-client" {
 	export interface Connection {
 		sessions: [any];
-		send(mesg: any): void;
+		send(mesg: any, callback: (err: any, result: any) => void): void;
 		eval(code: string, callback: (err: any, result: any) => void): string;
 
 	}
