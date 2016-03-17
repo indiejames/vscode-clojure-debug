@@ -153,26 +153,9 @@ class ClojureDebugSession extends DebugSession {
 
 	}
 
-	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
+	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, fileContents: Buffer, path: string): void {
 
-		var path = args.source.path;
-		// TEST CODE
-		path = "/Users/jnorton/Clojure/repl_test/src/repl_test/core.clj";
-
-		// read file contents
-		var fileContents = readFileSync(path);
-		var regex = /\(ns\s+?(.*?)(\s|\))/;
-		var ns = regex.exec(fileContents.toString())[1];
-
-		// load the associated namespace into the REPL
-
-		this._connection.send({op: 'require-namespace', namespace: ns}, (err: any, result: any) => {
-			// TODO handle errors here
-			console.log(result);
-		});
-
-
-		var clientLines = args.lines;
+	var clientLines = args.lines;
 
 
 		// read file contents into array for direct access
@@ -214,6 +197,28 @@ class ClojureDebugSession extends DebugSession {
 			breakpoints: breakpoints
 		};
 		this.sendResponse(response);
+
+	}
+
+	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
+
+		var path = args.source.path;
+
+    // TODO reject breakpoint requests outside of a namespace
+
+		// read file contents
+		var fileContents = readFileSync(path);
+		var regex = /\(ns\s+?(.*?)(\s|\))/;
+		var ns = regex.exec(fileContents.toString())[1];
+
+		// Load the associated namespace into the REPL.
+		// We must wait for the response before replying.
+		this._connection.send({op: 'require-namespace', namespace: ns}, (err: any, result: any) => {
+			// TODO handle errors here
+			this.finishBreakPointsRequest(response, args, fileContents, path)
+			console.log(result);
+		});
+
 	}
 
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
