@@ -61,8 +61,9 @@ class ClojureDebugSession extends DebugSession {
 	// map of sessions ids to evalulation results
 	private _evalResults: any;
 
-	public constructor(debuggerLinesStartAt1: boolean, isServer: boolean = false) {
-		super(debuggerLinesStartAt1, isServer);
+	public constructor(_debuggerLinesStartAt1: boolean = true, isServer: boolean = false) {
+		// We always use debuggerLinesStartAt1 = true for Clojure
+		super(true, isServer);
 		this._sourceFile = null;
 		this._sourceLines = [];
 		this._currentLine = 0;
@@ -297,27 +298,33 @@ class ClojureDebugSession extends DebugSession {
 
 	protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
 
-		const lines = this._breakPoints[this._sourceFile];
-		for (let ln = this._currentLine+1; ln < this._sourceLines.length; ln++) {
-			// is breakpoint on this line?
-			if (lines && lines.indexOf(ln) >= 0) {
-				this._currentLine = ln;
-				this.sendResponse(response);
-				this.sendEvent(new StoppedEvent("breakpoint", ClojureDebugSession.THREAD_ID));
-				return;
-			}
-			// if word 'exception' found in source -> throw exception
-			if (this._sourceLines[ln].indexOf("exception") >= 0) {
-				this._currentLine = ln;
-				this.sendResponse(response);
-				this.sendEvent(new StoppedEvent("exception", ClojureDebugSession.THREAD_ID));
-				this.sendEvent(new OutputEvent(`exception in line: ${ln}\n`, 'stderr'));
-				return;
-			}
-		}
-		this.sendResponse(response);
-		// no more lines: run to end
-		this.sendEvent(new TerminatedEvent());
+		this._connection.send({op: 'continue'}, (err: any, result: any) => {
+			// TODO handle errors here
+			this.sendResponse(response);
+			console.log(result);
+		});
+
+		// const lines = this._breakPoints[this._sourceFile];
+		// for (let ln = this._currentLine+1; ln < this._sourceLines.length; ln++) {
+		// 	// is breakpoint on this line?
+		// 	if (lines && lines.indexOf(ln) >= 0) {
+		// 		this._currentLine = ln;
+		// 		this.sendResponse(response);
+		// 		this.sendEvent(new StoppedEvent("breakpoint", ClojureDebugSession.THREAD_ID));
+		// 		return;
+		// 	}
+		// 	// if word 'exception' found in source -> throw exception
+		// 	if (this._sourceLines[ln].indexOf("exception") >= 0) {
+		// 		this._currentLine = ln;
+		// 		this.sendResponse(response);
+		// 		this.sendEvent(new StoppedEvent("exception", ClojureDebugSession.THREAD_ID));
+		// 		this.sendEvent(new OutputEvent(`exception in line: ${ln}\n`, 'stderr'));
+		// 		return;
+		// 	}
+		// }
+		// this.sendResponse(response);
+		// // no more lines: run to end
+		// this.sendEvent(new TerminatedEvent());
 	}
 
 	protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
