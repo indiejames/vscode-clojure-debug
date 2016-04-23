@@ -93,16 +93,27 @@ class ClojureDebugSession extends DebugSession {
 		// announce that we are ready to accept breakpoints -> fire the initialized event to give UI a chance to set breakpoints
 		this.sendEvent(new InitializedEvent());
 
-		super.initializeRequest(response, args);
+		response.body.supportsConfigurationDoneRequest = true;``
+
+		// We want to have VS Code call evaulate when hovering over source (yet. if there is a way to expand to a full
+		// form then we will want to do this.)
+		response.body.supportsEvaluateForHovers = false;
+
+		// SOME DAY!!!
+		response.body.supportsFunctionBreakpoints = false;
+
+ 		this.sendResponse(response);
+		//super.initializeRequest(response, args);
 	}
 
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
 		this._sourceFile = args.program;
 		this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
-		var env = {"JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8030"};
+		var env = {"JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8030",
+	             "JAVA_HOME": "/Library/Java/JavaVirtualMachines/jdk1.8.0_74.jdk/Contents/Home"};
 		var cwd = dirname(args.program);
 
-		this._primaryRepl = spawn('/usr/local/bin/lein', ["repl", ":headless", ":port", "5555"], {cwd: cwd, env: env});
+		this._primaryRepl = spawn('/usr/local/bin/lein', ["with-profile", "+debug-repl", "repl", ":headless", ":port", "5555"], {cwd: cwd, env: env});
 		this._debuggerState = DebuggerState.REPL_STARTED;
 
   	this._primaryRepl.stdout.on('data', (data) => {
@@ -112,6 +123,7 @@ class ClojureDebugSession extends DebugSession {
 				// message means the REPL is ready to receive connections.
 				if (this._debuggerState == DebuggerState.REPL_READY) {
 					this._debuggerState = DebuggerState.REPL_READY;
+
 					this._connection = nrepl_client.connect({port: 5555, host: "127.0.0.1", verbose: false});
 
 					this._debuggerState = DebuggerState.LAUNCH_COMPLETE;
