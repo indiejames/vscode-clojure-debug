@@ -254,11 +254,12 @@ class ClojureDebugSession extends DebugSession {
 
 		// Load the associated namespace into the REPL.
 		// We must wait for the response before replying.
-		this._connection.send({op: 'require-namespace', namespace: ns}, (err: any, result: any) => {
+		//this._connection.send({op: 'require-namespace', namespace: ns}, (err: any, result: any) => {
+		//this._connection.eval("(require '" + ns + ")", (err: any, result: any) => {
 			// TODO handle errors here
 			this.finishBreakPointsRequest(response, args, fileContents, path)
-			console.log(result);
-		});
+			//console.log(result);
+		//});
 
 	}
 
