@@ -24,13 +24,22 @@ class DebuggerState {
 
 
 /**
- * This interface should always match the schema found in the mock-debug extension manifest.
+ * This interface should always match the schema found in the clojure-debug extension manifest.
  */
 export interface LaunchRequestArguments {
-	/** An absolute path to the program to debug. */
-	program: string;
-	/** Automatically stop target after launch. If not specified, target does not stop. */
+	// Absolute path to the tool.jar file.
+	toolsJar: string;
+	// Port for nREPL
+	replPort: number;
+	// Port for JDWP connection
+	debugPort: number;
+	// Current working directory
+	cwd: string;
+	// The environment variables that should be set when running the target.
+	env: string[];
+	// Automatically stop target after launch. If not specified, target does not stop.
 	stopOnEntry?: boolean;
+
 }
 
 class ClojureDebugSession extends DebugSession {
@@ -107,13 +116,26 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
-		this._sourceFile = args.program;
-		this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
-		var env = {"JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8030",
-	             "JAVA_HOME": "/Library/Java/JavaVirtualMachines/jdk1.8.0_74.jdk/Contents/Home"};
-		var cwd = dirname(args.program);
+		//this._sourceFile = args.program;
+		//this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
 
-		this._primaryRepl = spawn('/usr/local/bin/lein', ["with-profile", "+debug-repl", "repl", ":headless", ":port", "5555"], {cwd: cwd, env: env});
+		//var cwd = dirname(args.program);
+		var cwd = args.cwd;
+		var repl_port = 5555;
+		if (args.replPort) {
+			repl_port = args.replPort;
+		}
+
+		var debug_port = 8030;
+		if (args.debugPort) {
+			debug_port = args.debugPort;
+		}
+
+		var env = {"JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debug_port,
+	             "CLOJURE_DEBUG_JDWP_PORT": "" + debug_port};
+
+		this._primaryRepl = spawn('/usr/local/bin/lein', ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + repl_port], {cwd: cwd, env: env});
+
 		this._debuggerState = DebuggerState.REPL_STARTED;
 
   	this._primaryRepl.stdout.on('data', (data) => {
@@ -124,9 +146,15 @@ class ClojureDebugSession extends DebugSession {
 				if (this._debuggerState == DebuggerState.REPL_READY) {
 					this._debuggerState = DebuggerState.REPL_READY;
 
-					this._connection = nrepl_client.connect({port: 5555, host: "127.0.0.1", verbose: false});
+					this._connection = nrepl_client.connect({port: repl_port, host: "127.0.0.1", verbose: false});
+
+					// tell the middleware to start the debugger
+					// this._connection.send({op: 'connect', port: debug_port}, (err: any, result: any) => {
+					// 	console.log(result);
+					// });
 
 					this._debuggerState = DebuggerState.LAUNCH_COMPLETE;
+
 					if (args.stopOnEntry) {
 						this._currentLine = 0;
 						this.sendResponse(response);

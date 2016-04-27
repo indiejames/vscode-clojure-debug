@@ -1,82 +1,108 @@
 {
-	"name": "clojure-debug",
-	"displayName": "Clojure Debug",
-	"version": "0.1.0",
-	"publisher": "jamesnorton",
-	"description": "Clojure debugger for VS Code.",
-	"author": {
-		"name": "James Norton"
-	},
-	"engines": {
-		"vscode": "^0.10.1"
-	},
-	"icon": "images/mock-debug-icon.svg",
-	"categories": [
-		"Debuggers"
-	],
-	"private": true,
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/Microsoft/vscode-mock-debug.git"
-	},
-	"bugs": {
-		"url": "https://github.com/Microsoft/vscode-mock-debug/issues"
-	},
-	"dependencies": {
-		"vscode-debugadapter": "^1.4.1",
-		"vscode-debugprotocol": "^1.4.0",
-		"vscode": "^0.11.x",
-		"jg-nrepl-client": "0.2.3"
-	},
-	"devDependencies": {
-		"typescript": "^1.6.2",
-		"mocha": "^2.3.4"
-	},
-	"scripts": {
-		"prepublish": "tsc -p ./src",
-		"compile": "tsc -p ./src",
-		"watch": "tsc -w -p ./src",
-		"test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
-	},
-	"contributes": {
-		"debuggers": [
-			{
-				"type": "clojure",
-				"label": "Clojure Debug",
-
-				"enableBreakpointsFor": { "languageIds": [ "clojure" ] },
-
-				"program": "./out/clojureDebug.js",
-				"runtime": "node",
-
-				"configurationAttributes": {
-					"launch": {
-						"required": [ "program" ],
-						"properties": {
-							"program": {
-								"type": "string",
-								"description": "Workspace relative path to a text file.",
-								"default": "readme.md"
-							},
-							"stopOnEntry": {
-								"type": "boolean",
-								"description": "Automatically stop after launch.",
-								"default": true
-							}
-						}
-					}
-				},
-
-				"initialConfigurations": [
-					{
-						"name": "Clojure-Debug",
-						"type": "clojure",
-						"request": "launch",
-						"program": "${workspaceRoot}/project.clj",
-						"stopOnEntry": true
-					}
-				]
-			}
-		]
-	}
+  "name": "clojure-debug",
+  "displayName": "Clojure Debug",
+  "version": "0.1.0",
+  "publisher": "jamesnorton",
+  "description": "Clojure debugger for VS Code.",
+  "author": {
+    "name": "James Norton"
+  },
+  "engines": {
+    "vscode": "^0.10.1"
+  },
+  "icon": "images/mock-debug-icon.svg",
+  "categories": [
+    "Debuggers"
+  ],
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Microsoft/vscode-mock-debug.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Microsoft/vscode-mock-debug/issues"
+  },
+  "dependencies": {
+    "vscode-debugadapter": "^1.4.1",
+    "vscode-debugprotocol": "^1.4.0",
+    "vscode": "^0.11.x",
+    "jg-nrepl-client": "0.2.3"
+  },
+  "devDependencies": {
+    "mocha": "^2.3.4",
+    "typescript": "^1.6.2",
+    "typings": "^0.7.9"
+  },
+  "scripts": {
+    "prepublish": "tsc -p ./src",
+    "compile": "tsc -p ./src",
+    "watch": "tsc -w -p ./src",
+    "test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
+  },
+  "contributes": {
+    "debuggers": [
+      {
+        "type": "clojure",
+        "label": "Clojure Debug",
+        "enableBreakpointsFor": {
+          "languageIds": [
+            "clojure"
+          ]
+        },
+        "program": "./out/clojureDebug.js",
+        "runtime": "node",
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "toolsJar",
+              "cwd"
+            ],
+            "properties": {
+              "toolsJar": {
+                "type": "string",
+                "description": "Path to the tools.jar.",
+                "default": "${JAVA_HOME}/lib/tools.jar"
+              },
+              "replPort": {
+                "type": "number",
+                "description": "Port on which nREPL should listen.",
+                "default": 5555
+              },
+              "debugPort": {
+                "type": "number",
+                "description": "Port on which the debugger should connect to the process to be debugged.",
+                "default": 8030
+              },
+              "env": {
+                "type": "object",
+                "description": "Environment variables passed to the program.",
+                "default": {}
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
+                "default": "${workspaceRoot}"
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Automatically stops program on launch.",
+                "default": false
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "name": "Clojure-Debug",
+            "type": "clojure",
+            "request": "launch",
+            "toolsJar": "${JAVA_HOME}/lib/tools.jar",
+            "env": {},
+            "cwd": "${workspaceRoot}",
+            "stopOnEntry": false
+          }
+        ]
+      }
+    ]
+  }
 }
