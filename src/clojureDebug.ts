@@ -22,6 +22,11 @@ class DebuggerState {
 	public static get LAUNCH_COMPLETE(): string {return "LAUNCH_COMPLETE";}
 }
 
+class DebuggerSubState {
+	public static get NOP(): string { return "NOP";}
+	public static get EVENT_IN_PROGRESS(): string { return "EVENT_IN_PROGRESS";}
+}
+
 
 /**
  * This interface should always match the schema found in the clojure-debug extension manifest.
@@ -42,10 +47,12 @@ export interface LaunchRequestArguments {
 
 }
 
+// utility funciton to
+
 class ClojureDebugSession extends DebugSession {
 
-	// we don't support multiple threads, so we can use a hardcoded ID for the default thread
-	private static THREAD_ID = 1;
+	// just use the first thread as the default thread
+	private static THREAD_ID = 0;
 
 	// Clojure REPL process
 	private _cdtRepl: any;
@@ -53,12 +60,79 @@ class ClojureDebugSession extends DebugSession {
 
 	private __currentLine: number;
 	private get _currentLine() : number {
-        return this.__currentLine;
-    }
+  	return this.__currentLine;
+  }
+
 	private set _currentLine(line: number) {
-        this.__currentLine = line;
+    this.__currentLine = line;
 		this.sendEvent(new OutputEvent(`line: ${line}\n`));	// print current line on debug console
-    }
+  }
+
+	private __threadIndex: number = 0;
+	private __threads: Thread[] = [];
+	// update the list of Threads with the given list of thread names
+	private updateThreads(thds: string[]) {
+		// add in new threads
+		for (var t of thds){
+			// TypeScript arrays don't have a `find` method
+			var index = -1;
+			for (var i=0; i <  this.__threads.length; i++) {
+				const thread = this.__threads[i];
+				if (thread.name == t) {
+					index = i;
+					break;
+				}
+			}
+			if (index == -1) {
+				var newThread = new Thread(this.__threadIndex, t);
+				this.__threadIndex = this.__threadIndex + 1;
+				this.__threads.push(newThread);
+			}
+		}
+
+		// remove threads that aren't on the new list
+		this.__threads = this.__threads.filter((value: Thread) => {
+			if (thds.indexOf(value.name) != -1) {
+				return true;
+			} else {
+				return false;
+			}
+		});
+	}
+
+	// Returns the Thread with the given name.
+	private threadWithName(name: string): Thread {
+		// TypeScript arrays don't have a `find` method
+			var index = -1;
+			for (var i=0; i <  this.__threads.length; i++) {
+				const thread = this.__threads[i];
+				if (thread.name == name) {
+					index = i;
+					break;
+				}
+			}
+			var rval = null;
+			if (index != -1) {
+				rval = this.__threads[index];
+			}
+
+			return rval;
+	}
+
+	// Returns the Thread with the given id
+	private threadWithID(id: number): Thread {
+		var rval: Thread = null;
+
+		for (var i = 0; i < this.__threads.length; i++) {
+			const t = this.__threads[i];
+			if (t.id == id) {
+				rval = t;
+				break;
+			}
+		}
+
+		return rval;
+	}
 
 	private _sourceFile: string;
 	private _sourceLines: string[];
@@ -67,8 +141,11 @@ class ClojureDebugSession extends DebugSession {
 	private _connection: nrepl_client.Connection;
 	// Debugger state
 	private _debuggerState: DebuggerState;
+	// Debugger substate
+	private _debuggerSubState: DebuggerSubState;
 	// map of sessions ids to evalulation results
 	private _evalResults: any;
+
 
 	public constructor(_debuggerLinesStartAt1: boolean = true, isServer: boolean = false) {
 		// We always use debuggerLinesStartAt1 = true for Clojure
@@ -79,6 +156,7 @@ class ClojureDebugSession extends DebugSession {
 		this._breakPoints = {};
 		this._variableHandles = new Handles<string>();
 		this._debuggerState = DebuggerState.PRE_LAUNCH;
+		this._debuggerSubState = DebuggerSubState.NOP;
 		this._evalResults = {};
 	}
 
@@ -98,6 +176,7 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
+		console.log("INITIALIZE REQUEST");
 
 		// announce that we are ready to accept breakpoints -> fire the initialized event to give UI a chance to set breakpoints
 		this.sendEvent(new InitializedEvent());
@@ -115,7 +194,38 @@ class ClojureDebugSession extends DebugSession {
 		//super.initializeRequest(response, args);
 	}
 
+	// Handle output from the REPL after launch is complete
+	protected handleREPLOutput(output) {
+		if (this._debuggerSubState == DebuggerSubState.EVENT_IN_PROGRESS) {
+			this._debuggerSubState = DebuggerSubState.NOP;
+
+			var eventMap = JSON.parse(output);
+			var event = eventMap["event"];
+			var threadName = eventMap["thread"];
+			const thread = this.threadWithName(threadName);
+			var threadId = -1;
+
+			if (thread == null) {
+				threadId = this.__threadIndex;
+				this.__threads.push(new Thread(threadId, threadName));
+				this.__threadIndex = this.__threadIndex + 1;
+			}
+
+			if (event == "breakpoint") {
+				var src = eventMap["src"];
+				var line = eventMap["line"];
+				this._currentLine = line;
+				this.sendEvent(new StoppedEvent("breakpoint", threadId));
+			}
+
+		}
+		if (output.search(/CDB MIDDLEWARE EVENT/) != -1) {
+			this._debuggerSubState = DebuggerSubState.EVENT_IN_PROGRESS;
+		}
+	}
+
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
+		console.log("LAUNCH REQUEST");
 		//this._sourceFile = args.program;
 		//this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
 
@@ -154,12 +264,20 @@ class ClojureDebugSession extends DebugSession {
 					// });
 
 					this._debuggerState = DebuggerState.LAUNCH_COMPLETE;
+					var debug = this;
+					this._connection.send({op: 'list-threads'}, (err: any, result: any) => {
+						console.log(result);
+						this.updateThreads(result[0]["threads"]);
+
+						console.log("Got threads");
+
+					});
 
 					if (args.stopOnEntry) {
-						this._currentLine = 0;
+						this._currentLine = 1;
 						this.sendResponse(response);
 
-						// we stop on the first line
+						// we stop on the first line - TODO need to figure out what thread this would be and if we even want to support this
 						this.sendEvent(new StoppedEvent("entry", ClojureDebugSession.THREAD_ID));
 					} else {
 						// we just start to run until we hit a breakpoint or an exception
@@ -174,6 +292,8 @@ class ClojureDebugSession extends DebugSession {
 				if (this._debuggerState == DebuggerState.REPL_STARTED) {
 					this._debuggerState = DebuggerState.DEBUGGER_ATTACHED;
 				}
+
+				this.handleREPLOutput(output);
 
 				this.pout(output);
 
@@ -196,7 +316,7 @@ class ClojureDebugSession extends DebugSession {
 
 	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, fileContents: Buffer, path: string): void {
 
-	var clientLines = args.lines;
+		var clientLines = args.lines;
 
 
 		// read file contents into array for direct access
@@ -242,40 +362,72 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
+		console.log("Set breakpoint requested");
 
 		var path = args.source.path;
+		var debug = this;
+
+		this._connection.send({op: 'clear-breakpoints', path: path}, (err: any, result: any) => {
+				// read file contents
+			var fileContents = readFileSync(path);
+			var regex = /\(ns\s+?(.*?)(\s|\))/;
+			var ns = regex.exec(fileContents.toString())[1];
+
+			// Load the associated namespace into the REPL.
+			// We must wait for the response before replying.
+
+			console.log("SESSIONS:");
+			console.log(this._connection.sessions);
+
+			// this._connection.send({op: 'require-namespace', namespace: ns}, (err: any, result: any) => {
+			debug._connection.eval("(require '" + ns + ")", (err: any, result: any) => {
+				// TODO handle errors here
+				debug.finishBreakPointsRequest(response, args, fileContents, path)
+				//console.log(result);
+			});
+		});
 
     // TODO reject breakpoint requests outside of a namespace
 
-		// read file contents
-		var fileContents = readFileSync(path);
-		var regex = /\(ns\s+?(.*?)(\s|\))/;
-		var ns = regex.exec(fileContents.toString())[1];
 
-		// Load the associated namespace into the REPL.
-		// We must wait for the response before replying.
-		//this._connection.send({op: 'require-namespace', namespace: ns}, (err: any, result: any) => {
-		//this._connection.eval("(require '" + ns + ")", (err: any, result: any) => {
-			// TODO handle errors here
-			this.finishBreakPointsRequest(response, args, fileContents, path)
-			//console.log(result);
-		//});
 
 	}
 
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
+		console.log("GETTING THREADS");
+		const debug = this;
+		this._connection.send({op: 'list-threads'}, (err: any, result: any) => {
+			console.log(result);
+			debug.updateThreads(result[0]["threads"]);
 
-		// return the default thread
-		response.body = {
-			threads: [
-				new Thread(ClojureDebugSession.THREAD_ID, "thread 1")
-			]
-		};
-		this.sendResponse(response);
+			response.body = {
+				threads: debug.__threads
+			};
+
+			debug.sendResponse(response);
+		});
+
 	}
 
 	protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
+		console.log("STACK FRAME REQUEST");
+		const levels = args.levels;
+		const threadId = args.threadId;
+		console.log("LEVELS: " + levels);
+		console.log("THREAD_ID: " + threadId);
+		const thread = this.threadWithID(threadId)
+		const debug = this;
+		// this._connection.send({op: 'list-frames', "thread-name": thread}, (err: any, result: any) => {
+		// 	console.log(result);
+		// 	var resFrames = result[0]["frames"];
+		// 	// const frames: StackFrame[] = resFrames.map((threadName: string, index: number) : Thread =>  {
+		// 	// 	return new Thread(index, threadName);
+		// 	// });
 
+
+
+		// 	// debug.sendResponse(response);
+		// });
 		const frames = new Array<StackFrame>();
 		const words = this._sourceLines[this._currentLine].trim().split(/\s+/);
 		// create three fake stack frames.
@@ -291,7 +443,7 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
-
+		console.log("SCOPES REQUEST");
 		const frameReference = args.frameId;
 		const scopes = new Array<Scope>();
 		scopes.push(new Scope("Local", this._variableHandles.create("local_" + frameReference), false));
@@ -305,7 +457,7 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
-
+		console.log("VARIABLES REQUEST");
 		const variables = [];
 		const id = this._variableHandles.get(args.variablesReference);
 		if (id != null) {
@@ -338,10 +490,11 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
-
+		console.log("CONTINUE REQUEST");
+		const debug = this;
 		this._connection.send({op: 'continue'}, (err: any, result: any) => {
 			// TODO handle errors here
-			this.sendResponse(response);
+			debug.sendResponse(response);
 			console.log(result);
 		});
 
@@ -369,6 +522,7 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
+		console.log("CONTINUE REQUEST");
 
 		for (let ln = this._currentLine+1; ln < this._sourceLines.length; ln++) {
 			if (this._sourceLines[ln].trim().length > 0) {   // find next non-empty line
