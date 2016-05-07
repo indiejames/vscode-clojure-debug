@@ -9,7 +9,7 @@
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync} from 'fs';
-import {basename, dirname} from 'path';
+import {basename, dirname, join} from 'path';
 import {spawn} from 'child_process';
 import nrepl_client = require('nrepl-client');
 
@@ -51,8 +51,18 @@ export interface LaunchRequestArguments {
 
 class ClojureDebugSession extends DebugSession {
 
+	// Get the full path to a source file. Input paths are of the form repl_test/core.clj.
+	// TODO Change this to search for the given debuggerPath under all the src directories.
+	// For now assume all source is under src.
+	protected convertDebuggerPathToClient(debuggerPath: string): string {
+		return join(this._cwd, "src", debuggerPath);
+	}
+
 	// just use the first thread as the default thread
 	private static THREAD_ID = 0;
+
+	// the current working directory
+	private _cwd: string;
 
 	// Clojure REPL process
 	private _cdtRepl: any;
@@ -137,7 +147,8 @@ class ClojureDebugSession extends DebugSession {
 	private _sourceFile: string;
 	private _sourceLines: string[];
 	private _breakPoints: any;
-	private _variableHandles: Handles<string>;
+	// private _variableHandles: Handles<string>;
+	private _variableHandles: Handles<any[]>;
 	private _connection: nrepl_client.Connection;
 	// Debugger state
 	private _debuggerState: DebuggerState;
@@ -145,6 +156,8 @@ class ClojureDebugSession extends DebugSession {
 	private _debuggerSubState: DebuggerSubState;
 	// map of sessions ids to evalulation results
 	private _evalResults: any;
+	// list of stack frames for the current thread
+	private _frames: StackFrame[];
 
 
 	public constructor(_debuggerLinesStartAt1: boolean = true, isServer: boolean = false) {
@@ -154,10 +167,11 @@ class ClojureDebugSession extends DebugSession {
 		this._sourceLines = [];
 		this._currentLine = 0;
 		this._breakPoints = {};
-		this._variableHandles = new Handles<string>();
+		this._variableHandles = new Handles<any[]>();
 		this._debuggerState = DebuggerState.PRE_LAUNCH;
 		this._debuggerSubState = DebuggerSubState.NOP;
 		this._evalResults = {};
+		this._frames = [];
 	}
 
 	// send data form the REPL's stdout to be displayed in the debugger
@@ -192,6 +206,36 @@ class ClojureDebugSession extends DebugSession {
 
  		this.sendResponse(response);
 		//super.initializeRequest(response, args);
+	}
+
+	// Handle events from the REPL (breakpoints, exceptions)
+	private handleEvent(err: any, result: any){
+		let event = result[0]["event"];
+		var eventMap = JSON.parse(event);
+		var threadName = eventMap["thread"];
+		let eventType = eventMap["event-type"];
+		const thread = this.threadWithName(threadName);
+		var threadId = -1;
+
+		if (thread == null) {
+			threadId = this.__threadIndex;
+			this.__threads.push(new Thread(threadId, threadName));
+			this.__threadIndex = this.__threadIndex + 1;
+		}
+
+		if (eventType == "breakpoint") {
+			var src = eventMap["src"];
+			var line = eventMap["line"];
+			this._currentLine = line;
+			this.sendEvent(new StoppedEvent("breakpoint", threadId));
+		}
+
+		// start listening for events again
+		let debug = this;
+		this._connection.send({op: 'get-event'}, (err: any, result: any) => {
+			// TODO handle errors here
+			debug.handleEvent(err, result);
+		});
 	}
 
 	// Handle output from the REPL after launch is complete
@@ -230,7 +274,7 @@ class ClojureDebugSession extends DebugSession {
 		//this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
 
 		//var cwd = dirname(args.program);
-		var cwd = args.cwd;
+		this._cwd = args.cwd;
 		var repl_port = 5555;
 		if (args.replPort) {
 			repl_port = args.replPort;
@@ -244,7 +288,7 @@ class ClojureDebugSession extends DebugSession {
 		var env = {"JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debug_port,
 	             "CLOJURE_DEBUG_JDWP_PORT": "" + debug_port};
 
-		this._primaryRepl = spawn('/usr/local/bin/lein', ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + repl_port], {cwd: cwd, env: env});
+		this._primaryRepl = spawn('/usr/local/bin/lein', ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + repl_port], {cwd: this._cwd, env: env});
 
 		this._debuggerState = DebuggerState.REPL_STARTED;
 
@@ -314,6 +358,7 @@ class ClojureDebugSession extends DebugSession {
 
 	}
 
+	// TODO Fix the check for successful breakpoints and return the correct list
 	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, fileContents: Buffer, path: string): void {
 
 		var clientLines = args.lines;
@@ -326,6 +371,7 @@ class ClojureDebugSession extends DebugSession {
 		var breakpoints = [];
 
 		// verify breakpoint locations
+		// TODO fix this
 		for (var i = 0; i < clientLines.length; i++) {
 			var l = this.convertClientLineToDebugger(clientLines[i]);
 
@@ -400,6 +446,12 @@ class ClojureDebugSession extends DebugSession {
 			console.log(result);
 			debug.updateThreads(result[0]["threads"]);
 
+			console.log("Sending threads to debugger:\n");
+			for (let i = 0; i < debug.__threads.length; i++) {
+				let th = debug.__threads[i];
+				console.log("id: " + th.id + " name: " + th.name);
+			}
+
 			response.body = {
 				threads: debug.__threads
 			};
@@ -415,40 +467,50 @@ class ClojureDebugSession extends DebugSession {
 		const threadId = args.threadId;
 		console.log("LEVELS: " + levels);
 		console.log("THREAD_ID: " + threadId);
-		const thread = this.threadWithID(threadId)
+		const th = this.threadWithID(threadId)
 		const debug = this;
-		// this._connection.send({op: 'list-frames', "thread-name": thread}, (err: any, result: any) => {
-		// 	console.log(result);
-		// 	var resFrames = result[0]["frames"];
-		// 	// const frames: StackFrame[] = resFrames.map((threadName: string, index: number) : Thread =>  {
-		// 	// 	return new Thread(index, threadName);
-		// 	// });
+		this._connection.send({op: 'list-frames', "thread-name": th.name}, (err: any, result: any) => {
+			console.log(result);
+			var resFrames = result[0]["frames"];
+			console.log(resFrames);
+			const frames: StackFrame[] = resFrames.map((frame: any, index: number) : StackFrame =>  {
+			 	return new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClient(frame["srcPath"])), debug.convertDebuggerLineToClient(frame["line"]), 0);
+			});
 
+			debug._frames = frames;
 
+			response.body = {
+				stackFrames: frames
+			};
+			this.sendResponse(response);
+		});
 
 		// 	// debug.sendResponse(response);
 		// });
-		const frames = new Array<StackFrame>();
-		const words = this._sourceLines[this._currentLine].trim().split(/\s+/);
-		// create three fake stack frames.
-		for (let i= 0; i < 3; i++) {
-			// use a word of the line as the stackframe name
-			const name = words.length > i ? words[i] : "frame";
-			frames.push(new StackFrame(i, `${name}(${i})`, new Source(basename(this._sourceFile), this.convertDebuggerPathToClient(this._sourceFile)), this.convertDebuggerLineToClient(this._currentLine), 0));
-		}
-		response.body = {
-			stackFrames: frames
-		};
-		this.sendResponse(response);
+		// const frames = new Array<StackFrame>();
+		// const words = this._sourceLines[this._currentLine].trim().split(/\s+/);
+		// // create three fake stack frames.
+		// for (let i= 0; i < 3; i++) {
+		// 	// use a word of the line as the stackframe name
+		// 	const name = words.length > i ? words[i] : "frame";
+		// 	frames.push(new StackFrame(i, `${name}(${i})`, new Source(basename(this._sourceFile), this.convertDebuggerPathToClient(this._sourceFile)), this.convertDebuggerLineToClient(this._currentLine), 0));
+		// }
+
+		// response.body = {
+		// 	stackFrames: frames
+		// };
+		// this.sendResponse(response);
 	}
 
+	// TODO Write a function to take a complex variable and convert it to a nested structure (possibly with sub variable references)
 	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
 		console.log("SCOPES REQUEST");
 		const frameReference = args.frameId;
+		const frame = this._frames[frameReference];
 		const scopes = new Array<Scope>();
-		scopes.push(new Scope("Local", this._variableHandles.create("local_" + frameReference), false));
-		scopes.push(new Scope("Closure", this._variableHandles.create("closure_" + frameReference), false));
-		scopes.push(new Scope("Global", this._variableHandles.create("global_" + frameReference), true));
+		scopes.push(new Scope("Local", this._variableHandles.create(["local_" + frameReference]), false));
+		scopes.push(new Scope("Argument", this._variableHandles.create(["argument_" + frameReference]), false));
+		// scopes.push(new Scope("Global", this._variableHandles.create("global_" + frameReference), true));
 
 		response.body = {
 			scopes: scopes
@@ -479,7 +541,7 @@ class ClojureDebugSession extends DebugSession {
 			variables.push({
 				name: id + "_o",
 				value: "Object",
-				variablesReference: this._variableHandles.create("object_")
+				variablesReference: this._variableHandles.create(["object_"])
 			});
 		}
 
