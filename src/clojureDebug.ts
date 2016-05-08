@@ -628,7 +628,7 @@ class ClojureDebugSession extends DebugSession {
 
 		var session = replResult["session"];
 		var result = this._evalResults[session] || {};
-		if (replResult["status"] == "done") {
+		if (replResult["status"] && replResult["status"][0] == "done") {
 			response.body = {
 				result: result["value"],
 				// TODO implement this for complex results
