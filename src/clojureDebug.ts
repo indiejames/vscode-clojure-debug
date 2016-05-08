@@ -208,34 +208,42 @@ class ClojureDebugSession extends DebugSession {
 		//super.initializeRequest(response, args);
 	}
 
-	// Handle events from the REPL (breakpoints, exceptions)
+	// Handle events from the REPL (breakpoints, exceptions). We make a single request here to get an event,
+	// which effectivley creates a channel that the middleware can send event info back to us on.
+	// TODO - test to see if there is a timeout issue here since we will be listening on the socket waiting
+	// for a response until an event happens.
 	private handleEvent(err: any, result: any){
-		let event = result[0]["event"];
-		var eventMap = JSON.parse(event);
-		var threadName = eventMap["thread"];
-		let eventType = eventMap["event-type"];
-		const thread = this.threadWithName(threadName);
-		var threadId = -1;
+		if (result != null) {
+			let event = result[0]["event"];
+			var eventMap = JSON.parse(event);
+			var threadName = eventMap["thread"];
+			let eventType = eventMap["event-type"];
+			const thread = this.threadWithName(threadName);
+			var threadId = -1;
 
-		if (thread == null) {
-			threadId = this.__threadIndex;
-			this.__threads.push(new Thread(threadId, threadName));
-			this.__threadIndex = this.__threadIndex + 1;
-		}
+			if (thread == null) {
+				threadId = this.__threadIndex;
+				this.__threads.push(new Thread(threadId, threadName));
+				this.__threadIndex = this.__threadIndex + 1;
+			}
 
-		if (eventType == "breakpoint") {
-			var src = eventMap["src"];
-			var line = eventMap["line"];
-			this._currentLine = line;
-			this.sendEvent(new StoppedEvent("breakpoint", threadId));
+			if (eventType == "breakpoint") {
+				var src = eventMap["src"];
+				var line = eventMap["line"];
+				this._currentLine = line;
+				this.sendEvent(new StoppedEvent("breakpoint", threadId));
+			}
 		}
 
 		// start listening for events again
 		let debug = this;
 		this._connection.send({op: 'get-event'}, (err: any, result: any) => {
 			// TODO handle errors here
+			console.log("GOT EVENT:");
+			console.log(result);
 			debug.handleEvent(err, result);
 		});
+
 	}
 
 	// Handle output from the REPL after launch is complete
@@ -306,6 +314,9 @@ class ClojureDebugSession extends DebugSession {
 					// this._connection.send({op: 'connect', port: debug_port}, (err: any, result: any) => {
 					// 	console.log(result);
 					// });
+
+					// start listening for events
+					this.handleEvent(null, null);
 
 					this._debuggerState = DebuggerState.LAUNCH_COMPLETE;
 					var debug = this;
