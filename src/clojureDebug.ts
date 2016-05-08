@@ -225,12 +225,15 @@ class ClojureDebugSession extends DebugSession {
 				threadId = this.__threadIndex;
 				this.__threads.push(new Thread(threadId, threadName));
 				this.__threadIndex = this.__threadIndex + 1;
+			} else {
+				threadId = thread.id;
 			}
 
 			if (eventType == "breakpoint") {
 				var src = eventMap["src"];
 				var line = eventMap["line"];
 				this._currentLine = line;
+				console.log("Sending breakpoint event to debugger for thread " + threadId);
 				this.sendEvent(new StoppedEvent("breakpoint", threadId));
 			}
 		}
