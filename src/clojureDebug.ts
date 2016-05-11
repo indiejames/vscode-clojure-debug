@@ -9,9 +9,11 @@
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync} from 'fs';
+// import {blue} from 'chalk';
 import {basename, dirname, join} from 'path';
 import {spawn} from 'child_process';
 import nrepl_client = require('nrepl-client');
+let chalk = require("chalk");
 
 // Constants to represent the various states of the debugger
 class DebuggerState {
@@ -182,7 +184,7 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected pout(text){
-	 this.output(text, "stdout");
+	 this.output(chalk.magenta(text), "stdout");
 	}
 
 	protected perr(text){
@@ -488,7 +490,9 @@ class ClojureDebugSession extends DebugSession {
 			var resFrames = result[0]["frames"];
 			console.log(resFrames);
 			const frames: StackFrame[] = resFrames.map((frame: any, index: number) : StackFrame =>  {
-			 	return new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClient(frame["srcPath"])), debug.convertDebuggerLineToClient(frame["line"]), 0);
+			 	var f = new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClient(frame["srcPath"])), debug.convertDebuggerLineToClient(frame["line"]), 0);
+				f["threadName"] = th.name;
+				return f;
 			});
 
 			debug._frames = frames;
@@ -496,24 +500,8 @@ class ClojureDebugSession extends DebugSession {
 			response.body = {
 				stackFrames: frames
 			};
-			this.sendResponse(response);
+			debug.sendResponse(response);
 		});
-
-		// 	// debug.sendResponse(response);
-		// });
-		// const frames = new Array<StackFrame>();
-		// const words = this._sourceLines[this._currentLine].trim().split(/\s+/);
-		// // create three fake stack frames.
-		// for (let i= 0; i < 3; i++) {
-		// 	// use a word of the line as the stackframe name
-		// 	const name = words.length > i ? words[i] : "frame";
-		// 	frames.push(new StackFrame(i, `${name}(${i})`, new Source(basename(this._sourceFile), this.convertDebuggerPathToClient(this._sourceFile)), this.convertDebuggerLineToClient(this._currentLine), 0));
-		// }
-
-		// response.body = {
-		// 	stackFrames: frames
-		// };
-		// this.sendResponse(response);
 	}
 
 	// TODO Write a function to take a complex variable and convert it to a nested structure (possibly with sub variable references)
@@ -521,42 +509,42 @@ class ClojureDebugSession extends DebugSession {
 		console.log("SCOPES REQUEST");
 		const frameReference = args.frameId;
 		const frame = this._frames[frameReference];
-		const scopes = new Array<Scope>();
-		scopes.push(new Scope("Local", this._variableHandles.create(["local_" + frameReference]), false));
-		scopes.push(new Scope("Argument", this._variableHandles.create(["argument_" + frameReference]), false));
-		// scopes.push(new Scope("Global", this._variableHandles.create("global_" + frameReference), true));
+		const threadName = frame["threadName"];
+		const debug = this;
 
-		response.body = {
-			scopes: scopes
-		};
-		this.sendResponse(response);
+		// get the variables for the given stack frame
+		this._connection.send({op: 'list-vars', 'thread-name': threadName, 'frame-index': frame.id}, (err: any, result: any) => {
+			console.log("GOT VARIABLES");
+			console.log(result);
+			var variables = result[0]["vars"];
+			var frameArgs = variables[0];
+			var frameLocals = variables[1];
+			var argScope = frameArgs.map((v: any) : any => {
+				let val = {name: v["name"], value: v["value"], variablesReference: 0};
+				return val;
+			});
+			var localScope = frameLocals.map((v: any) : any => {
+				let val = {name: v["name"], value: v["value"], variablesReference: 0};
+				return val;
+			});
+			const scopes = new Array<Scope>();
+			scopes.push(new Scope("Local", this._variableHandles.create(localScope), false));
+			scopes.push(new Scope("Argument", this._variableHandles.create(argScope), false));
+			// scopes.push(new Scope("Global", this._variableHandles.create("global_" + frameReference), true));
+
+			response.body = {
+				scopes: scopes
+			};
+			debug.sendResponse(response);
+		});
 	}
 
 	protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
 		console.log("VARIABLES REQUEST");
-		const variables = [];
+		var variables = [];
 		const id = this._variableHandles.get(args.variablesReference);
 		if (id != null) {
-			variables.push({
-				name: id + "_i",
-				value: "123",
-				variablesReference: 0
-			});
-			variables.push({
-				name: id + "_f",
-				value: "3.14",
-				variablesReference: 0
-			});
-			variables.push({
-				name: id + "_s",
-				value: "hello world",
-				variablesReference: 0
-			});
-			variables.push({
-				name: id + "_o",
-				value: "Object",
-				variablesReference: this._variableHandles.create(["object_"])
-			});
+			variables = id;
 		}
 
 		response.body = {
@@ -667,16 +655,6 @@ class ClojureDebugSession extends DebugSession {
 			for (var res of result){
 				this.handleResult(response, res);
 			}
-
-			// var value = result.reduce((res: any, msg: any) => {
-			// 	return msg.value ? res + msg.value : res;}, "");
-
-			// response.body = {
-			// 	result: value,
-			// 	variablesReference: 0
-			// };
-			// self.sendResponse(response);
-
 		});
 
 
