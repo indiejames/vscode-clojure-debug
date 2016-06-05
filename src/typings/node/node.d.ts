@@ -2078,12 +2078,12 @@ declare module "constants" {
     export var UV_UDP_REUSEADDR: number;
 }
 
-declare module "nrepl-client" {
+declare module "jg-nrepl-client" {
 	export interface Connection {
 		sessions: [any];
 		send(mesg: any, callback: (err: any, result: any) => void): void;
-		eval(code: string, callback: (err: any, result: any) => void): string;
-
+		eval(code: string, callback: (err: any, result: any) => void): void;
+        close(callback: (err: any, result: any) => void): void;
 	}
 	export function connect(opts: any): Connection;
 }

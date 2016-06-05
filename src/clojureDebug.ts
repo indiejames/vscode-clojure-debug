@@ -12,7 +12,7 @@ import {readFileSync} from 'fs';
 // import {blue} from 'chalk';
 import {basename, dirname, join} from 'path';
 import {spawn} from 'child_process';
-import nrepl_client = require('nrepl-client');
+import nrepl_client = require('jg-nrepl-client');
 let chalk = require("chalk");
 
 // Constants to represent the various states of the debugger
@@ -253,6 +253,12 @@ class ClojureDebugSession extends DebugSession {
 
 	// Handle output from the REPL after launch is complete
 	protected handleREPLOutput(output) {
+
+		if ((this._debuggerState == DebuggerState.REPL_STARTED) && (output.search(/Attached to process.*Java/) != -1)) {
+					this._debuggerState = DebuggerState.DEBUGGER_ATTACHED;
+					console.log("DEBUGGER_ATTACHED");
+		}
+
 		if (this._debuggerSubState == DebuggerSubState.EVENT_IN_PROGRESS) {
 			this._debuggerSubState = DebuggerSubState.NOP;
 
@@ -288,6 +294,7 @@ class ClojureDebugSession extends DebugSession {
 
 		//var cwd = dirname(args.program);
 		this._cwd = args.cwd;
+		console.log("CWD: " + this._cwd);
 		var repl_port = 5555;
 		if (args.replPort) {
 			repl_port = args.replPort;
@@ -304,16 +311,16 @@ class ClojureDebugSession extends DebugSession {
 		this._primaryRepl = spawn('/usr/local/bin/lein', ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + repl_port], {cwd: this._cwd, env: env});
 
 		this._debuggerState = DebuggerState.REPL_STARTED;
+		console.log("REPL_STARTED");
 
   	this._primaryRepl.stdout.on('data', (data) => {
     		var output = '' + data;
 
-				// TODO This should check the message instead of assuming the second
-				// message means the REPL is ready to receive connections.
-				if (this._debuggerState == DebuggerState.REPL_READY) {
+				if ((this._debuggerState == DebuggerState.DEBUGGER_ATTACHED) && (output.search(/nREPL server started/) != -1)) {
 					this._debuggerState = DebuggerState.REPL_READY;
-
 					this._connection = nrepl_client.connect({port: repl_port, host: "127.0.0.1", verbose: false});
+
+					console.log("CONNECTED TO REPL");
 
 					// tell the middleware to start the debugger
 					// this._connection.send({op: 'connect', port: debug_port}, (err: any, result: any) => {
@@ -341,17 +348,13 @@ class ClojureDebugSession extends DebugSession {
 						this.sendEvent(new StoppedEvent("entry", ClojureDebugSession.THREAD_ID));
 					} else {
 						// we just start to run until we hit a breakpoint or an exception
-						this.continueRequest(response, { threadId: ClojureDebugSession.THREAD_ID });
+						response.body = {
+            /** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
+            	allThreadsContinued: true
+        		};
+						this.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
 					}
-				}
-
-				if (this._debuggerState == DebuggerState.DEBUGGER_ATTACHED) {
-					this._debuggerState = DebuggerState.REPL_READY;
-				}
-
-				if (this._debuggerState == DebuggerState.REPL_STARTED) {
-					this._debuggerState = DebuggerState.DEBUGGER_ATTACHED;
-				}
+		}
 
 				this.handleREPLOutput(output);
 
@@ -372,6 +375,14 @@ class ClojureDebugSession extends DebugSession {
 		});
 
 
+	}
+
+	protected disconnectRequest(response: DebugProtocol.DisconnectResponse,args: DebugProtocol.DisconnectArguments): void {
+		console.log("Diconnect requested");
+		let self = this;
+		this._connection.close((err: any, result: any) => {
+			self._primaryRepl.close();
+		});
 	}
 
 	// TODO Fix the check for successful breakpoints and return the correct list
