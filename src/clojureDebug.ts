@@ -15,6 +15,8 @@ import {spawn} from 'child_process';
 import nrepl_client = require('jg-nrepl-client');
 let chalk = require("chalk");
 
+let EXIT_CMD="(System/exit 0)";
+
 // Constants to represent the various states of the debugger
 class DebuggerState {
 	public static get PRE_LAUNCH(): string { return "PRE_LAUNCH";}
@@ -152,6 +154,7 @@ class ClojureDebugSession extends DebugSession {
 	// private _variableHandles: Handles<string>;
 	private _variableHandles: Handles<any[]>;
 	private _connection: nrepl_client.Connection;
+	private _isLaunched: boolean;
 	// Debugger state
 	private _debuggerState: DebuggerState;
 	// Debugger substate
@@ -168,6 +171,7 @@ class ClojureDebugSession extends DebugSession {
 		this._sourceFile = null;
 		this._sourceLines = [];
 		this._currentLine = 0;
+		this._isLaunched = false;
 		this._breakPoints = {};
 		this._variableHandles = new Handles<any[]>();
 		this._debuggerState = DebuggerState.PRE_LAUNCH;
@@ -289,8 +293,7 @@ class ClojureDebugSession extends DebugSession {
 
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
 		console.log("LAUNCH REQUEST");
-		//this._sourceFile = args.program;
-		//this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
+		this._isLaunched = true;
 
 		//var cwd = dirname(args.program);
 		this._cwd = args.cwd;
@@ -377,19 +380,27 @@ class ClojureDebugSession extends DebugSession {
 
 	}
 
-	protected disconnectRequest(response: DebugProtocol.DisconnectResponse,args: DebugProtocol.DisconnectArguments): void {
+	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {
 		console.log("Diconnect requested");
-		let self = this;
-		this._connection.close((err: any, result: any) => {
-			self._primaryRepl.close();
-		});
+		var self = this;
+		if (this._isLaunched){
+			this._connection.eval(EXIT_CMD, (err: any, result: any) : void => {
+				self._primaryRepl.kill('SIGKILL');
+				self.sendResponse(response);
+				self.shutdown();
+			});
+		} else {
+			self._connection.close((err: any, result: any) : void => {
+				// do nothing
+			});
+		}
+
 	}
 
 	// TODO Fix the check for successful breakpoints and return the correct list
 	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, fileContents: Buffer, path: string): void {
 
 		var clientLines = args.lines;
-
 
 		// read file contents into array for direct access
 		var lines = fileContents.toString().split('\n');
@@ -461,8 +472,6 @@ class ClojureDebugSession extends DebugSession {
 		});
 
     // TODO reject breakpoint requests outside of a namespace
-
-
 
 	}
 
@@ -664,7 +673,7 @@ class ClojureDebugSession extends DebugSession {
 		this._connection.eval(expr, (err: any, result: any) => {
 
 			for (var res of result){
-				this.handleResult(response, res);
+				self.handleResult(response, res);
 			}
 		});
 

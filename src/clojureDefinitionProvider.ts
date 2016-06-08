@@ -15,12 +15,14 @@ export class ClojureDefinitionProvider implements DefinitionProvider {
 
   public provideDefinition(document: TextDocument, position: Position, token: CancellationToken): Thenable<Definition> {
     let self = this;
+    let ns = EditorUtils.findNSDeclaration(document.getText());
+
     return new Promise<Definition>((resolve, reject) => {
       let wordRange = document.getWordRangeAtPosition(position);
       let symbol = document.getText(wordRange);
 
       // Use the REPL to find the definition point
-      self.connection.send({op: 'find-definition', sym: symbol}, (err: any, result: any) => {
+      self.connection.send({op: 'find-definition', ns: ns, sym: symbol}, (err: any, result: any) => {
         if (result && result.length > 0) {
           var def: Location[] = [];
           let res = result[0];
