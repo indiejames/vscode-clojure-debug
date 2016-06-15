@@ -5,25 +5,25 @@ import edn = require('jsedn');
 
 export namespace CompletionUtils {
   // TODO find all the types returned by Compliment and add entries for them
-  let typeMap: Map<edn.Keyword, CompletionItemKind> = new Map<edn.Keyword, CompletionItemKind>();
-  typeMap.set(edn.kw(":function"), CompletionItemKind.Function);
-  typeMap.set(edn.kw(":local"), CompletionItemKind.Variable);
+  let typeMap: Map<string, CompletionItemKind> = new Map<string, CompletionItemKind>();
+  typeMap.set("function", CompletionItemKind.Function);
+  typeMap.set("local", CompletionItemKind.Variable);
   // TODO request macro be added as a CompletionItemKind
-  typeMap.set(edn.kw(":macro"), CompletionItemKind.Method);
-  typeMap.set(edn.kw(":namespace"), CompletionItemKind.Module);
-  typeMap.set(edn.kw(":class"), CompletionItemKind.Class);
+  typeMap.set("macro", CompletionItemKind.Method);
+  typeMap.set("namespace", CompletionItemKind.Module);
+  typeMap.set("class", CompletionItemKind.Class);
   // Don't know what to use for vars. Maybe I should request a constant type be added to CompletionItemKind.
-  typeMap.set(edn.kw(":var"), CompletionItemKind.Value);
+  typeMap.set("var", CompletionItemKind.Value);
   // TODO don't know if :protocol is actually a type returned by Compliment
-  typeMap.set(edn.kw(":protocol"), CompletionItemKind.Interface);
+  typeMap.set("protocol", CompletionItemKind.Interface);
   // TODO maybe find a better type
-  typeMap.set(edn.kw(":special-form"), CompletionItemKind.Keyword);
+  typeMap.set("special-form", CompletionItemKind.Keyword);
 
  /**
   * Returns a CompletionItemKind that corresponds to the given type returned by Compliment.
- * @param type  And edn.Keyword representing the type of the completion (function, variable, etc.).
+ * @param type  And string representing the type of the completion (function, variable, etc.).
  */
-  export function typeKeywordToCompletionItemKind(type: edn.Keyword): CompletionItemKind {
+  export function typeKeywordToCompletionItemKind(type: string): CompletionItemKind {
     var kind = typeMap.get(type) || CompletionItemKind.Text;
 
     return kind;
@@ -31,29 +31,23 @@ export namespace CompletionUtils {
 
 
    /**
-    * Escapes the Clojure code and places it in quotations.
+    * Converts a completion candidate from Compliment to a VSCode one.
     * */
-  export function complimentResultsToCompletionItems(completionsEdn: string): CompletionItem[] {
+  export function complimentResultsToCompletionItems(completions: any): CompletionItem[] {
     var results = [];
-    if (completionsEdn != null) {
-      var res = edn.parse(completionsEdn);
-      results = res.each((candidateMap: any) => {
-        let candidate: string = candidateMap.at(edn.kw(":candidate"));
-        if (candidate == "false") {
-          console.log("false");
-        }
-        let cType: edn.Keyword = candidateMap.at(edn.kw(":type"));
-        var type = edn.toJS(cType);
-        type = type.replace(":","");
-        var doc:  string = candidateMap.at(edn.kw(":docs"));
+    if (completions != null) {
+      results = completions.map((candidateMap: any) => {
+        let candidate: string = candidateMap["candidate"];
+        let type: string = candidateMap["type"];
+        var doc:  string = candidateMap["docs"];
         doc = doc.replace(/\\n/g,"\n");
-        var ns: string = "";
-        if (candidateMap.exists(edn.kw(":ns"))) {
-          ns = candidateMap.at(edn.kw(":ns"));
+        var ns: string = candidateMap["ns"];
+        if (ns == null) {
+          ns = "";
         }
 
         let ci =  new CompletionItem(candidate);
-        ci.kind = typeKeywordToCompletionItemKind(cType);
+        ci.kind = typeKeywordToCompletionItemKind(type);
         if (doc != "") {
           ci.documentation = doc;
         }

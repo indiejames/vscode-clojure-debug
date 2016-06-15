@@ -1,5 +1,5 @@
 /* --------------------------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Copyright (c) James Norton. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 'use strict';
@@ -9,6 +9,7 @@ import * as path from 'path';
 import { workspace, languages, commands, CompletionItemProvider, Disposable, ExtensionContext } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
+import {ReplConnection} from './replConnection';
 import {spawn} from 'child_process';
 import {ClojureCompletionItemProvider} from './clojureCompletionItemProvider';
 import {ClojureDefinitionProvider} from './clojureDefinitionProvider';
@@ -22,7 +23,7 @@ export function activate(context: ExtensionContext) {
 	let repl_port = 7777;
 	var isInitialized = false;
 	let regexp = new RegExp('nREPL server started on port');
-	var rconn: nrepl_client.Connection;
+	var rconn: ReplConnection;
 	let env = {};
 	// let cwd = "/Users/jnorton/Clojure/repl_test";
 	// let repl = spawn('/usr/local/bin/lein', ["repl", ":headless", ":port", "" + repl_port], {cwd: cwd, env: env});
@@ -30,7 +31,7 @@ export function activate(context: ExtensionContext) {
 	// use default completions if none are available from Compliment
 	//context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new CompletionItemProvider()))
 
-	rconn = nrepl_client.connect({port: repl_port, host: "127.0.0.1", verbose: false});
+	rconn = new ReplConnection("127.0.0.1", repl_port);
 	rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
 		if (!extensionInitialized) {
 			extensionInitialized = true;
@@ -108,11 +109,10 @@ export function activate(context: ExtensionContext) {
 	// client can be deactivated on extension deactivation
 
 	context.subscriptions.push(commands.registerCommand('clojure.refresh', () => {
-		rconn.send({op: 'refresh'}, (err: any, result: any) => {
+		rconn.refresh((err: any, result: any) => {
 		// TODO handle errors here
-    });
 		console.log("Refreshed Clojure code.");
-
+    });
 	}));
 
 	context.subscriptions.push(disposable);

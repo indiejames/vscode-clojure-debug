@@ -3,26 +3,27 @@ import nrepl_client = require('jg-nrepl-client');
 import edn = require('jsedn');
 import {EditorUtils} from './editorUtils';
 import {CompletionUtils} from './completionUtils';
+import {ReplConnection} from './replConnection';
+
 let chalk = require("chalk");
 
 export class ClojureDefinitionProvider implements DefinitionProvider {
 
-  private connection: nrepl_client.Connection;
+  private connection: ReplConnection;
 
-  constructor(conn: nrepl_client.Connection) {
+  constructor(conn: ReplConnection) {
     this.connection = conn;
   }
 
   public provideDefinition(document: TextDocument, position: Position, token: CancellationToken): Thenable<Definition> {
     let self = this;
     let ns = EditorUtils.findNSDeclaration(document.getText());
+    let wordRange = document.getWordRangeAtPosition(position);
+    let symbol = document.getText(wordRange);
 
     return new Promise<Definition>((resolve, reject) => {
-      let wordRange = document.getWordRangeAtPosition(position);
-      let symbol = document.getText(wordRange);
-
       // Use the REPL to find the definition point
-      self.connection.send({op: 'find-definition', ns: ns, sym: symbol}, (err: any, result: any) => {
+      self.connection.findDefinition(ns, symbol, (err: any, result: any) => {
         if (result && result.length > 0) {
           var def: Location[] = [];
           let res = result[0];
