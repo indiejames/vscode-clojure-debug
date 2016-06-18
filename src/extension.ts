@@ -13,6 +13,7 @@ import {ReplConnection} from './replConnection';
 import {spawn} from 'child_process';
 import {ClojureCompletionItemProvider} from './clojureCompletionItemProvider';
 import {ClojureDefinitionProvider} from './clojureDefinitionProvider';
+import {ClojureHoverProvider} from './clojureHoverProvider';
 import edn = require('jsedn');
 import {} from 'languages';
 
@@ -37,34 +38,11 @@ export function activate(context: ExtensionContext) {
 			extensionInitialized = true;
 			context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
 			context.subscriptions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
+			// context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
 			console.log("Compliment namespace loaded");
 		}
 
 	});
-
-	// repl.stderr.on('data', (data) => {
-	// 	var output = '' + data;
-	// 	console.log('STDERR: ' + output);
-	// });
-
-	// repl.stdout.on('data', (data) => {
-	// 	var output = '' + data;
-	// 	console.log('STDOUT: ' + output);
-
-	// 	if (!isInitialized && regexp.test(output)) {
-	// 		console.log("Connecting to nREPL...");
-	// 		isInitialized = true;
-	// 		rconn = nrepl_client.connect({port: repl_port, host: "127.0.0.1", verbose: false});
-	// 		rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
-	// 			context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
-	// 			context.subscriptions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
-	// 			// TODO move code into here so we can wait for this eval to finish
-	// 			console.log("Namespace loaded");
-	// 		});
-	// 	} else {
-	// 		console.log("Not connecting");
-	// 	}
-	// });
 
 	// The server is implemented in node
 	let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));

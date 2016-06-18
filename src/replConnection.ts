@@ -39,32 +39,32 @@ export class ReplConnection {
 
 	// list all the running threads
 	public listThreads(callback: callbackType) {
-			this.conn.send({op: 'list-threads', 'session': this.commandSession}, callback);
+			this.conn.send({op: 'list-threads', 'session': this.session}, callback);
 	}
 
 	// list the stack frames for the given thread
 	public listFrames(threadName: string, callback: callbackType) {
-		this.conn.send({op: 'list-frames', 'thread-name': threadName, 'session': this.commandSession}, callback);
+		this.conn.send({op: 'list-frames', 'thread-name': threadName, 'session': this.session}, callback);
 	}
 
 	// list the vars for the given thread / stack frame
 	public listVars(threadName: string, frameIndex: number, callback: callbackType) {
-		this.conn.send({op: 'list-vars', 'thread-name': threadName, 'frame-index': frameIndex, 'session': this.commandSession}, callback);
+		this.conn.send({op: 'list-vars', 'thread-name': threadName, 'frame-index': frameIndex, 'session': this.session}, callback);
 	}
 
 	// set a breakpoint at the given line in the given file
 	public setBreakpoint(path: string, line: number, callback: callbackType) {
-		this.conn.send({op: 'set-breakpoint', line: line, path: path, 'session': this.commandSession}, callback);
+		this.conn.send({op: 'set-breakpoint', line: line, path: path, 'session': this.session}, callback);
 	}
 
 	// clear all breakpoints for the given file
 	public clearBreakpoints(path: string, callback: callbackType) {
-		this.conn.send({op: 'clear-breakpoints', path: path, 'session': this.commandSession}, callback);
+		this.conn.send({op: 'clear-breakpoints', path: path, 'session': this.session}, callback);
 	}
 
 	// find the file and line where a function is defined
 	public findDefinition(ns: string, symbol: string, callback: callbackType) {
-		this.conn.send({op: 'find-definiition', ns: ns, sym: symbol}, callback);
+		this.conn.send({op: 'find-definition', ns: ns, sym: symbol, 'session': this.session}, callback);
 	}
 
 	// find the completions for the prefix using Compliment
@@ -72,19 +72,24 @@ export class ReplConnection {
 		this.conn.send({op: 'get-completions', ns: ns, prefix: prefix, src: src, pos: offset}, callback);
 	}
 
+	// get the docstring for the given vars
+	public doc(ns: string, variable: string, callback: callbackType) {
+		this.conn.send({op: 'doc', ns: ns, var: variable}, callback);
+	}
+
 	// continue after a breakpoint
 	public continue(callback: callbackType) {
-		this.conn.send({op: 'continue', 'session': this.commandSession}, callback);
+		this.conn.send({op: 'continue', 'session': this.session}, callback);
 	}
 
 	// get and process a single event using the given callback
 	public getEvent(callback: callbackType) {
-		this.conn.send({op: 'get-event', 'session': this.commandSession}, callback);
+		this.conn.send({op: 'get-event', 'session': this.session}, callback);
 	}
 
 	// reload any changed namespaces
 	public refresh(callback: callbackType) {
-		this.conn.send({op: 'refresh'}, callback);
+		this.conn.send({op: 'refresh', 'session': this.session}, callback);
 	}
 
 	public close(callback: callbackType) {

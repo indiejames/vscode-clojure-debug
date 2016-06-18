@@ -31,8 +31,6 @@ export class ClojureCompletionItemProvider implements CompletionItemProvider {
     return [src, ns, prefix, offset];
   }
 
-
-
 	public provideCompletionItems(document: TextDocument, position: Position, token: CancellationToken): Thenable<CompletionList> {
     let self = this;
     // Get the parameters needed for completion
