@@ -12,8 +12,11 @@ import {readFileSync} from 'fs';
 // import {blue} from 'chalk';
 import {basename, dirname, join} from 'path';
 import {spawn} from 'child_process';
-import nrepl_client = require('nrepl-client');
+import nrepl_client = require('jg-nrepl-client');
+import {ReplConnection} from './replConnection';
 let chalk = require("chalk");
+
+let EXIT_CMD="(System/exit 0)";
 
 // Constants to represent the various states of the debugger
 class DebuggerState {
@@ -52,6 +55,23 @@ export interface LaunchRequestArguments {
 // utility funciton to
 
 class ClojureDebugSession extends DebugSession {
+
+	private _sourceFile: string;
+	private _sourceLines: string[];
+	private _breakPoints: any;
+	// private _variableHandles: Handles<string>;
+	private _variableHandles: Handles<any[]>;
+	private _connection: nrepl_client.Connection;
+	private _replConnection: ReplConnection;
+	private _isLaunched: boolean;
+	// Debugger state
+	private _debuggerState: DebuggerState;
+	// Debugger substate
+	private _debuggerSubState: DebuggerSubState;
+	// map of sessions ids to evalulation results
+	private _evalResults: any;
+	// list of stack frames for the current thread
+	private _frames: StackFrame[];
 
 	// Get the full path to a source file. Input paths are of the form repl_test/core.clj.
 	// TODO Change this to search for the given debuggerPath under all the src directories.
@@ -146,20 +166,7 @@ class ClojureDebugSession extends DebugSession {
 		return rval;
 	}
 
-	private _sourceFile: string;
-	private _sourceLines: string[];
-	private _breakPoints: any;
-	// private _variableHandles: Handles<string>;
-	private _variableHandles: Handles<any[]>;
-	private _connection: nrepl_client.Connection;
-	// Debugger state
-	private _debuggerState: DebuggerState;
-	// Debugger substate
-	private _debuggerSubState: DebuggerSubState;
-	// map of sessions ids to evalulation results
-	private _evalResults: any;
-	// list of stack frames for the current thread
-	private _frames: StackFrame[];
+
 
 
 	public constructor(_debuggerLinesStartAt1: boolean = true, isServer: boolean = false) {
@@ -168,6 +175,7 @@ class ClojureDebugSession extends DebugSession {
 		this._sourceFile = null;
 		this._sourceLines = [];
 		this._currentLine = 0;
+		this._isLaunched = false;
 		this._breakPoints = {};
 		this._variableHandles = new Handles<any[]>();
 		this._debuggerState = DebuggerState.PRE_LAUNCH;
@@ -242,7 +250,7 @@ class ClojureDebugSession extends DebugSession {
 
 		// start listening for events again
 		let debug = this;
-		this._connection.send({op: 'get-event'}, (err: any, result: any) => {
+		this._replConnection.getEvent((err: any, result: any) => {
 			// TODO handle errors here
 			console.log("GOT EVENT:");
 			console.log(result);
@@ -253,6 +261,12 @@ class ClojureDebugSession extends DebugSession {
 
 	// Handle output from the REPL after launch is complete
 	protected handleREPLOutput(output) {
+
+		if ((this._debuggerState == DebuggerState.REPL_STARTED) && (output.search(/Attached to process.*Java/) != -1)) {
+					this._debuggerState = DebuggerState.DEBUGGER_ATTACHED;
+					console.log("DEBUGGER_ATTACHED");
+		}
+
 		if (this._debuggerSubState == DebuggerSubState.EVENT_IN_PROGRESS) {
 			this._debuggerSubState = DebuggerSubState.NOP;
 
@@ -283,11 +297,11 @@ class ClojureDebugSession extends DebugSession {
 
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
 		console.log("LAUNCH REQUEST");
-		//this._sourceFile = args.program;
-		//this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
+		this._isLaunched = true;
 
 		//var cwd = dirname(args.program);
 		this._cwd = args.cwd;
+		console.log("CWD: " + this._cwd);
 		var repl_port = 5555;
 		if (args.replPort) {
 			repl_port = args.replPort;
@@ -304,16 +318,17 @@ class ClojureDebugSession extends DebugSession {
 		this._primaryRepl = spawn('/usr/local/bin/lein', ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + repl_port], {cwd: this._cwd, env: env});
 
 		this._debuggerState = DebuggerState.REPL_STARTED;
+		console.log("REPL_STARTED");
 
   	this._primaryRepl.stdout.on('data', (data) => {
     		var output = '' + data;
 
-				// TODO This should check the message instead of assuming the second
-				// message means the REPL is ready to receive connections.
-				if (this._debuggerState == DebuggerState.REPL_READY) {
+				if ((this._debuggerState == DebuggerState.DEBUGGER_ATTACHED) && (output.search(/nREPL server started/) != -1)) {
 					this._debuggerState = DebuggerState.REPL_READY;
+					//this._connection = nrepl_client.connect({port: repl_port, host: "127.0.0.1", verbose: false});
+					this._replConnection = new ReplConnection("127.0.0.1", repl_port);
 
-					this._connection = nrepl_client.connect({port: repl_port, host: "127.0.0.1", verbose: false});
+					console.log("CONNECTED TO REPL");
 
 					// tell the middleware to start the debugger
 					// this._connection.send({op: 'connect', port: debug_port}, (err: any, result: any) => {
@@ -325,7 +340,7 @@ class ClojureDebugSession extends DebugSession {
 
 					this._debuggerState = DebuggerState.LAUNCH_COMPLETE;
 					var debug = this;
-					this._connection.send({op: 'list-threads'}, (err: any, result: any) => {
+					this._replConnection.listThreads((err: any, result: any) => {
 						console.log(result);
 						this.updateThreads(result[0]["threads"]);
 
@@ -341,17 +356,13 @@ class ClojureDebugSession extends DebugSession {
 						this.sendEvent(new StoppedEvent("entry", ClojureDebugSession.THREAD_ID));
 					} else {
 						// we just start to run until we hit a breakpoint or an exception
-						this.continueRequest(response, { threadId: ClojureDebugSession.THREAD_ID });
+						response.body = {
+            /** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
+            	allThreadsContinued: true
+        		};
+						this.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
 					}
-				}
-
-				if (this._debuggerState == DebuggerState.DEBUGGER_ATTACHED) {
-					this._debuggerState = DebuggerState.REPL_READY;
-				}
-
-				if (this._debuggerState == DebuggerState.REPL_STARTED) {
-					this._debuggerState = DebuggerState.DEBUGGER_ATTACHED;
-				}
+		}
 
 				this.handleREPLOutput(output);
 
@@ -374,11 +385,27 @@ class ClojureDebugSession extends DebugSession {
 
 	}
 
+	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {
+		console.log("Diconnect requested");
+		var self = this;
+		if (this._isLaunched){
+			this._replConnection.eval(EXIT_CMD, (err: any, result: any) : void => {
+				self._primaryRepl.kill('SIGKILL');
+				self.sendResponse(response);
+				self.shutdown();
+			});
+		} else {
+			this._replConnection.close((err: any, result: any) : void => {
+				// do nothing
+			});
+		}
+
+	}
+
 	// TODO Fix the check for successful breakpoints and return the correct list
 	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, fileContents: Buffer, path: string): void {
 
 		var clientLines = args.lines;
-
 
 		// read file contents into array for direct access
 		var lines = fileContents.toString().split('\n');
@@ -390,8 +417,7 @@ class ClojureDebugSession extends DebugSession {
 		// TODO fix this
 		for (var i = 0; i < clientLines.length; i++) {
 			var l = this.convertClientLineToDebugger(clientLines[i]);
-
-			this._connection.send({op: 'set-breakpoint', line: l, path: path}, (err: any, result: any) => {
+			this._replConnection.setBreakpoint(path, l, (err: any, result: any) => {
 				console.log(result);
 			});
 
@@ -429,7 +455,7 @@ class ClojureDebugSession extends DebugSession {
 		var path = args.source.path;
 		var debug = this;
 
-		this._connection.send({op: 'clear-breakpoints', path: path}, (err: any, result: any) => {
+		this._replConnection.clearBreakpoints(path, (err: any, result: any) => {
 				// read file contents
 			var fileContents = readFileSync(path);
 			var regex = /\(ns\s+?(.*?)(\s|\))/;
@@ -441,8 +467,8 @@ class ClojureDebugSession extends DebugSession {
 			console.log("SESSIONS:");
 			console.log(this._connection.sessions);
 
-			// this._connection.send({op: 'require-namespace', namespace: ns}, (err: any, result: any) => {
-			debug._connection.eval("(require '" + ns + ")", (err: any, result: any) => {
+			// TODO is this still required?
+			debug._replConnection.eval("(require '" + ns + ")", (err: any, result: any) => {
 				// TODO handle errors here
 				debug.finishBreakPointsRequest(response, args, fileContents, path)
 				//console.log(result);
@@ -450,8 +476,6 @@ class ClojureDebugSession extends DebugSession {
 		});
 
     // TODO reject breakpoint requests outside of a namespace
-
-
 
 	}
 
@@ -485,7 +509,7 @@ class ClojureDebugSession extends DebugSession {
 		console.log("THREAD_ID: " + threadId);
 		const th = this.threadWithID(threadId)
 		const debug = this;
-		this._connection.send({op: 'list-frames', "thread-name": th.name}, (err: any, result: any) => {
+		this._replConnection.listFrames(th.name, (err: any, result: any) => {
 			console.log(result);
 			var resFrames = result[0]["frames"];
 			console.log(resFrames);
@@ -513,7 +537,7 @@ class ClojureDebugSession extends DebugSession {
 		const debug = this;
 
 		// get the variables for the given stack frame
-		this._connection.send({op: 'list-vars', 'thread-name': threadName, 'frame-index': frame.id}, (err: any, result: any) => {
+		this._replConnection.listVars(threadName, frame.id, (err: any, result: any) => {
 			console.log("GOT VARIABLES");
 			console.log(result);
 			var variables = result[0]["vars"];
@@ -556,33 +580,11 @@ class ClojureDebugSession extends DebugSession {
 	protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
 		console.log("CONTINUE REQUEST");
 		const debug = this;
-		this._connection.send({op: 'continue'}, (err: any, result: any) => {
+		this._replConnection.continue((err: any, result: any) => {
 			// TODO handle errors here
 			debug.sendResponse(response);
 			console.log(result);
 		});
-
-		// const lines = this._breakPoints[this._sourceFile];
-		// for (let ln = this._currentLine+1; ln < this._sourceLines.length; ln++) {
-		// 	// is breakpoint on this line?
-		// 	if (lines && lines.indexOf(ln) >= 0) {
-		// 		this._currentLine = ln;
-		// 		this.sendResponse(response);
-		// 		this.sendEvent(new StoppedEvent("breakpoint", ClojureDebugSession.THREAD_ID));
-		// 		return;
-		// 	}
-		// 	// if word 'exception' found in source -> throw exception
-		// 	if (this._sourceLines[ln].indexOf("exception") >= 0) {
-		// 		this._currentLine = ln;
-		// 		this.sendResponse(response);
-		// 		this.sendEvent(new StoppedEvent("exception", ClojureDebugSession.THREAD_ID));
-		// 		this.sendEvent(new OutputEvent(`exception in line: ${ln}\n`, 'stderr'));
-		// 		return;
-		// 	}
-		// }
-		// this.sendResponse(response);
-		// // no more lines: run to end
-		// this.sendEvent(new TerminatedEvent());
 	}
 
 	protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
@@ -650,10 +652,10 @@ class ClojureDebugSession extends DebugSession {
 	protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
 		var expr = args.expression;
 		var self = this;
-		this._connection.eval(expr, (err: any, result: any) => {
+		this._replConnection.eval(expr, (err: any, result: any) => {
 
 			for (var res of result){
-				this.handleResult(response, res);
+				self.handleResult(response, res);
 			}
 		});
 
