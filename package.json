@@ -68,7 +68,12 @@
         "command": "clojure.refresh",
         "title": "Clojure: Refresh Code",
         "description": "Refresh code without restarting the REPL."
-    }],
+      },
+      {
+        "command": "clojure.run-all-tests",
+        "title": "Clojure: Runa All Tests",
+        "description": "Run all the tests in the project after refreshing the code."
+      }],
 
     "debuggers": [
       {

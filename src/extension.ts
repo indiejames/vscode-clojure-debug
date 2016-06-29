@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 
-import { workspace, languages, commands, CompletionItemProvider, Disposable, ExtensionContext } from 'vscode';
+import { workspace, languages, commands, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
@@ -16,6 +16,18 @@ import {ClojureDefinitionProvider} from './clojureDefinitionProvider';
 import {ClojureHoverProvider} from './clojureHoverProvider';
 import edn = require('jsedn');
 import {} from 'languages';
+
+const languageConfiguration: LanguageConfiguration = {
+	comments: {
+		"lineComment": ";"
+	},
+	brackets: [
+		["{", "}"],
+		["[", "]"],
+		["(", ")"]
+	],
+	wordPattern: /[^\s()"',;~@#$%^&{}\[\]\\`\n]+/g
+}
 
 var extensionInitialized = false;
 
@@ -36,9 +48,10 @@ export function activate(context: ExtensionContext) {
 	rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
 		if (!extensionInitialized) {
 			extensionInitialized = true;
+			context.subscriptions.push(languages.setLanguageConfiguration("clojure", languageConfiguration));
 			context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
 			context.subscriptions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
-			// context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
+			context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
 			console.log("Compliment namespace loaded");
 		}
 
@@ -83,18 +96,28 @@ export function activate(context: ExtensionContext) {
 
 	// });
 
-	// Push the disposable to the context's subscriptions so that the
-	// client can be deactivated on extension deactivation
-
 	context.subscriptions.push(commands.registerCommand('clojure.refresh', () => {
-		rconn.refresh((err: any, result: any) => {
-		// TODO handle errors here
-		console.log("Refreshed Clojure code.");
+		console.log("Calling refresh...")
+		rconn.refresh((err: any, result: any) : void => {
+			// TODO handle errors here
+			console.log("Refreshed Clojure code.");
     });
 	}));
 
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(commands.registerCommand('clojure.run-all-tests', () => {
+		console.log("Calling refresh...")
+		rconn.refresh((err: any, result: any) : void => {
+			// TODO handle errors here
+			console.log("Refreshed Clojure code.");
+			rconn.runAllTests((err: any, result: any) : void => {
+				console.log("All tests run.");
+			});
+    });
+	}));
 
+	// Push the disposable to the context's subscriptions so that the
+	// client can be deactivated on extension deactivation
+	context.subscriptions.push(disposable);
 
 	console.log("Clojure extension active");
 }

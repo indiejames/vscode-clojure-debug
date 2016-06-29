@@ -74,7 +74,12 @@ export class ReplConnection {
 
 	// get the docstring for the given vars
 	public doc(ns: string, variable: string, callback: callbackType) {
-		this.conn.send({op: 'doc', ns: ns, var: variable}, callback);
+		this.conn.send({op: 'doc', ns: ns, var: variable, session: this.session}, callback);
+	}
+
+	// run all the tests in the project
+	public runAllTests(callback: callbackType) {
+		this.conn.send({op: 'run-all-tests'}, callback);
 	}
 
 	// continue after a breakpoint
