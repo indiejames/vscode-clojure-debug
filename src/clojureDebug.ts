@@ -6,6 +6,7 @@
 
 ///<reference path="node.d.ts"/>
 
+import { workspace} from 'vscode';
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync} from 'fs';
@@ -49,6 +50,8 @@ export interface LaunchRequestArguments {
 	env: string[];
 	// Automatically stop target after launch. If not specified, target does not stop.
 	stopOnEntry?: boolean;
+	// Refresh namespaces on launch. Defaults to true.
+	refreshOnLaunch?: boolean;
 
 }
 
@@ -72,6 +75,8 @@ class ClojureDebugSession extends DebugSession {
 	private _evalResults: any;
 	// list of stack frames for the current thread
 	private _frames: StackFrame[];
+  // configuration
+	private configuration: any;
 
 	// Get the full path to a source file. Input paths are of the form repl_test/core.clj.
 	// TODO Change this to search for the given debuggerPath under all the src directories.
@@ -202,10 +207,12 @@ class ClojureDebugSession extends DebugSession {
 	protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
 		console.log("INITIALIZE REQUEST");
 
+		//this.configuration = workspace.getConfiguration("clojure-debug");
+
 		// announce that we are ready to accept breakpoints -> fire the initialized event to give UI a chance to set breakpoints
 		this.sendEvent(new InitializedEvent());
 
-		response.body.supportsConfigurationDoneRequest = true;``
+		response.body.supportsConfigurationDoneRequest = true;
 
 		// We want to have VS Code call evaulate when hovering over source (yet. if there is a way to expand to a full
 		// form then we will want to do this.)
@@ -340,13 +347,29 @@ class ClojureDebugSession extends DebugSession {
 
 					this._debuggerState = DebuggerState.LAUNCH_COMPLETE;
 					var debug = this;
-					this._replConnection.listThreads((err: any, result: any) => {
-						console.log(result);
-						this.updateThreads(result[0]["threads"]);
 
-						console.log("Got threads");
+					//let cfg = workspace.getConfiguration();
 
-					});
+					if (args.refreshOnLaunch){
+						this._replConnection.refresh((err: any, result: any) => {
+							debug._replConnection.listThreads((err: any, result: any) => {
+								console.log(result);
+								debug.updateThreads(result[0]["threads"]);
+
+								console.log("Got threads");
+
+							});
+						});
+					} else {
+						debug._replConnection.listThreads((err: any, result: any) => {
+								console.log(result);
+								debug.updateThreads(result[0]["threads"]);
+
+								console.log("Got threads");
+
+							});
+					}
+
 
 					if (args.stopOnEntry) {
 						this._currentLine = 1;

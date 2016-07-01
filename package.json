@@ -59,7 +59,12 @@
 					"type": "number",
 					"default": 100,
 					"description": "Controls the maximum number of problems produced by the server."
-				}
+				},
+        "refreshNamespacesOnLaunch": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether or not to issue a refresh command on startup."
+        }
 			}
 		},
 
@@ -95,7 +100,7 @@
             "properties": {
               "toolsJar": {
                 "type": "string",
-                "description": "Path to the tools.jar.",
+                "description": "Path to the tools.jar in your Java installation.",
                 "default": "${JAVA_HOME}/lib/tools.jar"
               },
               "replPort": {
@@ -122,6 +127,11 @@
                 "type": "boolean",
                 "description": "Automatically stops program on launch.",
                 "default": false
+              },
+              "refreshOnLaunch": {
+                "type": "boolean",
+                "description": "Automatically loads all namespaces on launch.",
+                "default": true
               }
             }
           }
@@ -134,7 +144,8 @@
             "toolsJar": "${JAVA_HOME}/lib/tools.jar",
             "env": {},
             "cwd": "${workspaceRoot}",
-            "stopOnEntry": false
+            "stopOnEntry": false,
+            "refreshNamespacesOnLaunch": true
           }
         ]
       }
