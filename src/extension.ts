@@ -39,7 +39,7 @@ export function activate(context: ExtensionContext) {
 	let regexp = new RegExp('nREPL server started on port');
 	var rconn: ReplConnection;
 	let env = {};
-	let cfg = workspace.getConfiguration("clojure-debug");
+	let cfg = workspace.getConfiguration("clojure");
 	// let cwd = "/Users/jnorton/Clojure/repl_test";
 	// let repl = spawn('/usr/local/bin/lein', ["repl", ":headless", ":port", "" + repl_port], {cwd: cwd, env: env});
 
@@ -106,6 +106,7 @@ export function activate(context: ExtensionContext) {
     });
 	}));
 
+	// TODO create a test runner class and moves these to it
 	context.subscriptions.push(commands.registerCommand('clojure.run-all-tests', () => {
 		console.log("Calling refresh...")
 		rconn.refresh((err: any, result: any) : void => {
@@ -115,6 +116,22 @@ export function activate(context: ExtensionContext) {
 				console.log("All tests run.");
 			});
     });
+	}));
+
+	context.subscriptions.push(commands.registerCommand('clojure.run-test-file', () => {
+		let ns = EditorUtils.findNSForCurrentEditor();
+		if (cfg.get("refreshNamespacesBeforeRunnningTestNamespace") === true) {
+			rconn.refresh((err: any, result: any) => {
+				console.log("Refreshed Clojure code.");
+				rconn.runTestsInNS(ns, (err: any, result: any) => {
+					console.log("Tests for namespace " + ns + " run.");
+				});
+			});
+		} else {
+			rconn.runTestsInNS(ns, (err: any, result: any) => {
+					console.log("Tests for ns " + ns + " run.");
+				});
+		}
 	}));
 
 	context.subscriptions.push(commands.registerCommand('clojure.run-test', () => {
