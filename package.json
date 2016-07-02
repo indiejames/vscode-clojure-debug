@@ -53,24 +53,24 @@
   "contributes": {
     "configuration": {
 			"type": "object",
-			"title": "Example configuration",
+			"title": "Clojure configuration",
 			"properties": {
-				"languageServerExample.maxNumberOfProblems": {
+				"clojure.languageServerExample.maxNumberOfProblems": {
 					"type": "number",
 					"default": 100,
 					"description": "Controls the maximum number of problems produced by the server."
 				},
-        "refreshNamespacesBeforeRunnningAllTests": {
+        "clojure.refreshNamespacesBeforeRunnningAllTests": {
           "type": "boolean",
           "default": true,
           "description": "Whether or not to issue a refresh command before running all the tests in the workspace."
         },
-        "refreshNamespacesBeforeRunnningTestNamespace": {
+        "clojure.refreshNamespacesBeforeRunnningTestNamespace": {
           "type": "boolean",
           "default": true,
           "description": "Whether or not to issue a refresh command before running all the tests in a namespace."
         },
-        "refreshNamespacesBeforeRunnningTest": {
+        "clojure.refreshNamespacesBeforeRunnningTest": {
           "type": "boolean",
           "default": false,
           "description": "Whether or not to issue a refresh command before running a single test."
@@ -90,9 +90,14 @@
         "description": "Run all the tests in the project after refreshing the code."
       },
       {
+        "command": "clojure.run-test-file",
+        "title": "Clojure: Run Tests in Current Namespace",
+        "description": "Run the tests in the current namespace, optionally refreshing code first."
+      },
+      {
         "command": "clojure.run-test",
-        "title": "Clojure: Run test",
-        "description": "Run a single test, optionally refreshing code first."
+        "title": "Clojure: Run Test Under Cursor",
+        "description": "Run the test under the cursor, optionally refreshing code first."
       }],
 
     "debuggers": [

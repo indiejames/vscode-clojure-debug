@@ -82,7 +82,10 @@ export class ReplConnection {
 		this.conn.send({op: 'run-all-tests'}, callback);
 	}
 
-	//(do (clojure.test/test-vars [#'#{testName}]) (println \"tested #{testName}\"))
+	// run all the tests in a single namespace
+	public runTestsInNS(ns: string, callback: callbackType) {
+		this.conn.send({op: 'run-tests-in-namespace', ns: ns}, callback);
+	}
 
 	// run a single tests
 	public runTest(ns: string, testName: string, callback: callbackType) {
