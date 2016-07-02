@@ -60,10 +60,20 @@
 					"default": 100,
 					"description": "Controls the maximum number of problems produced by the server."
 				},
-        "refreshNamespacesOnLaunch": {
+        "refreshNamespacesBeforeRunnningAllTests": {
           "type": "boolean",
           "default": true,
-          "description": "Whether or not to issue a refresh command on startup."
+          "description": "Whether or not to issue a refresh command before running all the tests in the workspace."
+        },
+        "refreshNamespacesBeforeRunnningTestNamespace": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether or not to issue a refresh command before running all the tests in a namespace."
+        },
+        "refreshNamespacesBeforeRunnningTest": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether or not to issue a refresh command before running a single test."
         }
 			}
 		},
@@ -76,8 +86,13 @@
       },
       {
         "command": "clojure.run-all-tests",
-        "title": "Clojure: Runa All Tests",
+        "title": "Clojure: Run All Tests",
         "description": "Run all the tests in the project after refreshing the code."
+      },
+      {
+        "command": "clojure.run-test",
+        "title": "Clojure: Run test",
+        "description": "Run a single test, optionally refreshing code first."
       }],
 
     "debuggers": [

@@ -14,6 +14,7 @@ import {spawn} from 'child_process';
 import {ClojureCompletionItemProvider} from './clojureCompletionItemProvider';
 import {ClojureDefinitionProvider} from './clojureDefinitionProvider';
 import {ClojureHoverProvider} from './clojureHoverProvider';
+import {EditorUtils} from './editorUtils';
 import edn = require('jsedn');
 import {} from 'languages';
 
@@ -38,6 +39,7 @@ export function activate(context: ExtensionContext) {
 	let regexp = new RegExp('nREPL server started on port');
 	var rconn: ReplConnection;
 	let env = {};
+	let cfg = workspace.getConfiguration("clojure-debug");
 	// let cwd = "/Users/jnorton/Clojure/repl_test";
 	// let repl = spawn('/usr/local/bin/lein', ["repl", ":headless", ":port", "" + repl_port], {cwd: cwd, env: env});
 
@@ -113,6 +115,22 @@ export function activate(context: ExtensionContext) {
 				console.log("All tests run.");
 			});
     });
+	}));
+
+	context.subscriptions.push(commands.registerCommand('clojure.run-test', () => {
+		let ns = EditorUtils.findNSForCurrentEditor();
+		let test = EditorUtils.getSymobleUnderCursor();
+		if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
+			rconn.refresh((err: any, result: any) => {
+				rconn.runTest(ns, test, (err: any, result: any) => {
+					console.log("Test " + test + " run.");
+				});
+			});
+		} else {
+			rconn.runTest(ns, test, (err: any, result: any) => {
+					console.log("Test " + test + " run.");
+				});
+		}
 	}));
 
 	// Push the disposable to the context's subscriptions so that the
