@@ -108,14 +108,20 @@ export function activate(context: ExtensionContext) {
 
 	// TODO create a test runner class and moves these to it
 	context.subscriptions.push(commands.registerCommand('clojure.run-all-tests', () => {
-		console.log("Calling refresh...")
-		rconn.refresh((err: any, result: any) : void => {
-			// TODO handle errors here
-			console.log("Refreshed Clojure code.");
+		if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {
+			console.log("Calling refresh...")
+			rconn.refresh((err: any, result: any) : void => {
+				// TODO handle errors here
+				console.log("Refreshed Clojure code.");
+				rconn.runAllTests((err: any, result: any) : void => {
+					console.log("All tests run.");
+				});
+			});
+		} else {
 			rconn.runAllTests((err: any, result: any) : void => {
 				console.log("All tests run.");
 			});
-    });
+		}
 	}));
 
 	context.subscriptions.push(commands.registerCommand('clojure.run-test-file', () => {
