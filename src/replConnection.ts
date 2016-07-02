@@ -82,6 +82,13 @@ export class ReplConnection {
 		this.conn.send({op: 'run-all-tests'}, callback);
 	}
 
+	//(do (clojure.test/test-vars [#'#{testName}]) (println \"tested #{testName}\"))
+
+	// run a single tests
+	public runTest(ns: string, testName: string, callback: callbackType) {
+		this.conn.send({op: 'run-test', 'test-name': testName, ns: ns}, callback);
+	}
+
 	// continue after a breakpoint
 	public continue(callback: callbackType) {
 		this.conn.send({op: 'continue', 'session': this.session}, callback);
