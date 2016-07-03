@@ -11,7 +11,7 @@
   "engines": {
     "vscode": "^1.1.x"
   },
-  "icon": "images/clojure-logo.png",
+  "icon": "images/Clojure-icon.png",
   "categories": [
     "Debuggers"
   ],
@@ -80,6 +80,11 @@
 
     "commands": [
       {
+        "command": "clojure.eval",
+        "title": "Evaluate Code",
+        "description": "Evaluate the selected code or the outermost form containing the cursor."
+      },
+      {
         "command": "clojure.refresh",
         "title": "Clojure: Refresh Code",
         "description": "Refresh code without restarting the REPL."
@@ -99,6 +104,13 @@
         "title": "Clojure: Run Test Under Cursor",
         "description": "Run the test under the cursor, optionally refreshing code first."
       }],
+
+     "keybindings": [{
+        "command": "clojure.eval",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e",
+        "when": "editorTextFocus"
+    }],
 
     "debuggers": [
       {
