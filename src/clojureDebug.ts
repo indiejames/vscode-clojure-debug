@@ -63,7 +63,6 @@ class ClojureDebugSession extends DebugSession {
 	private _breakPoints: any;
 	// private _variableHandles: Handles<string>;
 	private _variableHandles: Handles<any[]>;
-	private _connection: nrepl_client.Connection;
 	private _replConnection: ReplConnection;
 	private _isLaunched: boolean;
 	// Debugger state
@@ -331,15 +330,9 @@ class ClojureDebugSession extends DebugSession {
 
 				if ((this._debuggerState == DebuggerState.DEBUGGER_ATTACHED) && (output.search(/nREPL server started/) != -1)) {
 					this._debuggerState = DebuggerState.REPL_READY;
-					//this._connection = nrepl_client.connect({port: repl_port, host: "127.0.0.1", verbose: false});
 					this._replConnection = new ReplConnection("127.0.0.1", repl_port);
 
 					console.log("CONNECTED TO REPL");
-
-					// tell the middleware to start the debugger
-					// this._connection.send({op: 'connect', port: debug_port}, (err: any, result: any) => {
-					// 	console.log(result);
-					// });
 
 					// start listening for events
 					this.handleEvent(null, null);
@@ -443,11 +436,6 @@ class ClojureDebugSession extends DebugSession {
 				console.log(result);
 			});
 
-
-			// this._connection.send({op: 'set-breakpoint', line: l, path: path}, function (err, result) {
-			// 	console.log(result);
-			// });
-
 			var verified = false;
 			if (l < lines.length) {
 				// if a line starts with '+' we don't allow to set a breakpoint but move the breakpoint down
@@ -486,9 +474,6 @@ class ClojureDebugSession extends DebugSession {
 			// Load the associated namespace into the REPL.
 			// We must wait for the response before replying.
 
-			console.log("SESSIONS:");
-			console.log(this._connection.sessions);
-
 			// TODO is this still required?
 			debug._replConnection.eval("(require '" + ns + ")", (err: any, result: any) => {
 				// TODO handle errors here
@@ -504,7 +489,7 @@ class ClojureDebugSession extends DebugSession {
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
 		console.log("GETTING THREADS");
 		const debug = this;
-		this._connection.send({op: 'list-threads'}, (err: any, result: any) => {
+		this._replConnection.listThreads((err: any, result: any) => {
 			console.log(result);
 			debug.updateThreads(result[0]["threads"]);
 
