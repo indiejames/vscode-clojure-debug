@@ -6,7 +6,6 @@
 
 ///<reference path="node.d.ts"/>
 
-import { workspace} from 'vscode';
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync} from 'fs';
@@ -675,14 +674,13 @@ class ClojureDebugSession extends DebugSession {
 	protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
 		var expr = args.expression;
 		var self = this;
+
 		this._replConnection.eval(expr, (err: any, result: any) => {
 
 			for (var res of result){
 				self.handleResult(response, res);
 			}
 		});
-
-
 	}
 }
 

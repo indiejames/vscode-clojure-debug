@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 
-import { workspace, languages, commands, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration } from 'vscode';
+import { window, workspace, languages, commands, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
@@ -97,6 +97,28 @@ export function activate(context: ExtensionContext) {
 	// client.onReady(() => void {
 
 	// });
+
+	context.subscriptions.push(commands.registerCommand('clojure.eval', () => {
+		// only support evaluating select text for now.
+		// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
+		let editor = window.activeTextEditor;
+		let selection = editor.selection;
+		let range = new Range(selection.start, selection.end);
+		let code = editor.document.getText(range);
+		let ns = EditorUtils.findNSForCurrentEditor();
+		// if (ns) {
+		// 	rconn.eval(code, (err: any, result: any) : void => {
+		// 		// TODO handle errors here
+    // 	}, ns);
+		// } else {
+			rconn.eval(code, (err: any, result: any) : void => {
+				// TODO handle errors here
+				console.log("Evaluated code");
+				console.log(result);
+			});
+		// }
+
+	}));
 
 	context.subscriptions.push(commands.registerCommand('clojure.refresh', () => {
 		console.log("Calling refresh...")
