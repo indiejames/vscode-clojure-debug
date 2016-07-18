@@ -79,11 +79,7 @@
 		},
 
     "commands": [
-      {
-        "command": "clojure.eval",
-        "title": "Evaluate Code",
-        "description": "Evaluate the selected code or the outermost form containing the cursor."
-      },
+
       {
         "command": "clojure.refresh",
         "title": "Clojure: Refresh Code",

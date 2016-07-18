@@ -300,6 +300,11 @@ class ClojureDebugSession extends DebugSession {
 		}
 	}
 
+	protected attachRequest(response: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments) {
+		console.log("ATTACH REQUEST");
+
+	}
+
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
 		console.log("LAUNCH REQUEST");
 		this._isLaunched = true;

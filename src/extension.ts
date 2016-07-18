@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 
-import { window, workspace, languages, commands, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration } from 'vscode';
+import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
@@ -31,14 +31,41 @@ const languageConfiguration: LanguageConfiguration = {
 }
 
 var extensionInitialized = false;
+var outputChannel: any;
+
+function handleEvalResponse(response: Array<any>, outputChannel: OutputChannel) {
+	for (var resp of response) {
+		// TODO handle errors here
+
+		if (resp["out"]) {
+			outputChannel.append(resp["out"] + "\n");
+		}
+
+		if (resp["value"]) {
+			var ns = "user";
+			if (resp["ns"]) {
+				ns = resp["ns"];
+			}
+			outputChannel.append(ns + "=> " + resp["value"] + "\n");
+		}
+	}
+}
 
 export function activate(context: ExtensionContext) {
 	console.log("Starting Clojure extension...");
+	var outputChannel = window.createOutputChannel("Clojure REPL");
+	outputChannel.show(true);
+
 	let repl_port = 7777;
+  let env = {};
+	let primaryRepl = spawn('/usr/local/bin/lein', ["repl", ":connect", "" + repl_port], {cwd: "/Users/jnorton/Clojure/repl_test", env: env});
+  primaryRepl.stdout.on('data', (data) => {
+    	outputChannel.append("" + data);
+	});
+
 	var isInitialized = false;
 	let regexp = new RegExp('nREPL server started on port');
 	var rconn: ReplConnection;
-	let env = {};
 	let cfg = workspace.getConfiguration("clojure");
 	// let cwd = "/Users/jnorton/Clojure/repl_test";
 	// let repl = spawn('/usr/local/bin/lein', ["repl", ":headless", ":port", "" + repl_port], {cwd: cwd, env: env});
@@ -48,6 +75,7 @@ export function activate(context: ExtensionContext) {
 
 	rconn = new ReplConnection("127.0.0.1", repl_port);
 	rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
+	// rconn.eval("(foo 1 4)", (err: any, result: any) => {
 		if (!extensionInitialized) {
 			extensionInitialized = true;
 			context.subscriptions.push(languages.setLanguageConfiguration("clojure", languageConfiguration));
@@ -106,17 +134,15 @@ export function activate(context: ExtensionContext) {
 		let range = new Range(selection.start, selection.end);
 		let code = editor.document.getText(range);
 		let ns = EditorUtils.findNSForCurrentEditor();
-		// if (ns) {
-		// 	rconn.eval(code, (err: any, result: any) : void => {
-		// 		// TODO handle errors here
-    // 	}, ns);
-		// } else {
+		if (ns) {
 			rconn.eval(code, (err: any, result: any) : void => {
-				// TODO handle errors here
-				console.log("Evaluated code");
-				console.log(result);
+				handleEvalResponse(result, outputChannel);
+    	}, ns);
+		} else {
+			rconn.eval(code, (err: any, result: any) : void => {
+				handleEvalResponse(result, outputChannel);
 			});
-		// }
+		}
 
 	}));
 
