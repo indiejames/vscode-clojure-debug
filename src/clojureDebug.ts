@@ -13,6 +13,7 @@ import {readFileSync} from 'fs';
 import {basename, dirname, join} from 'path';
 import {spawn} from 'child_process';
 import nrepl_client = require('jg-nrepl-client');
+import s = require('socket.io-client');
 import {ReplConnection} from './replConnection';
 let chalk = require("chalk");
 
@@ -43,6 +44,10 @@ export interface LaunchRequestArguments {
 	replPort: number;
 	// Port for JDWP connection
 	debugPort: number;
+	// Port for side channel
+	sideChannelPort: number;
+	// Path to lein
+	leinPath: string,
 	// Current working directory
 	cwd: string;
 	// The environment variables that should be set when running the target.
@@ -75,6 +80,8 @@ class ClojureDebugSession extends DebugSession {
 	private _frames: StackFrame[];
   // configuration
 	private configuration: any;
+	// debugger side channel port
+	private _sideChannelPort: number;
 
 	// Get the full path to a source file. Input paths are of the form repl_test/core.clj.
 	// TODO Change this to search for the given debuggerPath under all the src directories.
@@ -322,10 +329,20 @@ class ClojureDebugSession extends DebugSession {
 			debug_port = args.debugPort;
 		}
 
-		var env = {"JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debug_port,
+		this._sideChannelPort = 3030;
+		if (args.sideChannelPort) {
+			this._sideChannelPort = args.sideChannelPort;
+		}
+
+		var lein_path = "/usr/local/bin/lein";
+		if (args.leinPath) {
+			lein_path = args.leinPath;
+		}
+
+		var env = {"HOME": "/Users/jnorton", "JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debug_port,
 	             "CLOJURE_DEBUG_JDWP_PORT": "" + debug_port};
 
-		this._primaryRepl = spawn('/usr/local/bin/lein', ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + repl_port], {cwd: this._cwd, env: env});
+		this._primaryRepl = spawn("/Users/jnorton/bin/lein", ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + repl_port], {cwd: this._cwd, env: env});
 
 		this._debuggerState = DebuggerState.REPL_STARTED;
 		console.log("REPL_STARTED");
@@ -664,13 +681,27 @@ class ClojureDebugSession extends DebugSession {
 	protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
 		var expr = args.expression;
 		var self = this;
+		var ns = 'user';
 
-		this._replConnection.eval(expr, (err: any, result: any) => {
+		if (args.context == 'repl') {
+			// get context for eval from extension
+			var sideChannel = s("http://localhost:" + self._sideChannelPort);
+			sideChannel.on('go-eval', (data) => {
+				sideChannel.emit("eval", "get_namespace()");
+				sideChannel.on('namespace-result', (data) => {
+					console.log("NAMESPACE: " + data);
+					ns = data;
 
-			for (var res of result){
-				self.handleResult(response, res);
-			}
-		});
+					this._replConnection.eval(expr, (err: any, result: any) => {
+
+						for (var res of result){
+							self.handleResult(response, res);
+						}
+					}, ns);
+
+				});
+			});
+		}
 	}
 }
 

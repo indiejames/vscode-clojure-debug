@@ -5,10 +5,12 @@
 'use strict';
 
 import * as path from 'path';
-
+import http = require('http');
+import s = require('socket.io');
 import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
+//import socket_io =  require('socket.io');
 import {ReplConnection} from './replConnection';
 import {spawn} from 'child_process';
 import {ClojureCompletionItemProvider} from './clojureCompletionItemProvider';
@@ -53,20 +55,33 @@ function handleEvalResponse(response: Array<any>, outputChannel: OutputChannel) 
 
 export function activate(context: ExtensionContext) {
 	console.log("Starting Clojure extension...");
-	var outputChannel = window.createOutputChannel("Clojure REPL");
-	outputChannel.show(true);
+	let cfg = workspace.getConfiguration("clojure");
+
+	// var outputChannel = window.createOutputChannel("Clojure REPL");
+	// outputChannel.show(true);
+
+	// start up a side channel that the debug adapter can use to query the extension
+	let sideChannelPort = cfg.get("sideChannelPort", 3030);
+	var sideChannel = s(sideChannelPort);
+	sideChannel.on('connection', (sock) => {
+		sock.emit('go-eval', {});
+		sock.on('eval', (code) => {
+				console.log("EVAL: " + code);
+				sock.emit('namespace-result', EditorUtils.findNSForCurrentEditor());
+		});
+	});
 
 	let repl_port = 7777;
   let env = {};
-	let primaryRepl = spawn('/usr/local/bin/lein', ["repl", ":connect", "" + repl_port], {cwd: "/Users/jnorton/Clojure/repl_test", env: env});
-  primaryRepl.stdout.on('data', (data) => {
-    	outputChannel.append("" + data);
-	});
+	let primaryRepl = spawn('/Users/jnorton/bin/lein', ["repl", ":connect", "" + repl_port], {cwd: "/Users/jnorton/Clojure/repl_test", env: env});
+  // primaryRepl.stdout.on('data', (data) => {
+  //   	outputChannel.append("" + data);
+	// });
 
 	var isInitialized = false;
 	let regexp = new RegExp('nREPL server started on port');
 	var rconn: ReplConnection;
-	let cfg = workspace.getConfiguration("clojure");
+
 	// let cwd = "/Users/jnorton/Clojure/repl_test";
 	// let repl = spawn('/usr/local/bin/lein', ["repl", ":headless", ":port", "" + repl_port], {cwd: cwd, env: env});
 
