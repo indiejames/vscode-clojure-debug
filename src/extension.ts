@@ -72,11 +72,10 @@ export function activate(context: ExtensionContext) {
 	});
 
 	let repl_port = 7777;
-  let env = {};
-	let primaryRepl = spawn('/Users/jnorton/bin/lein', ["repl", ":connect", "" + repl_port], {cwd: "/Users/jnorton/Clojure/repl_test", env: env});
-  // primaryRepl.stdout.on('data', (data) => {
-  //   	outputChannel.append("" + data);
-	// });
+  	let env = {};
+
+	//let primaryRepl = spawn('/Users/jnorton/bin/lein', ["repl", ":connect", "" + repl_port], {cwd: "/Users/jnorton/Clojure/repl_test", env: env});
+
 
 	var isInitialized = false;
 	let regexp = new RegExp('nREPL server started on port');
