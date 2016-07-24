@@ -10,7 +10,6 @@ import s = require('socket.io');
 import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
-//import socket_io =  require('socket.io');
 import {ReplConnection} from './replConnection';
 import {spawn} from 'child_process';
 import {ClojureCompletionItemProvider} from './clojureCompletionItemProvider';
@@ -140,6 +139,10 @@ export function activate(context: ExtensionContext) {
 
 	// });
 
+	context.subscriptions.push(commands.registerCommand('clojure.expand_selection', () => {
+		EditorUtils.selectBrackets();
+	}));
+
 	context.subscriptions.push(commands.registerCommand('clojure.eval', () => {
 		// only support evaluating select text for now.
 		// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
@@ -168,7 +171,7 @@ export function activate(context: ExtensionContext) {
     });
 	}));
 
-	// TODO create a test runner class and moves these to it
+	// TODO create a test runner class and move these to it
 	context.subscriptions.push(commands.registerCommand('clojure.run-all-tests', () => {
 		if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {
 			console.log("Calling refresh...")

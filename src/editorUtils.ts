@@ -1,4 +1,4 @@
-import {TextEditor, Range, Position, window} from 'vscode';
+import {TextEditor, Range, Position, Selection, window} from 'vscode';
 
 // Functions based on editor utils in proto-repl https://github.com/jasongilman/proto-repl
 
@@ -231,5 +231,139 @@ export namespace EditorUtils {
       return findNSDeclaration(text);
     }
 
+    // Find the positions of the brackets that contain the given start and optional end positions.
+    // Bracket in this context means parenthesis, square bracket, or squiggly bracket.
+    export function findContainingBracketPositions(text: string, startPosition: number, endPosition?: number) : Array<number> {
+      var startPos = startPosition;
+      var endPos:number= startPosition;
+      if (endPosition) {
+        endPos = endPosition;
+      }
 
+      // find opening bracket
+      var closingParenCount = 0;
+      var closingSquareBracketCount = 0;
+      var closingSquigglyBracketcount = 0;
+      var pOpen;
+      var pClose;
+
+      for (pOpen = startPosition - 1; pOpen > -1; pOpen--) {
+        let pChar = text[pOpen];
+        if (pChar == '(') {
+          if (closingParenCount == 0) {
+            break;
+          } else {
+            closingParenCount -= 1;
+          }
+        }
+        if (pChar == ')') {
+          closingParenCount += 1;
+        }
+        if (pChar == '[') {
+          if (closingSquareBracketCount == 0) {
+            break;
+          } else {
+            closingSquareBracketCount -= 1;
+          }
+        }
+        if (pChar == ']') {
+          closingSquareBracketCount += 1;
+        }
+        if (pChar == '{') {
+          if (closingSquigglyBracketcount == 0) {
+            break;
+          } else {
+            closingSquigglyBracketcount -= 1;
+          }
+        }
+        if (pChar == '}') {
+          closingSquigglyBracketcount += 1;
+        }
+      }
+
+      // Look for the closing matching bracket if we found an opening bracket
+      if (pOpen != -1) {
+        var openingParenCount = 0;
+        var openingSquareBracketCount = 0;
+        var openingSquigglyBracketCount = 0;
+
+        for (pClose = endPos; pClose < text.length; pClose++) {
+          let eChar = text[pClose];
+
+          if (eChar == ')') {
+            if (openingParenCount == 0) {
+              break;
+            } else {
+              openingParenCount -= 1;
+            }
+          }
+          if (eChar == '(') {
+            openingParenCount += 1;
+          }
+          if (eChar == ']') {
+            if (openingSquareBracketCount == 0) {
+              break;
+            } else {
+              openingSquareBracketCount -= 1;
+            }
+          }
+          if (eChar == '[') {
+            openingSquareBracketCount += 1;
+          }
+          if (eChar == '}') {
+            if (openingSquigglyBracketCount == 0) {
+              break;
+            } else {
+              openingSquigglyBracketCount -= 1;
+            }
+          }
+          if (eChar == '{') {
+            openingSquigglyBracketCount += 1;
+          }
+        }
+
+        // Sanity check to make sure bracket types match
+        let oChar = text[pOpen];
+        let eChar = text[pClose];
+        if ((oChar == '(' && eChar == ')') || (oChar == '[' && eChar == ']') || (oChar == '{' && eChar == '}')) {
+          startPos = pOpen;
+          endPos = pClose + 1;
+        }
+      }
+
+      return [startPos, endPos];
+
+    }
+
+    // Expand selection to the next-outermost brackets containing the cursor.
+    // Repeated invocations will expand selection to increasingly outer brackets.
+    export function selectBrackets() {
+      var editor = window.activeTextEditor;
+      if (!editor) {
+        return; // no open text editor
+      }
+
+      let document = editor.document;
+      var startIndex = -1;
+      var endIndex = document.getText().length;
+
+      let selection = editor.selection;
+      var newSelectionIndices;
+
+      // If we have a selection and the cursor is not outside it, use it to find brackets
+      if (selection.contains(selection.active)) {
+        startIndex = document.offsetAt(selection.start);
+        endIndex = document.offsetAt(selection.end);
+        newSelectionIndices = findContainingBracketPositions(document.getText(), startIndex, endIndex);
+
+      } else {
+        startIndex = document.offsetAt(selection.active);
+        newSelectionIndices = findContainingBracketPositions(document.getText(), startIndex);
+      }
+
+      let anchor = document.positionAt(newSelectionIndices[0]);
+      let active = document.positionAt(newSelectionIndices[1]);
+      let newSelection = new Selection(anchor, active);
+      editor.selection = newSelection;
+    }
 }

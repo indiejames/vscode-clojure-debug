@@ -82,7 +82,11 @@
 		},
 
     "commands": [
-
+      {
+        "command": "clojure.expand_selection",
+        "title": "Clojure: Expand Selection",
+        "description": "Expand selection to containting brackets/parentheses."
+      },
       {
         "command": "clojure.refresh",
         "title": "Clojure: Refresh Code",
@@ -109,7 +113,12 @@
         "key": "ctrl+alt+e",
         "mac": "cmd+alt+e",
         "when": "editorTextFocus"
-    }],
+    },
+      {
+        "command": "clojure.expand_selection",
+        "key": "ctrl+shift+m",
+        "when": "editorTextFocus"
+      }],
 
     "debuggers": [
       {
