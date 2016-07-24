@@ -36,3 +36,12 @@ The environment utilizes several libraries to enable various features.
 
 * debug-middleware provides the debug functionality
 * compliment is used to perform autocompletion
+
+## Extension Preferences
+
+## Suggest User Settings
+
+* Set the word separators setting in your user settings to the following to make selecting Clojure code elements easier.
+``` clojure
+"editor.wordSeparators": " ()\"':,;~@#$%^&{}[]`"
+```
