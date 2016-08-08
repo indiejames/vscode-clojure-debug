@@ -65,7 +65,6 @@ export function activate(context: ExtensionContext) {
 	sideChannel.on('connection', (sock) => {
 		sock.emit('go-eval', {});
 		sock.on('eval', (code) => {
-				console.log("EVAL: " + code);
 				sock.emit('namespace-result', EditorUtils.findNSForCurrentEditor());
 		});
 	});

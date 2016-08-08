@@ -35,7 +35,6 @@ export class ClojureCompletionItemProvider implements CompletionItemProvider {
     let self = this;
     // Get the parameters needed for completion
     let [src, ns, prefix, offset] = self.completionsParams(document, position);
-    console.log("PREFIX: " + prefix);
 
     if (prefix == "") {
       return Promise.resolve(new CompletionList([], true));
