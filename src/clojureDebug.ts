@@ -274,7 +274,7 @@ class ClojureDebugSession extends DebugSession {
 	// Handle output from the REPL after launch is complete
 	protected handleREPLOutput(output) {
 
-		if ((this._debuggerState == DebuggerState.REPL_STARTED) && (output.search(/Attached to process.*Java/) != -1)) {
+		if ((this._debuggerState == DebuggerState.REPL_STARTED) && (output.search(/Attached to process/) != -1)) {
 			this._debuggerState = DebuggerState.DEBUGGER_ATTACHED;
 			console.log("DEBUGGER_ATTACHED");
 		}
@@ -443,7 +443,7 @@ class ClojureDebugSession extends DebugSession {
 
 	// TODO Fix the check for successful breakpoints and return the correct list
 	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, fileContents: Buffer, path: string): void {
-
+		console.log("FINISH BREAKPOINTS REQUEST");
 		var clientLines = args.lines;
 
 		// read file contents into array for direct access
@@ -572,14 +572,15 @@ class ClojureDebugSession extends DebugSession {
 			console.log("GOT VARIABLES");
 			console.log(result);
 			var variables = result[0]["vars"];
+			console.log("VARS: " + variables);
 			var frameArgs = variables[0];
 			var frameLocals = variables[1];
 			var argScope = frameArgs.map((v: any): any => {
-				let val = { name: v["name"], value: v["value"], variablesReference: 0 };
+				let val = { name: v["name"], value: "" + v["value"], variablesReference: 0 };
 				return val;
 			});
 			var localScope = frameLocals.map((v: any): any => {
-				let val = { name: v["name"], value: v["value"], variablesReference: 0 };
+				let val = { name: v["name"], value: "" + v["value"], variablesReference: 0 };
 				return val;
 			});
 			const scopes = new Array<Scope>();
@@ -648,10 +649,12 @@ class ClojureDebugSession extends DebugSession {
 		}
 
 		var session = replResult["session"];
-		var result = this._evalResults[session] || {};
+		// var result = this._evalResults[session] || {};
+		var result = replResult["value"];
 		if (replResult["status"] && replResult["status"][0] == "done") {
 			response.body = {
-				result: result["value"],
+				// result: result["value"],
+				result: result,
 				// TODO implement this for complex results
 				variablesReference: 0
 			}
@@ -686,23 +689,33 @@ class ClojureDebugSession extends DebugSession {
 		var ns = 'user';
 
 		if (args.context == 'repl') {
-			// get context for eval from extension
-			var sideChannel = s("http://localhost:" + self._sideChannelPort);
-			sideChannel.on('go-eval', (data) => {
-				sideChannel.emit("eval", "get_namespace()");
-				sideChannel.on('namespace-result', (data) => {
-					console.log("NAMESPACE: " + data);
-					ns = data;
-
-					this._replConnection.eval(expr, (err: any, result: any) => {
-
-						for (var res of result) {
-							self.handleResult(response, res);
-						}
-					}, ns);
-
+			if (args.frameId != null) {
+				// evaluate in the context of the given thread/frame
+				this._replConnection.reval(args.frameId, expr, (err: any, result: any) => {
+					for (var res of result) {
+						self.handleResult(response, res);
+					}
 				});
-			});
+
+			} else {
+				// get context for eval from extension
+				var sideChannel = s("http://localhost:" + self._sideChannelPort);
+				sideChannel.on('go-eval', (data) => {
+					sideChannel.emit("eval", "get_namespace()");
+					sideChannel.on('namespace-result', (data) => {
+						console.log("NAMESPACE: " + data);
+						ns = data;
+
+						this._replConnection.eval(expr, (err: any, result: any) => {
+
+							for (var res of result) {
+								self.handleResult(response, res);
+							}
+						}, ns);
+
+					});
+				});
+		  	}
 		}
 	}
 }

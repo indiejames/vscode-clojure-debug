@@ -39,6 +39,11 @@ export class ReplConnection {
 
 	}
 
+	// evaluate code in the context of a given thread/frame
+	public reval(frameIndex: number, code: string, callback: callbackType) {
+		this.conn.send({op: 'reval', 'frame-num': frameIndex, 'form': code}, callback);
+	}
+
 	// list all the running threads
 	public listThreads(callback: callbackType) {
 		this.conn.send({op: 'list-threads', 'session': this.commandSession}, callback);
