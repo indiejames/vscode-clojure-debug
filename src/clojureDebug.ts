@@ -5,15 +5,17 @@
 "use strict";
 
 ///<reference path="node.d.ts"/>
+/// <reference path="tmp/index.d.ts" />
 
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
-import {readFileSync} from 'fs';
+import {readFileSync, copySync} from 'fs-extra';
 // import {blue} from 'chalk';
 import {basename, dirname, join} from 'path';
 import {spawn} from 'child_process';
 import nrepl_client = require('jg-nrepl-client');
 import s = require('socket.io-client');
+import tmp = require('tmp');
 import {ReplConnection} from './replConnection';
 let chalk = require("chalk");
 
@@ -95,6 +97,9 @@ class ClojureDebugSession extends DebugSession {
 
 	// the current working directory
 	private _cwd: string;
+
+	// directory where this extension is stored
+	private _extensionDir: string;
 
 	// Clojure REPL process
 	private _cdtRepl: any;
@@ -307,14 +312,123 @@ class ClojureDebugSession extends DebugSession {
 		}
 	}
 
+	private connectToCDTREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments, repl_port: number, debugged_port: number) {
+		this._cdtRepl.stdout.on('data', (data) => {
+			var output = '' + data;
+
+			let self = this;
+
+			// if ((self._debuggerState == DebuggerState.DEBUGGER_ATTACHED) && (output.search(/nREPL server started/) != -1)) {
+            if ((output.search(/nREPL server started/) != -1)) {
+				self._debuggerState = DebuggerState.REPL_READY;
+				self._replConnection = new ReplConnection("127.0.0.1", repl_port);
+
+				console.log("CONNECTED TO REPL");
+
+				self._debuggerState = DebuggerState.LAUNCH_COMPLETE;
+
+				var sideChannel = s("http://localhost:" + self._sideChannelPort);
+				sideChannel.on('go-eval', (data) => {
+					sideChannel.emit("eval", "attach");
+					sideChannel.close();
+				});
+
+				self._replConnection.attach(debugged_port, (err: any, result: any) => {
+					console.log("Debug REPL attached to Debugged REPL");
+
+					// start listening for events
+					self.handleEvent(null, null);
+
+					if (args.refreshOnLaunch) {
+						self._replConnection.refresh((err: any, result: any) => {
+							self._replConnection.listThreads((err: any, result: any) => {
+								console.log(result);
+								self.updateThreads(result[0]["threads"]);
+
+								console.log("Got threads");
+
+							});
+						});
+					} else {
+						self._replConnection.listThreads((err: any, result: any) => {
+							console.log(result);
+							self.updateThreads(result[0]["threads"]);
+
+							console.log("Got threads");
+
+						});
+					}
+
+
+					if (args.stopOnEntry) {
+						self._currentLine = 1;
+						self.sendResponse(response);
+
+						// we stop on the first line - TODO need to figure out what thread this would be and if we even want to support this
+						self.sendEvent(new StoppedEvent("entry", ClojureDebugSession.THREAD_ID));
+					} else {
+						// we just start to run until we hit a breakpoint or an exception
+						response.body = {
+							/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
+							allThreadsContinued: true
+						};
+						// DO I need this?
+						// self.sendResponse(response);
+
+						self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
+					}
+				});
+
+			}
+
+			self.handleREPLOutput(output);
+
+			self.pout(output);
+
+		});
+
+		this._cdtRepl.stderr.on('data', (data) => {
+			this.perr(data);
+			console.log(`stderr: ${data}`);
+		});
+	}
+
 	protected attachRequest(response: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments) {
 		console.log("ATTACH REQUEST");
 
 	}
 
+	private setupSideChannelAndDebugREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments, repl_port: number, debug_port: number, lein_path: string){
+		let self = this;
+		let sideChannel = s("http://localhost:" + self._sideChannelPort);
+		sideChannel.on('go-eval', (data) => {
+			sideChannel.emit("eval", "get-extension-directory");
+			sideChannel.on('get-extension-directory-result', (data) => {
+				self._extensionDir = data;
+				sideChannel.close();
+				// launch debugger REPL
+				let env = {"HOME": process.env["HOME"]};
+				// create a tempory lein proejct
+				var tmpobj = tmp.dirSync({ mode: 0o750, prefix: 'repl_connnect_' });
+				console.log("PROJECT TMP DIR: ", tmpobj.name + "/project.clj");
+				copySync(self._extensionDir + "/out/project.clj", tmpobj.name + "/project.clj")
+				// Manual cleanup
+				//tmpobj.removeCallback();
+
+				// TODO remove this magic number (string)
+				self._cdtRepl = spawn(lein_path, ["repl", ":headless", ":port", "7878"], {cwd: tmpobj.name, env: env });
+				self._debuggerState = DebuggerState.REPL_STARTED;
+				console.log("DEBUGGER REPL STARTED");
+				// TODO remove this magic number
+				self.connectToCDTREPL(response, args, 7878, debug_port);
+			});
+		});
+	}
+
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
 		console.log("LAUNCH REQUEST");
 		this._isLaunched = true;
+		let self = this;
 
 		//var cwd = dirname(args.program);
 		this._cwd = args.cwd;
@@ -346,71 +460,18 @@ class ClojureDebugSession extends DebugSession {
 
 		this._primaryRepl = spawn(lein_path, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + repl_port], { cwd: this._cwd, env: env });
 
-		this._debuggerState = DebuggerState.REPL_STARTED;
-		console.log("REPL_STARTED");
-
 		this._primaryRepl.stdout.on('data', (data) => {
 			var output = '' + data;
+			console.log(output);
 
-			if ((this._debuggerState == DebuggerState.DEBUGGER_ATTACHED) && (output.search(/nREPL server started/) != -1)) {
-				this._debuggerState = DebuggerState.REPL_READY;
-				this._replConnection = new ReplConnection("127.0.0.1", repl_port);
-
-				console.log("CONNECTED TO REPL");
-
-				// start listening for events
-				this.handleEvent(null, null);
-
-				this._debuggerState = DebuggerState.LAUNCH_COMPLETE;
-				var debug = this;
-
-				//let cfg = workspace.getConfiguration();
-
-				if (args.refreshOnLaunch) {
-					this._replConnection.refresh((err: any, result: any) => {
-						debug._replConnection.listThreads((err: any, result: any) => {
-							console.log(result);
-							debug.updateThreads(result[0]["threads"]);
-
-							console.log("Got threads");
-
-						});
-					});
-				} else {
-					debug._replConnection.listThreads((err: any, result: any) => {
-						console.log(result);
-						debug.updateThreads(result[0]["threads"]);
-
-						console.log("Got threads");
-
-					});
-				}
-
-
-				if (args.stopOnEntry) {
-					this._currentLine = 1;
-					this.sendResponse(response);
-
-					// we stop on the first line - TODO need to figure out what thread this would be and if we even want to support this
-					this.sendEvent(new StoppedEvent("entry", ClojureDebugSession.THREAD_ID));
-				} else {
-					// we just start to run until we hit a breakpoint or an exception
-					response.body = {
-						/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
-						allThreadsContinued: true
-					};
-					this.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
-				}
+			if ((output.search(/nREPL server started/) != -1)) {
+				console.log("PRIMARY REPL STARTED");
+				this.setupSideChannelAndDebugREPL(response, args, 7878, debug_port, lein_path);
 			}
-
-			this.handleREPLOutput(output);
-
-			this.pout(output);
-
 		});
 
 		this._primaryRepl.stderr.on('data', (data) => {
-			this.perr(data);
+			self.perr(data);
 			console.log(`stderr: ${data}`);
 		});
 
@@ -420,8 +481,6 @@ class ClojureDebugSession extends DebugSession {
 			}
 			console.log("REPL closed");
 		});
-
-
 	}
 
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {
@@ -487,7 +546,7 @@ class ClojureDebugSession extends DebugSession {
 		console.log("Set breakpoint requested");
 
 		var path = args.source.path;
-		var debug = this;
+		var self = this;
 
 		this._replConnection.clearBreakpoints(path, (err: any, result: any) => {
 			// read file contents
@@ -498,12 +557,22 @@ class ClojureDebugSession extends DebugSession {
 			// Load the associated namespace into the REPL.
 			// We must wait for the response before replying.
 
-			// TODO is this still required?
-			debug._replConnection.eval("(require '" + ns + ")", (err: any, result: any) => {
-				// TODO handle errors here
-				debug.finishBreakPointsRequest(response, args, fileContents, path)
-				//console.log(result);
+
+			// debug._replConnection.eval("(require '" + ns + ")", (err: any, result: any) => {
+			// We have to use the extension connection to load the namespace
+			let sideChannel = s("http://localhost:" + self._sideChannelPort);
+			sideChannel.on('go-eval', (data) => {
+				sideChannel.on('load-namespace-result', (data) => {
+					self.finishBreakPointsRequest(response, args, fileContents, path)
+				});
+				sideChannel.emit("eval", "load-namespace");
+
 			});
+
+
+			// 	//console.log(result);
+			// });
+
 		});
 
 		// TODO reject breakpoint requests outside of a namespace
@@ -649,6 +718,52 @@ class ClojureDebugSession extends DebugSession {
 		}
 
 		var session = replResult["session"];
+		var result = this._evalResults[session] || {};
+		if (replResult["status"] && replResult["status"][0] == "done") {
+			response.body = {
+				result: result["value"],
+				// TODO implement this for complex results
+				variablesReference: 0
+			}
+
+			var err = result["error"];
+			if (err && err != "") {
+				response.success = false;
+				response.message = err;
+			}
+
+			this.sendResponse(response);
+			this._evalResults[session] = null;
+
+		} else {
+
+			if (replResult["value"]) {
+				var value = result["value"] || "";
+				result["value"] = value + replResult["value"];
+			}
+			var ex = replResult["ex"];
+			if (ex && ex != "") {
+				var err = result["error"] || "";
+				result["error"] = err + "\n" + ex;
+			}
+			this._evalResults[session] = result;
+		}
+	}
+
+	protected handleFrameResult(response: DebugProtocol.EvaluateResponse, replResult: any): void {
+		// forward stdout form the REPL to the debugger
+		var out = replResult["out"];
+		if (out && out != "") {
+			this.pout(out);
+		}
+
+		// forwared stderr from the REPL to the debugger
+		var err = replResult["err"];
+		if (err && err != "") {
+			this.perr(err);
+		}
+
+		var session = replResult["session"];
 		// var result = this._evalResults[session] || {};
 		var result = replResult["value"];
 		if (replResult["status"] && replResult["status"][0] == "done") {
@@ -690,30 +805,27 @@ class ClojureDebugSession extends DebugSession {
 
 		if (args.context == 'repl') {
 			if (args.frameId != null) {
+				console.log("FRAME EVAL REQUESTED");
 				// evaluate in the context of the given thread/frame
 				this._replConnection.reval(args.frameId, expr, (err: any, result: any) => {
 					for (var res of result) {
-						self.handleResult(response, res);
+						self.handleFrameResult(response, res);
 					}
 				});
 
 			} else {
 				// get context for eval from extension
-				var sideChannel = s("http://localhost:" + self._sideChannelPort);
+				console.log("EVAL REQUESTED");
+				let sideChannel = s("http://localhost:" + self._sideChannelPort);
 				sideChannel.on('go-eval', (data) => {
-					sideChannel.emit("eval", "get_namespace()");
-					sideChannel.on('namespace-result', (data) => {
-						console.log("NAMESPACE: " + data);
-						ns = data;
 
-						this._replConnection.eval(expr, (err: any, result: any) => {
-
-							for (var res of result) {
-								self.handleResult(response, res);
-							}
-						}, ns);
-
+					sideChannel.on('eval-code-result', (result) => {
+						for (var res of result) {
+							self.handleResult(response, res);
+						}
+						sideChannel.close();
 					});
+					sideChannel.emit('eval-code', expr);
 				});
 		  	}
 		}

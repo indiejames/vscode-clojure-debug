@@ -32,7 +32,10 @@ const languageConfiguration: LanguageConfiguration = {
 }
 
 var extensionInitialized = false;
+var debuggedProcessLaunched = false;
+var rconn: ReplConnection;
 var outputChannel: any;
+var extensionDir: String;
 
 function handleEvalResponse(response: Array<any>, outputChannel: OutputChannel) {
 	for (var resp of response) {
@@ -55,49 +58,81 @@ function handleEvalResponse(response: Array<any>, outputChannel: OutputChannel) 
 export function activate(context: ExtensionContext) {
 	console.log("Starting Clojure extension...");
 	let cfg = workspace.getConfiguration("clojure");
+	extensionDir = context.extensionPath;
+	window.showInformationMessage("Activating Extension");
 
 	// var outputChannel = window.createOutputChannel("Clojure REPL");
 	// outputChannel.show(true);
-
+	console.log("Setting up side channel on port 3030");
 	// start up a side channel that the debug adapter can use to query the extension
 	let sideChannelPort = cfg.get("sideChannelPort", 3030);
 	var sideChannel = s(sideChannelPort);
 	sideChannel.on('connection', (sock) => {
-		sock.emit('go-eval', {});
-		sock.on('eval', (code) => {
-				sock.emit('namespace-result', EditorUtils.findNSForCurrentEditor());
+
+		sock.on('eval-code', (code) => {
+			console.log("Evaluating code");
+			window.showInformationMessage("Evaluating Code");
+			let ns = EditorUtils.findNSForCurrentEditor();
+			rconn.eval(code, (err: any, result: any) => {
+				console.log("Code evaluated");
+				window.showInformationMessage("Code Evaluated");
+				sock.emit('eval-code-result', result);
+			}, ns);
 		});
+
+		sock.on('eval', (code) => {
+			switch (code) {
+			case 'get-namespace':
+				sock.emit('namespace-result', EditorUtils.findNSForCurrentEditor());
+				break;
+			case 'load-namespace':
+				let ns = EditorUtils.findNSForCurrentEditor();
+				rconn.eval("(require '" + ns + ")", (err: any, result: any) => {
+					sock.emit('load-namespace-result')
+				});
+				break;
+			case 'get-extension-directory':
+			 	sock.emit('get-extension-directory-result', context.extensionPath);
+				 break;
+		    case 'attach':
+				console.log("Attaching to debugged process");
+				// TODO Get this from config
+				let repl_port = 7777;
+  				let env = {};
+
+				var isInitialized = false;
+				let regexp = new RegExp('nREPL server started on port');
+
+
+				// let cwd = "/Users/jnorton/Clojure/repl_test";
+				// let repl = spawn('/usr/local/bin/lein', ["repl", ":headless", ":port", "" + repl_port], {cwd: cwd, env: env});
+
+				// use default completions if none are available from Compliment
+				//context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new CompletionItemProvider()))
+
+				rconn = new ReplConnection("127.0.0.1", repl_port);
+				rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
+				// rconn.eval("(foo 1 4)", (err: any, result: any) => {
+					if (!extensionInitialized) {
+						extensionInitialized = true;
+						context.subscriptions.push(languages.setLanguageConfiguration("clojure", languageConfiguration));
+						context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
+						context.subscriptions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
+						context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
+						console.log("Compliment namespace loaded");
+					}
+
+				});
+				break;
+
+				default: console.error("Unknown side channel request");
+			}
+		});
+
+		sock.emit('go-eval', {});
 	});
 
-	let repl_port = 7777;
-  	let env = {};
 
-	//let primaryRepl = spawn('/Users/jnorton/bin/lein', ["repl", ":connect", "" + repl_port], {cwd: "/Users/jnorton/Clojure/repl_test", env: env});
-
-
-	var isInitialized = false;
-	let regexp = new RegExp('nREPL server started on port');
-	var rconn: ReplConnection;
-
-	// let cwd = "/Users/jnorton/Clojure/repl_test";
-	// let repl = spawn('/usr/local/bin/lein', ["repl", ":headless", ":port", "" + repl_port], {cwd: cwd, env: env});
-
-	// use default completions if none are available from Compliment
-	//context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new CompletionItemProvider()))
-
-	rconn = new ReplConnection("127.0.0.1", repl_port);
-	rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
-	// rconn.eval("(foo 1 4)", (err: any, result: any) => {
-		if (!extensionInitialized) {
-			extensionInitialized = true;
-			context.subscriptions.push(languages.setLanguageConfiguration("clojure", languageConfiguration));
-			context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
-			context.subscriptions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
-			context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
-			console.log("Compliment namespace loaded");
-		}
-
-	});
 
 	// The server is implemented in node
 	let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));

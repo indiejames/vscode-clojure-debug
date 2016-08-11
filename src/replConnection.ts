@@ -17,16 +17,21 @@ export class ReplConnection {
 	private commandSession: any;
 
 	constructor(replHost: string, replPort: number) {
-		  let self = this;
-			this.conn = nrepl_client.connect({port: replPort, host: replHost, verbose: false});
-			this.conn.clone((err: any, result: any) => {
-				self.session = result[0]["new-session"];
-				console.log("Eval session: " + self.session);
-				self.conn.clone((err: any, result: any) => {
-					self.commandSession = result[0]["new-session"];
-					console.log("Command session: " + self.commandSession);
-				});
+		let self = this;
+		this.conn = nrepl_client.connect({port: replPort, host: replHost, verbose: false});
+		this.conn.clone((err: any, result: any) => {
+			self.session = result[0]["new-session"];
+			console.log("Eval session: " + self.session);
+			self.conn.clone((err: any, result: any) => {
+				self.commandSession = result[0]["new-session"];
+				console.log("Command session: " + self.commandSession);
 			});
+		});
+	}
+
+	// attach this REPL to the debugged REPL
+	public attach(port: number, callback: callbackType) {
+		this.conn.send({op: 'attach', port: port}, callback);
 	}
 
 	// evaluate the given code (possibly in a given namespace)
@@ -38,6 +43,8 @@ export class ReplConnection {
 		}
 
 	}
+
+	// TODO change all these string keys to keyword: keys
 
 	// evaluate code in the context of a given thread/frame
 	public reval(frameIndex: number, code: string, callback: callbackType) {

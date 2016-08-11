@@ -50,7 +50,9 @@
    "test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
   },
    "activationEvents": [
-    "onDebug:clojure"
+    "workspaceContains:project.clj",
+    "onCommand:clojure.new_library_project",
+    "onCommand:clojure.new_application_project"
   ],
   "main": "./out/extension",
   "contributes": {
@@ -83,9 +85,19 @@
 
     "commands": [
       {
+        "command": "clojure.new_library_project",
+        "title": "Clojure: Create new library project",
+        "description": "Create a new leiningen based library project."
+      },
+      {
+        "command": "clojure.new_appliction_project",
+        "title": "Clojure: Create new application project",
+        "description": "Create a new leiningen based application project."
+      },
+      {
         "command": "clojure.expand_selection",
         "title": "Clojure: Expand Selection",
-        "description": "Expand selection to containting brackets/parentheses."
+        "description": "Expand selection to containing brackets/parentheses."
       },
       {
         "command": "clojure.refresh",
