@@ -33,7 +33,9 @@
     "jsedn": "0.3.5",
 		"chalk": "^1.1.1",
     "socket.io": "^1.4.8",
-    "socket.io-client": "^1.4.8"
+    "socket.io-client": "^1.4.8",
+    "tmp": "^0.0.28",
+    "fs-extra": "^0.30.0"
   },
   "devDependencies": {
     "vscode": "^0.11.x",

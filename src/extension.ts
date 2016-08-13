@@ -59,11 +59,12 @@ export function activate(context: ExtensionContext) {
 	console.log("Starting Clojure extension...");
 	let cfg = workspace.getConfiguration("clojure");
 	extensionDir = context.extensionPath;
-	window.showInformationMessage("Activating Extension");
+	window.setStatusBarMessage("Activating Extension");
 
 	// var outputChannel = window.createOutputChannel("Clojure REPL");
 	// outputChannel.show(true);
 	console.log("Setting up side channel on port 3030");
+	window.setStatusBarMessage("Setting up side channel on port 3030");
 	// start up a side channel that the debug adapter can use to query the extension
 	let sideChannelPort = cfg.get("sideChannelPort", 3030);
 	var sideChannel = s(sideChannelPort);
@@ -71,12 +72,16 @@ export function activate(context: ExtensionContext) {
 
 		sock.on('eval-code', (code) => {
 			console.log("Evaluating code");
-			window.showInformationMessage("Evaluating Code");
+			window.setStatusBarMessage("Evaluating Code")
 			let ns = EditorUtils.findNSForCurrentEditor();
 			rconn.eval(code, (err: any, result: any) => {
 				console.log("Code evaluated");
-				window.showInformationMessage("Code Evaluated");
-				sock.emit('eval-code-result', result);
+				window.setStatusBarMessage("Code Evaluated");
+				if (err){
+					sock.emit('eval-code-result', err);
+				} else {
+					sock.emit('eval-code-result', result);
+				}
 			}, ns);
 		});
 
@@ -96,6 +101,7 @@ export function activate(context: ExtensionContext) {
 				 break;
 		    case 'attach':
 				console.log("Attaching to debugged process");
+				window.setStatusBarMessage("Attaching to debugged process");
 				// TODO Get this from config
 				let repl_port = 7777;
   				let env = {};
@@ -112,7 +118,10 @@ export function activate(context: ExtensionContext) {
 
 				rconn = new ReplConnection("127.0.0.1", repl_port);
 				rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
-				// rconn.eval("(foo 1 4)", (err: any, result: any) => {
+					// if (extensionInitialized) {
+					// 	// deregister old providers
+					// 	context.subscriptions.
+					// }
 					if (!extensionInitialized) {
 						extensionInitialized = true;
 						context.subscriptions.push(languages.setLanguageConfiguration("clojure", languageConfiguration));
@@ -121,6 +130,7 @@ export function activate(context: ExtensionContext) {
 						context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
 						console.log("Compliment namespace loaded");
 					}
+					window.setStatusBarMessage("Attached to process");
 
 				});
 				break;
@@ -202,7 +212,7 @@ export function activate(context: ExtensionContext) {
 		rconn.refresh((err: any, result: any) : void => {
 			// TODO handle errors here
 			console.log("Refreshed Clojure code.");
-    });
+    	});
 	}));
 
 	// TODO create a test runner class and move these to it
@@ -260,4 +270,5 @@ export function activate(context: ExtensionContext) {
 	context.subscriptions.push(disposable);
 
 	console.log("Clojure extension active");
+	window.setStatusBarMessage("Clojure extension active");
 }

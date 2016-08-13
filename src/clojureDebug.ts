@@ -549,25 +549,26 @@ class ClojureDebugSession extends DebugSession {
 		var self = this;
 
 		this._replConnection.clearBreakpoints(path, (err: any, result: any) => {
-			// read file contents
-			var fileContents = readFileSync(path);
-			var regex = /\(ns\s+?(.*?)(\s|\))/;
-			var ns = regex.exec(fileContents.toString())[1];
+			if (err) {
+				// TODO figure out what to do here
+				console.error(err);
+			} else {
+				var fileContents = readFileSync(path);
+				var regex = /\(ns\s+?(.*?)(\s|\))/;
+				var ns = regex.exec(fileContents.toString())[1];
 
-			// Load the associated namespace into the REPL.
-			// We must wait for the response before replying.
+				// Load the associated namespace into the REPL.
+				// We have to use the extension connection to load the namespace
+				// We must wait for the response before replying with the SetBreakpointResponse.
+				let sideChannel = s("http://localhost:" + self._sideChannelPort);
+				sideChannel.on('go-eval', (data) => {
+					sideChannel.on('load-namespace-result', (data) => {
+						self.finishBreakPointsRequest(response, args, fileContents, path)
+					});
+					sideChannel.emit("eval", "load-namespace");
 
-
-			// debug._replConnection.eval("(require '" + ns + ")", (err: any, result: any) => {
-			// We have to use the extension connection to load the namespace
-			let sideChannel = s("http://localhost:" + self._sideChannelPort);
-			sideChannel.on('go-eval', (data) => {
-				sideChannel.on('load-namespace-result', (data) => {
-					self.finishBreakPointsRequest(response, args, fileContents, path)
 				});
-				sideChannel.emit("eval", "load-namespace");
-
-			});
+			}
 
 
 			// 	//console.log(result);
@@ -704,8 +705,13 @@ class ClojureDebugSession extends DebugSession {
 		this.sendEvent(new TerminatedEvent());
 	}
 
-	protected handleResult(response: DebugProtocol.EvaluateResponse, replResult: any): void {
-		// forward stdout form the REPL to the debugger
+	private isErrorStatus(status: Array<string>): boolean {
+		return (status.indexOf("error") != -1)
+	}
+
+	// Handle the result from an eval NOT at a breakpoint
+	private handleResult(response: DebugProtocol.EvaluateResponse, replResult: any): void {
+		// forward stdout from the REPL to the debugger
 		var out = replResult["out"];
 		if (out && out != "") {
 			this.pout(out);
@@ -719,38 +725,53 @@ class ClojureDebugSession extends DebugSession {
 
 		var session = replResult["session"];
 		var result = this._evalResults[session] || {};
-		if (replResult["status"] && replResult["status"][0] == "done") {
-			response.body = {
-				result: result["value"],
-				// TODO implement this for complex results
-				variablesReference: 0
-			}
-
-			var err = result["error"];
-			if (err && err != "") {
+		let status = replResult["status"];
+		if (status) {
+			if (this.isErrorStatus(status)) {
+				let errorMessage = status[0];
 				response.success = false;
-				response.message = err;
+				response.message = errorMessage;
+				this.sendResponse(response);
+				this._evalResults[session] = null;
+			} else if(replResult["status"][0] == "done") {
+				response.body = {
+					result: result["value"],
+					// TODO implement this for complex results
+					variablesReference: 0
+				}
+
+				var err = result["error"];
+				if (err && err != "") {
+					response.success = false;
+					response.message = err;
+				}
+
+				this.sendResponse(response);
+				this._evalResults[session] = null;
+
+			} else if (status[0] == "eval-error") {
+				var ex = replResult["ex"];
+				if (ex && ex != "") {
+					var err = result["error"] || "";
+					result["error"] = err + "\n" + ex;
+					response.success = false;
+					response.message = ex;
+					this.sendResponse(response);
+					this._evalResults[session] = null;
+				}
 			}
-
-			this.sendResponse(response);
-			this._evalResults[session] = null;
-
 		} else {
 
 			if (replResult["value"]) {
 				var value = result["value"] || "";
 				result["value"] = value + replResult["value"];
 			}
-			var ex = replResult["ex"];
-			if (ex && ex != "") {
-				var err = result["error"] || "";
-				result["error"] = err + "\n" + ex;
-			}
+
 			this._evalResults[session] = result;
 		}
 	}
 
-	protected handleFrameResult(response: DebugProtocol.EvaluateResponse, replResult: any): void {
+	private handleFrameResult(response: DebugProtocol.EvaluateResponse, replResult: any): void {
 		// forward stdout form the REPL to the debugger
 		var out = replResult["out"];
 		if (out && out != "") {
