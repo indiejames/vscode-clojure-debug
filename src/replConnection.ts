@@ -71,6 +71,12 @@ export class ReplConnection {
 		this.conn.send({op: 'set-breakpoint', line: line, path: path, 'session': this.commandSession}, callback);
 	}
 
+	// set a breakpoint for exceptions. type is one of 'all', 'uncaught', or 'none', indicating that exception breakpoints
+	// should be cleared
+	public setExceptionBreakpoint(type: string, callback: callbackType) {
+		this.conn.send({op: 'set-exception-breakpoint', type: type}, callback);
+	}
+
 	// clear all breakpoints for the given file
 	public clearBreakpoints(path: string, callback: callbackType) {
 		this.conn.send({op: 'clear-breakpoints', path: path, 'session': this.commandSession}, callback);

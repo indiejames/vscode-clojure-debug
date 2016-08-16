@@ -256,13 +256,26 @@ class ClojureDebugSession extends DebugSession {
 				threadId = thread.id;
 			}
 
-			if (eventType == "breakpoint") {
-				var src = eventMap["src"];
-				var line = eventMap["line"];
-				this._currentLine = line;
-				console.log("Sending breakpoint event to debugger for thread " + threadId);
-				this.sendEvent(new StoppedEvent("breakpoint", threadId));
+			switch (eventType) {
+				case "breakpoint":
+					var src = eventMap["src"];
+					var line = eventMap["line"];
+					this._currentLine = line;
+					console.log("Sending breakpoint event to debugger for thread " + threadId);
+					this.sendEvent(new StoppedEvent("breakpoint", threadId));
+					break;
+
+				case "exception":
+					this.sendEvent(new StoppedEvent("exception", threadId));
+					break;
+
+				default:
+
 			}
+			if (eventType == "breakpoint") {
+
+			}
+
 		}
 
 		// start listening for events again
@@ -500,6 +513,11 @@ class ClojureDebugSession extends DebugSession {
 
 	}
 
+	protected sourceRequest(response: DebugProtocol.SourceResponse, args: DebugProtocol.SourceArguments): void {
+		console.log("Source request");
+
+	}
+
 	// TODO Fix the check for successful breakpoints and return the correct list
 	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, fileContents: Buffer, path: string): void {
 		console.log("FINISH BREAKPOINTS REQUEST");
@@ -578,6 +596,24 @@ class ClojureDebugSession extends DebugSession {
 
 		// TODO reject breakpoint requests outside of a namespace
 
+	}
+
+	protected setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments): void {
+		var type = "none";
+		if (args.filters.indexOf("uncaught") != -1) {
+			type = "uncaught";
+		}
+		if (args.filters.indexOf("all") != -1) {
+			type = "all";
+		}
+		this._replConnection.setExceptionBreakpoint(type, (err: any, result: any) => {
+			if (err) {
+				response.success = false;
+			} else {
+				response.success = true;
+			}
+			this.sendResponse(response);
+		});
 	}
 
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {

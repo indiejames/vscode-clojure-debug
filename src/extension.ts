@@ -122,14 +122,99 @@ export function activate(context: ExtensionContext) {
 					// 	// deregister old providers
 					// 	context.subscriptions.
 					// }
-					if (!extensionInitialized) {
+					// if (!extensionInitialized) {
 						extensionInitialized = true;
 						context.subscriptions.push(languages.setLanguageConfiguration("clojure", languageConfiguration));
 						context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
 						context.subscriptions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
 						context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
 						console.log("Compliment namespace loaded");
-					}
+
+						////////////////////////////////////////////////////
+
+
+						context.subscriptions.push(commands.registerCommand('clojure.eval', () => {
+							// only support evaluating select text for now.
+							// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
+							let editor = window.activeTextEditor;
+							let selection = editor.selection;
+							let range = new Range(selection.start, selection.end);
+							let code = editor.document.getText(range);
+							let ns = EditorUtils.findNSForCurrentEditor();
+							if (ns) {
+								rconn.eval(code, (err: any, result: any) : void => {
+									handleEvalResponse(result, outputChannel);
+								}, ns);
+							} else {
+								rconn.eval(code, (err: any, result: any) : void => {
+									handleEvalResponse(result, outputChannel);
+								});
+							}
+
+						}));
+
+						context.subscriptions.push(commands.registerCommand('clojure.refresh', () => {
+							console.log("Calling refresh...")
+							rconn.refresh((err: any, result: any) : void => {
+								// TODO handle errors here
+								console.log("Refreshed Clojure code.");
+								});
+						}));
+
+						// TODO create a test runner class and move these to it
+						context.subscriptions.push(commands.registerCommand('clojure.run-all-tests', () => {
+							if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {
+								console.log("Calling refresh...")
+								rconn.refresh((err: any, result: any) : void => {
+									// TODO handle errors here
+									console.log("Refreshed Clojure code.");
+									rconn.runAllTests((err: any, result: any) : void => {
+										console.log("All tests run.");
+									});
+								});
+							} else {
+								rconn.runAllTests((err: any, result: any) : void => {
+									console.log("All tests run.");
+								});
+							}
+						}));
+
+						context.subscriptions.push(commands.registerCommand('clojure.run-test-file', () => {
+							let ns = EditorUtils.findNSForCurrentEditor();
+							if (cfg.get("refreshNamespacesBeforeRunnningTestNamespace") === true) {
+								rconn.refresh((err: any, result: any) => {
+									console.log("Refreshed Clojure code.");
+									rconn.runTestsInNS(ns, (err: any, result: any) => {
+										console.log("Tests for namespace " + ns + " run.");
+									});
+								});
+							} else {
+								rconn.runTestsInNS(ns, (err: any, result: any) => {
+										console.log("Tests for ns " + ns + " run.");
+									});
+							}
+						}));
+
+						context.subscriptions.push(commands.registerCommand('clojure.run-test', () => {
+							let ns = EditorUtils.findNSForCurrentEditor();
+							let test = EditorUtils.getSymobleUnderCursor();
+							if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
+								rconn.refresh((err: any, result: any) => {
+									rconn.runTest(ns, test, (err: any, result: any) => {
+										console.log("Test " + test + " run.");
+									});
+								});
+							} else {
+								rconn.runTest(ns, test, (err: any, result: any) => {
+										console.log("Test " + test + " run.");
+									});
+							}
+						}));
+
+
+						///////////////////////////////////////////////////
+
+					// }
 					window.setStatusBarMessage("Attached to process");
 
 				});
@@ -187,83 +272,7 @@ export function activate(context: ExtensionContext) {
 		EditorUtils.selectBrackets();
 	}));
 
-	context.subscriptions.push(commands.registerCommand('clojure.eval', () => {
-		// only support evaluating select text for now.
-		// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
-		let editor = window.activeTextEditor;
-		let selection = editor.selection;
-		let range = new Range(selection.start, selection.end);
-		let code = editor.document.getText(range);
-		let ns = EditorUtils.findNSForCurrentEditor();
-		if (ns) {
-			rconn.eval(code, (err: any, result: any) : void => {
-				handleEvalResponse(result, outputChannel);
-    	}, ns);
-		} else {
-			rconn.eval(code, (err: any, result: any) : void => {
-				handleEvalResponse(result, outputChannel);
-			});
-		}
 
-	}));
-
-	context.subscriptions.push(commands.registerCommand('clojure.refresh', () => {
-		console.log("Calling refresh...")
-		rconn.refresh((err: any, result: any) : void => {
-			// TODO handle errors here
-			console.log("Refreshed Clojure code.");
-    	});
-	}));
-
-	// TODO create a test runner class and move these to it
-	context.subscriptions.push(commands.registerCommand('clojure.run-all-tests', () => {
-		if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {
-			console.log("Calling refresh...")
-			rconn.refresh((err: any, result: any) : void => {
-				// TODO handle errors here
-				console.log("Refreshed Clojure code.");
-				rconn.runAllTests((err: any, result: any) : void => {
-					console.log("All tests run.");
-				});
-			});
-		} else {
-			rconn.runAllTests((err: any, result: any) : void => {
-				console.log("All tests run.");
-			});
-		}
-	}));
-
-	context.subscriptions.push(commands.registerCommand('clojure.run-test-file', () => {
-		let ns = EditorUtils.findNSForCurrentEditor();
-		if (cfg.get("refreshNamespacesBeforeRunnningTestNamespace") === true) {
-			rconn.refresh((err: any, result: any) => {
-				console.log("Refreshed Clojure code.");
-				rconn.runTestsInNS(ns, (err: any, result: any) => {
-					console.log("Tests for namespace " + ns + " run.");
-				});
-			});
-		} else {
-			rconn.runTestsInNS(ns, (err: any, result: any) => {
-					console.log("Tests for ns " + ns + " run.");
-				});
-		}
-	}));
-
-	context.subscriptions.push(commands.registerCommand('clojure.run-test', () => {
-		let ns = EditorUtils.findNSForCurrentEditor();
-		let test = EditorUtils.getSymobleUnderCursor();
-		if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
-			rconn.refresh((err: any, result: any) => {
-				rconn.runTest(ns, test, (err: any, result: any) => {
-					console.log("Test " + test + " run.");
-				});
-			});
-		} else {
-			rconn.runTest(ns, test, (err: any, result: any) => {
-					console.log("Test " + test + " run.");
-				});
-		}
-	}));
 
 	// Push the disposable to the context's subscriptions so that the
 	// client can be deactivated on extension deactivation
