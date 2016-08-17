@@ -5,7 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :profiles {:dev {:dependencies [[debug-middleware "0.1.1-SNAPSHOT"]]
                    :repl-options {:nrepl-middleware [debug-middleware.core/debug-middleware]}}}
-  :resource-paths ["/Library/Java/JavaVirtualMachines/jdk1.8.0_74.jdk/Contents/Home/lib/tools.jar"]
+  :resource-paths []
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [debug-middleware "0.1.1-SNAPSHOT"]
                  [cdt "1.2.6.3"]])

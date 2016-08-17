@@ -429,7 +429,7 @@ class ClojureDebugSession extends DebugSession {
 				//tmpobj.removeCallback();
 
 				// TODO remove this magic number (string)
-				self._cdtRepl = spawn(lein_path, ["repl", ":headless", ":port", "7878"], {cwd: tmpobj.name, env: env });
+				self._cdtRepl = spawn(lein_path, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "7878"], {cwd: tmpobj.name, env: env });
 				self._debuggerState = DebuggerState.REPL_STARTED;
 				console.log("DEBUGGER REPL STARTED");
 				// TODO remove this magic number
