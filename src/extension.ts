@@ -74,15 +74,15 @@ export function activate(context: ExtensionContext) {
 			console.log("Evaluating code");
 			window.setStatusBarMessage("Evaluating Code")
 			let ns = EditorUtils.findNSForCurrentEditor();
-			rconn.eval(code, (err: any, result: any) => {
-				console.log("Code evaluated");
-				window.setStatusBarMessage("Code Evaluated");
-				if (err){
-					sock.emit('eval-code-result', err);
-				} else {
-					sock.emit('eval-code-result', result);
-				}
-			}, ns);
+				rconn.eval(code, (err: any, result: any) => {
+					console.log("Code evaluated");
+					window.setStatusBarMessage("Code Evaluated");
+					if (err){
+						sock.emit('eval-code-result', err);
+					} else {
+						sock.emit('eval-code-result', result);
+					}
+				}, ns);
 		});
 
 		sock.on('eval', (code) => {
@@ -117,6 +117,11 @@ export function activate(context: ExtensionContext) {
 				//context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new CompletionItemProvider()))
 
 				rconn = new ReplConnection("127.0.0.1", repl_port);
+				// TODO make this configurable or get config from debugger launch config
+				rconn.refresh((err: any, result: any) => {
+
+				});
+
 				rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
 					// if (extensionInitialized) {
 					// 	// deregister old providers

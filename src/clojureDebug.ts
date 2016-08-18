@@ -352,25 +352,17 @@ class ClojureDebugSession extends DebugSession {
 					// start listening for events
 					self.handleEvent(null, null);
 
-					if (args.refreshOnLaunch) {
-						self._replConnection.refresh((err: any, result: any) => {
-							self._replConnection.listThreads((err: any, result: any) => {
-								console.log(result);
-								self.updateThreads(result[0]["threads"]);
+					// if (args.refreshOnLaunch) {
 
-								console.log("Got threads");
+					// } else {
+					// 	self._replConnection.listThreads((err: any, result: any) => {
+					// 		console.log(result);
+					// 		self.updateThreads(result[0]["threads"]);
 
-							});
-						});
-					} else {
-						self._replConnection.listThreads((err: any, result: any) => {
-							console.log(result);
-							self.updateThreads(result[0]["threads"]);
+					// 		console.log("Got threads");
 
-							console.log("Got threads");
-
-						});
-					}
+					// 	});
+					// }
 
 
 					if (args.stopOnEntry) {

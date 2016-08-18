@@ -127,6 +127,14 @@ export class ReplConnection {
 		this.conn.send({op: 'refresh', 'session': this.commandSession}, callback);
 	}
 
+	public setIgnore(callback: callbackType) {
+		this.conn.eval("(alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)", null, this.session, (err: any, result: any) => {
+			if (err){
+				console.error("Error setting compiler options on debugged process.");
+			}
+		});
+	}
+
 	public close(callback: callbackType) {
 		this.conn.close(callback);
 	}
