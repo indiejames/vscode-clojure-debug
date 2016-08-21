@@ -99,7 +99,7 @@ export function activate(context: ExtensionContext) {
 			case 'get-extension-directory':
 			 	sock.emit('get-extension-directory-result', context.extensionPath);
 				 break;
-		    case 'attach':
+		  case 'attach':
 				console.log("Attaching to debugged process");
 				window.setStatusBarMessage("Attaching to debugged process");
 				// TODO Get this from config
