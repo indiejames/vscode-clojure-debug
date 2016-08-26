@@ -657,6 +657,48 @@ class ClojureDebugSession extends DebugSession {
 		});
 	}
 
+	private storeValue(name: string, val: any): any {
+		if (val._keys) {
+			let vals = val._keys.map((key: any) : any => {
+				return this.storeValue(key, val[key]);
+			});
+			let ref = this._variableHandles.create(vals);
+			return {name: name, value: "" + val, variablesReference: ref};
+		} else if (val instanceof Array) {
+			var index = 0;
+			let vals = val.map((v: any) : any => {
+				return this.storeValue("" + index++, v);
+			});
+
+			let ref = this._variableHandles.create(vals);
+			return {name: name, value: "" + val, variablesReference: ref};
+		} else {
+			return {name: name, value: "" + val, variablesReference: 0};
+		}
+	}
+
+	// For non-primitve, non-array types stores a hierachical reference that can be used
+	// to aid value inspection and returns a refrerence. For primitive types and arrays it returns 0.
+	private storeValueB(name: string, val: any): any {
+		if (val._keys) {
+			// TODO try just returning a hard coded map like the ones from the mock debugger to see if it works
+			let ids =  val._keys.map((key: any) : any => {
+				let v = val[key];
+				return this.storeValue(key, v);
+			});
+
+			// return {
+			// 	name: name + "_o",
+			// 	type: "object",
+			// 	value: "Object",
+			// 	variablesReference: this._variableHandles.create(["object_"])
+			// }
+			return this._variableHandles.create([{name: name, value: "" + val, variablesReference: ids}]);
+		} else {
+			return this._variableHandles.create([{name: name, value: "" + val, variablesReference: 0}]);
+		}
+	}
+
 	// TODO Write a function to take a complex variable and convert it to a nested structure (possibly with sub variable references)
 	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
 		console.log("SCOPES REQUEST");
@@ -674,16 +716,25 @@ class ClojureDebugSession extends DebugSession {
 			var frameArgs = variables[0];
 			var frameLocals = variables[1];
 			var argScope = frameArgs.map((v: any): any => {
-				let val = { name: v["name"], value: "" + v["value"], variablesReference: 0 };
+				let val = debug.storeValue(v["name"], v["value"]);
+				// let val = this._variableHandles.get(varId)[0];
+				//let val = { name: v["name"], value: "" + v["value"], variablesReference: };
 				return val;
 			});
 			var localScope = frameLocals.map((v: any): any => {
-				let val = { name: v["name"], value: "" + v["value"], variablesReference: 0 };
+				// let val = { name: v["name"], value: "" + v["value"], variablesReference: 0 };
+				//let val = { name: v["name"], value: {a: "A", b: [{c: "C"}, {d: "D"}]}, variablesReference: 0};
+				// let val = { name: v["name"], value: "" + v["value"], variablesReference: this._variableHandles.create(v["value"])};
+				// let val = {name: v["name"], value: "" + v["value"], variablesRefrence: this.storeValue(v["name"], v["value"])};
+				// return val;
+				// return this.storeValue(v["name"], v["value"]);
+				let val = debug.storeValue(v["name"], v["value"]);
+				// let val = this._variableHandles.get(varId)[0];
 				return val;
 			});
 			const scopes = new Array<Scope>();
-			scopes.push(new Scope("Local", this._variableHandles.create(localScope), false));
-			scopes.push(new Scope("Argument", this._variableHandles.create(argScope), false));
+			scopes.push(new Scope("Local", debug._variableHandles.create(localScope), false));
+			scopes.push(new Scope("Argument", debug._variableHandles.create(argScope), false));
 			// scopes.push(new Scope("Global", this._variableHandles.create("global_" + frameReference), true));
 
 			response.body = {
@@ -696,9 +747,10 @@ class ClojureDebugSession extends DebugSession {
 	protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
 		console.log("VARIABLES REQUEST");
 		var variables = [];
-		const id = this._variableHandles.get(args.variablesReference);
-		if (id != null) {
-			variables = id;
+
+		const vars = this._variableHandles.get(args.variablesReference);
+		if (vars != null) {
+			variables = vars;
 		}
 
 		response.body = {
@@ -706,6 +758,58 @@ class ClojureDebugSession extends DebugSession {
 		};
 		this.sendResponse(response);
 	}
+
+protected scopesRequestB(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
+
+		const frameReference = args.frameId;
+		const scopes = new Array<Scope>();
+		scopes.push(new Scope("Local", this._variableHandles.create(["local_" + frameReference]), false));
+		scopes.push(new Scope("Closure", this._variableHandles.create(["closure_" + frameReference]), false));
+		scopes.push(new Scope("Global", this._variableHandles.create(["global_" + frameReference]), true));
+
+		response.body = {
+			scopes: scopes
+		};
+		this.sendResponse(response);
+	}
+
+	protected variablesRequestB(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
+
+		const variables = [];
+		const id = this._variableHandles.get(args.variablesReference);
+		if (id != null) {
+			variables.push({
+				name: id + "_i",
+				type: "integer",
+				value: "123",
+				variablesReference: 0
+			});
+			variables.push({
+				name: id + "_f",
+				type: "float",
+				value: "3.14",
+				variablesReference: 0
+			});
+			variables.push({
+				name: id + "_s",
+				type: "string",
+				value: "hello world",
+				variablesReference: 0
+			});
+			variables.push({
+				name: id + "_o",
+				type: "object",
+				value: "Object",
+				variablesReference: this._variableHandles.create(["object_"])
+			});
+		}
+
+		response.body = {
+			variables: variables
+		};
+		this.sendResponse(response);
+	}
+
 
 	protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
 		console.log("CONTINUE REQUEST");
