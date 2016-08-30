@@ -8,6 +8,16 @@ import nrepl_client = require('jg-nrepl-client');
 
 interface callbackType { (err: any, result: any): void }
 
+function escapeClojureCodeInString(code: string): string {
+	let escaped = code.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+	return "\"" + escaped + "\"";
+}
+
+function wrapCodeInReadEval(code: string): string {
+	let escapedCode = escapeClojureCodeInString(code);
+	return "(eval (read-string {:read-cond :allow} " + escapedCode + "))";
+}
+
 /*
 	Repl - data and methods related to communicating with a REPL process.
 */
@@ -36,10 +46,13 @@ export class ReplConnection {
 
 	// evaluate the given code (possibly in a given namespace)
 	public eval(code: string, callback: callbackType, ns?: string) {
+		code = wrapCodeInReadEval(code);
 		if (ns) {
-			this.conn.eval(code, ns, this.session, callback);
+			// this.conn.eval(code, ns, this.session, callback);
+			this.conn.send({op: 'eval', ns: ns, code: code, session: this.session}, callback);
 		} else {
-			this.conn.eval(code, null, this.session, callback);
+			// this.conn.eval(code, null, this.session, callback);
+			this.conn.send({op: 'eval', code: code, session: this.session}, callback);
 		}
 
 	}
