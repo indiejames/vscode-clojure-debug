@@ -33,7 +33,9 @@
     "jsedn": "0.3.5",
 		"chalk": "^1.1.1",
     "socket.io": "^1.4.8",
-    "socket.io-client": "^1.4.8"
+    "socket.io-client": "^1.4.8",
+    "tmp": "^0.0.28",
+    "fs-extra": "^0.30.0"
   },
   "devDependencies": {
     "vscode": "^0.11.x",
@@ -46,11 +48,13 @@
    "prepublish": "tsc -p ./src",
    "compile": "tsc -p ./src",
    "watch": "tsc -w -p ./src",
-   "postinstall": "node ./node_modules/vscode/bin/install",
+   "postinstall": "node ./node_modules/vscode/bin/install && cp ./clojure/project.clj ./out",
    "test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
   },
    "activationEvents": [
-    "onDebug:clojure"
+    "workspaceContains:project.clj",
+    "onCommand:clojure.new_library_project",
+    "onCommand:clojure.new_application_project"
   ],
   "main": "./out/extension",
   "contributes": {
@@ -83,9 +87,19 @@
 
     "commands": [
       {
+        "command": "clojure.new_library_project",
+        "title": "Clojure: Create new library project",
+        "description": "Create a new leiningen based library project."
+      },
+      {
+        "command": "clojure.new_appliction_project",
+        "title": "Clojure: Create new application project",
+        "description": "Create a new leiningen based application project."
+      },
+      {
         "command": "clojure.expand_selection",
         "title": "Clojure: Expand Selection",
-        "description": "Expand selection to containting brackets/parentheses."
+        "description": "Expand selection to containing brackets/parentheses."
       },
       {
         "command": "clojure.refresh",

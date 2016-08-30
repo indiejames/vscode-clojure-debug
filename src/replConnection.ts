@@ -8,6 +8,16 @@ import nrepl_client = require('jg-nrepl-client');
 
 interface callbackType { (err: any, result: any): void }
 
+function escapeClojureCodeInString(code: string): string {
+	let escaped = code.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+	return "\"" + escaped + "\"";
+}
+
+function wrapCodeInReadEval(code: string): string {
+	let escapedCode = escapeClojureCodeInString(code);
+	return "(eval (read-string {:read-cond :allow} " + escapedCode + "))";
+}
+
 /*
 	Repl - data and methods related to communicating with a REPL process.
 */
@@ -17,27 +27,37 @@ export class ReplConnection {
 	private commandSession: any;
 
 	constructor(replHost: string, replPort: number) {
-		  let self = this;
-			this.conn = nrepl_client.connect({port: replPort, host: replHost, verbose: false});
-			this.conn.clone((err: any, result: any) => {
-				self.session = result[0]["new-session"];
-				console.log("Eval session: " + self.session);
-				self.conn.clone((err: any, result: any) => {
-					self.commandSession = result[0]["new-session"];
-					console.log("Command session: " + self.commandSession);
-				});
+		let self = this;
+		this.conn = nrepl_client.connect({port: replPort, host: replHost, verbose: false});
+		this.conn.clone((err: any, result: any) => {
+			self.session = result[0]["new-session"];
+			console.log("Eval session: " + self.session);
+			self.conn.clone((err: any, result: any) => {
+				self.commandSession = result[0]["new-session"];
+				console.log("Command session: " + self.commandSession);
 			});
+		});
+	}
+
+	// attach this REPL to the debugged REPL
+	public attach(port: number, callback: callbackType) {
+		this.conn.send({op: 'attach', port: port}, callback);
 	}
 
 	// evaluate the given code (possibly in a given namespace)
 	public eval(code: string, callback: callbackType, ns?: string) {
+		code = wrapCodeInReadEval(code);
 		if (ns) {
-			this.conn.eval(code, ns, this.session, callback);
+			// this.conn.eval(code, ns, this.session, callback);
+			this.conn.send({op: 'eval', ns: ns, code: code, session: this.session}, callback);
 		} else {
-			this.conn.eval(code, null, this.session, callback);
+			// this.conn.eval(code, null, this.session, callback);
+			this.conn.send({op: 'eval', code: code, session: this.session}, callback);
 		}
 
 	}
+
+	// TODO change all these string keys to keyword: keys
 
 	// evaluate code in the context of a given thread/frame
 	public reval(frameIndex: number, code: string, callback: callbackType) {
@@ -62,6 +82,12 @@ export class ReplConnection {
 	// set a breakpoint at the given line in the given file
 	public setBreakpoint(path: string, line: number, callback: callbackType) {
 		this.conn.send({op: 'set-breakpoint', line: line, path: path, 'session': this.commandSession}, callback);
+	}
+
+	// set a breakpoint for exceptions. type is one of 'all', 'uncaught', or 'none', indicating that exception breakpoints
+	// should be cleared
+	public setExceptionBreakpoint(type: string, callback: callbackType) {
+		this.conn.send({op: 'set-exception-breakpoint', type: type}, callback);
 	}
 
 	// clear all breakpoints for the given file
@@ -112,6 +138,14 @@ export class ReplConnection {
 	// reload any changed namespaces
 	public refresh(callback: callbackType) {
 		this.conn.send({op: 'refresh', 'session': this.commandSession}, callback);
+	}
+
+	public setIgnore(callback: callbackType) {
+		this.conn.eval("(alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)", null, this.session, (err: any, result: any) => {
+			if (err){
+				console.error("Error setting compiler options on debugged process.");
+			}
+		});
 	}
 
 	public close(callback: callbackType) {
