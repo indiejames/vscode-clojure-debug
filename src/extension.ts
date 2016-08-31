@@ -19,6 +19,8 @@ import {EditorUtils} from './editorUtils';
 import edn = require('jsedn');
 import {} from 'languages';
 
+let EXIT_CMD = "(System/exit 0)";
+
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
 		"lineComment": ";"
@@ -87,6 +89,11 @@ export function activate(context: ExtensionContext) {
 
 		sock.on('eval', (code) => {
 			switch (code) {
+			case 'exit':
+				rconn.eval(EXIT_CMD, (err: any, result: any): void => {
+				// This is never called, apparently.
+			});
+				break;
 			case 'get-namespace':
 				sock.emit('namespace-result', EditorUtils.findNSForCurrentEditor());
 				break;

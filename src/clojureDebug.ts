@@ -492,11 +492,18 @@ class ClojureDebugSession extends DebugSession {
 		console.log("Diconnect requested");
 		var self = this;
 		if (this._isLaunched) {
+
 			this._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
-				self._primaryRepl.kill('SIGKILL');
-				self.sendResponse(response);
-				self.shutdown();
+				// This is never called, apparently.
 			});
+			//self._primaryRepl.kill('SIGKILL');
+			let sideChannel = s("http://localhost:" + self._sideChannelPort);
+			sideChannel.on('go-eval', (data) => {
+					sideChannel.emit("exit");
+					self.sendResponse(response);
+					self.shutdown();
+			});
+
 		} else {
 			this._replConnection.close((err: any, result: any): void => {
 				// do nothing
@@ -759,56 +766,56 @@ class ClojureDebugSession extends DebugSession {
 		this.sendResponse(response);
 	}
 
-protected scopesRequestB(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
+// protected scopesRequestB(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
 
-		const frameReference = args.frameId;
-		const scopes = new Array<Scope>();
-		scopes.push(new Scope("Local", this._variableHandles.create(["local_" + frameReference]), false));
-		scopes.push(new Scope("Closure", this._variableHandles.create(["closure_" + frameReference]), false));
-		scopes.push(new Scope("Global", this._variableHandles.create(["global_" + frameReference]), true));
+// 		const frameReference = args.frameId;
+// 		const scopes = new Array<Scope>();
+// 		scopes.push(new Scope("Local", this._variableHandles.create(["local_" + frameReference]), false));
+// 		scopes.push(new Scope("Closure", this._variableHandles.create(["closure_" + frameReference]), false));
+// 		scopes.push(new Scope("Global", this._variableHandles.create(["global_" + frameReference]), true));
 
-		response.body = {
-			scopes: scopes
-		};
-		this.sendResponse(response);
-	}
+// 		response.body = {
+// 			scopes: scopes
+// 		};
+// 		this.sendResponse(response);
+// 	}
 
-	protected variablesRequestB(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
+// 	protected variablesRequestB(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
 
-		const variables = [];
-		const id = this._variableHandles.get(args.variablesReference);
-		if (id != null) {
-			variables.push({
-				name: id + "_i",
-				type: "integer",
-				value: "123",
-				variablesReference: 0
-			});
-			variables.push({
-				name: id + "_f",
-				type: "float",
-				value: "3.14",
-				variablesReference: 0
-			});
-			variables.push({
-				name: id + "_s",
-				type: "string",
-				value: "hello world",
-				variablesReference: 0
-			});
-			variables.push({
-				name: id + "_o",
-				type: "object",
-				value: "Object",
-				variablesReference: this._variableHandles.create(["object_"])
-			});
-		}
+// 		const variables = [];
+// 		const id = this._variableHandles.get(args.variablesReference);
+// 		if (id != null) {
+// 			variables.push({
+// 				name: id + "_i",
+// 				type: "integer",
+// 				value: "123",
+// 				variablesReference: 0
+// 			});
+// 			variables.push({
+// 				name: id + "_f",
+// 				type: "float",
+// 				value: "3.14",
+// 				variablesReference: 0
+// 			});
+// 			variables.push({
+// 				name: id + "_s",
+// 				type: "string",
+// 				value: "hello world",
+// 				variablesReference: 0
+// 			});
+// 			variables.push({
+// 				name: id + "_o",
+// 				type: "object",
+// 				value: "Object",
+// 				variablesReference: this._variableHandles.create(["object_"])
+// 			});
+// 		}
 
-		response.body = {
-			variables: variables
-		};
-		this.sendResponse(response);
-	}
+// 		response.body = {
+// 			variables: variables
+// 		};
+// 		this.sendResponse(response);
+// 	}
 
 
 	protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {

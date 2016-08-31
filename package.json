@@ -52,9 +52,9 @@
    "test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
   },
    "activationEvents": [
-    "workspaceContains:project.clj",
-    "onCommand:clojure.new_library_project",
-    "onCommand:clojure.new_application_project"
+     "workspaceContains:project.clj",
+     "onCommand:clojure.new_library_project",
+     "onCommand:clojure.new_application_project"
   ],
   "main": "./out/extension",
   "contributes": {
