@@ -26,17 +26,40 @@ export class ReplConnection {
 	private session: any;
 	private commandSession: any;
 
-	constructor(replHost: string, replPort: number) {
-		let self = this;
+	// don't initialize anything in the constuctor - wait until connect is called
+	constructor() {
+	}
+
+	// set up the internal connection to a REPL
+	public connect(replHost: string, replPort: number, callback: callbackType) {
+		if (this.conn){
+			this.conn.close((err: any, result: any) => {
+				if(err) {
+					console.error(err);
+					callback(err, null);
+				}
+			});
+		}
 		this.conn = nrepl_client.connect({port: replPort, host: replHost, verbose: false});
+		let self = this;
 		this.conn.clone((err: any, result: any) => {
 			self.session = result[0]["new-session"];
 			console.log("Eval session: " + self.session);
 			self.conn.clone((err: any, result: any) => {
 				self.commandSession = result[0]["new-session"];
 				console.log("Command session: " + self.commandSession);
+				if(err) {
+					console.error(err);
+					callback(err, null);
+				} else {
+					callback(null, result);
+				}
 			});
 		});
+	}
+
+	public isConnected(){
+		return this.conn != null;
 	}
 
 	// attach this REPL to the debugged REPL
@@ -47,14 +70,13 @@ export class ReplConnection {
 	// evaluate the given code (possibly in a given namespace)
 	public eval(code: string, callback: callbackType, ns?: string) {
 		code = wrapCodeInReadEval(code);
+		var command = {op: 'eval', code: code, session: this.session};
+
 		if (ns) {
-			// this.conn.eval(code, ns, this.session, callback);
-			this.conn.send({op: 'eval', ns: ns, code: code, session: this.session}, callback);
-		} else {
-			// this.conn.eval(code, null, this.session, callback);
-			this.conn.send({op: 'eval', code: code, session: this.session}, callback);
+			command["ns"] = ns;
 		}
 
+		this.conn.send(command, callback);
 	}
 
 	// TODO change all these string keys to keyword: keys
@@ -150,5 +172,6 @@ export class ReplConnection {
 
 	public close(callback: callbackType) {
 		this.conn.close(callback);
+		this.conn = null;
 	}
 }
