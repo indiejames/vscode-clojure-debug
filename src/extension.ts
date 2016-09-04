@@ -11,6 +11,9 @@ import { window, workspace, languages, commands, OutputChannel, Range, Completio
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
+import {readFileSync} from 'fs-extra';
+import {join} from 'path';
+import stripJsonComments = require('strip-json-comments');
 import {spawn} from 'child_process';
 import {ClojureCompletionItemProvider} from './clojureCompletionItemProvider';
 import {ClojureDefinitionProvider} from './clojureDefinitionProvider';
@@ -33,7 +36,6 @@ const languageConfiguration: LanguageConfiguration = {
 	wordPattern: /[^\s()"',;~@#$%^&{}\[\]\\`\n]+/g
 }
 
-var extensionInitialized = false;
 var debuggedProcessLaunched = false;
 var rconn: ReplConnection;
 var outputChannel: any;
@@ -57,18 +59,12 @@ function handleEvalResponse(response: Array<any>, outputChannel: OutputChannel) 
 	}
 }
 
-export function activate(context: ExtensionContext) {
-	console.log("Starting Clojure extension...");
-	let cfg = workspace.getConfiguration("clojure");
-	extensionDir = context.extensionPath;
-	window.setStatusBarMessage("Activating Extension");
-
-	// var outputChannel = window.createOutputChannel("Clojure REPL");
-	// outputChannel.show(true);
-	console.log("Setting up side channel on port 3030");
-	window.setStatusBarMessage("Setting up side channel on port 3030");
+function initSideChannel(sideChannelPort: number){
 	// start up a side channel that the debug adapter can use to query the extension
-	let sideChannelPort = cfg.get("sideChannelPort", 3030);
+
+	console.log("Setting up side channel on port " + sideChannelPort);
+	window.setStatusBarMessage("Setting up side channel on port " + sideChannelPort);
+
 	var sideChannel = s(sideChannelPort);
 	sideChannel.on('connection', (sock) => {
 
@@ -87,208 +83,213 @@ export function activate(context: ExtensionContext) {
 				}, ns);
 		});
 
-		sock.on('eval', (code) => {
-			switch (code) {
+		sock.on('eval', (action) => {
+			switch (action) {
+			case 'terminate-and-exit':
+			  rconn.eval(EXIT_CMD, (err: any, result: any): void => {
+					// This is never called, apparently.
+					console.log("debugged process killed")
+				});
+
+				// fall through
+
 			case 'exit':
-				rconn.eval(EXIT_CMD, (err: any, result: any): void => {
-				// This is never called, apparently.
-			});
+				rconn.close((err: any, msg: any) : any => {
+					console.log("Connection closed)");
+				});
+
 				break;
+
 			case 'get-namespace':
 				sock.emit('namespace-result', EditorUtils.findNSForCurrentEditor());
 				break;
+
 			case 'load-namespace':
 				let ns = EditorUtils.findNSForCurrentEditor();
 				rconn.eval("(require '" + ns + ")", (err: any, result: any) => {
 					sock.emit('load-namespace-result')
 				});
 				break;
-			case 'get-extension-directory':
-			 	sock.emit('get-extension-directory-result', context.extensionPath);
-				 break;
+
 		  case 'attach':
-				console.log("Attaching to debugged process");
-				window.setStatusBarMessage("Attaching to debugged process");
-				// TODO Get this from config
-				let repl_port = 7777;
-  				let env = {};
 
-				var isInitialized = false;
-				let regexp = new RegExp('nREPL server started on port');
-
-
-				// let cwd = "/Users/jnorton/Clojure/repl_test";
-				// let repl = spawn('/usr/local/bin/lein', ["repl", ":headless", ":port", "" + repl_port], {cwd: cwd, env: env});
-
-				// use default completions if none are available from Compliment
-				//context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new CompletionItemProvider()))
-
-				rconn = new ReplConnection("127.0.0.1", repl_port);
-				// TODO make this configurable or get config from debugger launch config
-				rconn.refresh((err: any, result: any) => {
-
-				});
-
-				rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
-					// if (extensionInitialized) {
-					// 	// deregister old providers
-					// 	context.subscriptions.
-					// }
-					// if (!extensionInitialized) {
-						extensionInitialized = true;
-						context.subscriptions.push(languages.setLanguageConfiguration("clojure", languageConfiguration));
-						context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
-						context.subscriptions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
-						context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
-						console.log("Compliment namespace loaded");
-
-						////////////////////////////////////////////////////
-
-
-						context.subscriptions.push(commands.registerCommand('clojure.eval', () => {
-							// only support evaluating select text for now.
-							// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
-							let editor = window.activeTextEditor;
-							let selection = editor.selection;
-							let range = new Range(selection.start, selection.end);
-							let code = editor.document.getText(range);
-							let ns = EditorUtils.findNSForCurrentEditor();
-							if (ns) {
-								rconn.eval(code, (err: any, result: any) : void => {
-									handleEvalResponse(result, outputChannel);
-								}, ns);
-							} else {
-								rconn.eval(code, (err: any, result: any) : void => {
-									handleEvalResponse(result, outputChannel);
-								});
-							}
-
-						}));
-
-						context.subscriptions.push(commands.registerCommand('clojure.refresh', () => {
-							console.log("Calling refresh...")
-							rconn.refresh((err: any, result: any) : void => {
-								// TODO handle errors here
-								console.log("Refreshed Clojure code.");
-								});
-						}));
-
-						// TODO create a test runner class and move these to it
-						context.subscriptions.push(commands.registerCommand('clojure.run-all-tests', () => {
-							if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {
-								console.log("Calling refresh...")
-								rconn.refresh((err: any, result: any) : void => {
-									// TODO handle errors here
-									console.log("Refreshed Clojure code.");
-									rconn.runAllTests((err: any, result: any) : void => {
-										console.log("All tests run.");
-									});
-								});
-							} else {
-								rconn.runAllTests((err: any, result: any) : void => {
-									console.log("All tests run.");
-								});
-							}
-						}));
-
-						context.subscriptions.push(commands.registerCommand('clojure.run-test-file', () => {
-							let ns = EditorUtils.findNSForCurrentEditor();
-							if (cfg.get("refreshNamespacesBeforeRunnningTestNamespace") === true) {
-								rconn.refresh((err: any, result: any) => {
-									console.log("Refreshed Clojure code.");
-									rconn.runTestsInNS(ns, (err: any, result: any) => {
-										console.log("Tests for namespace " + ns + " run.");
-									});
-								});
-							} else {
-								rconn.runTestsInNS(ns, (err: any, result: any) => {
-										console.log("Tests for ns " + ns + " run.");
-									});
-							}
-						}));
-
-						context.subscriptions.push(commands.registerCommand('clojure.run-test', () => {
-							let ns = EditorUtils.findNSForCurrentEditor();
-							let test = EditorUtils.getSymobleUnderCursor();
-							if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
-								rconn.refresh((err: any, result: any) => {
-									rconn.runTest(ns, test, (err: any, result: any) => {
-										console.log("Test " + test + " run.");
-									});
-								});
-							} else {
-								rconn.runTest(ns, test, (err: any, result: any) => {
-										console.log("Test " + test + " run.");
-									});
-							}
-						}));
-
-
-						///////////////////////////////////////////////////
-
-					// }
-					window.setStatusBarMessage("Attached to process");
-
-				});
 				break;
 
-				default: console.error("Unknown side channel request");
+			default: console.error("Unknown side channel request");
 			}
 		});
 
 		sock.emit('go-eval', {});
 	});
+}
 
+function setUpActions(context: ExtensionContext, rconn: ReplConnection){
+	let cfg = workspace.getConfiguration("clojure");
 
-
-	// The server is implemented in node
-	let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
-	// The debug options for the server
-	let debugOptions = { execArgv: ["--nolazy", "--debug=6004"] };
-
-	// If the extension is launched in debug mode the debug server options are used.
-	// Otherwise the run options are used.
-	let serverOptions: ServerOptions = {
-		run : { module: serverModule, transport: TransportKind.ipc },
-		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
-	}
-
-	// Options to control the language client
-	let clientOptions: LanguageClientOptions = {
-		// Register the server for plain text documents
-		documentSelector: ['clojure'],
-		synchronize: {
-			// Synchronize the setting section 'languageServerExample' to the server
-			configurationSection: 'languageServerExample',
-			// Notify the server about file changes to '.clientrc files contain in the workspace
-			fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
-		}
-	}
-
-	// Create the language client and start the client.
-	let client = new LanguageClient('Language Server Example', serverOptions, clientOptions);
-	let disposable = client.start();
-	let promise = client.onReady();
-	// promise.then(() => {
-
-	// 		let rconn = nrepl_client.connect({port: repl_port, host: "127.0.0.1", verbose: false});
-	// 		rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
-	// 		// TODO move code into here so we can wait for this eval to finish
-	// 		});
-	// });
-	// client.onReady(() => void {
-
-	// });
-
-	context.subscriptions.push(commands.registerCommand('clojure.expand_selection', () => {
+	context.subscriptions.push(languages.setLanguageConfiguration("clojure", languageConfiguration));
+	context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
+	context.subscriptions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
+	context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
+  context.subscriptions.push(commands.registerCommand('clojure.expand_selection', () => {
 		EditorUtils.selectBrackets();
 	}));
 
+	////////////////////////////////////////////////////
 
+	context.subscriptions.push(commands.registerCommand('clojure.eval', () => {
+		// only support evaluating select text for now.
+		// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
+		let editor = window.activeTextEditor;
+		let selection = editor.selection;
+		let range = new Range(selection.start, selection.end);
+		let code = editor.document.getText(range);
+		let ns = EditorUtils.findNSForCurrentEditor();
+		if (ns) {
+			rconn.eval(code, (err: any, result: any) : void => {
+				handleEvalResponse(result, outputChannel);
+			}, ns);
+		} else {
+			rconn.eval(code, (err: any, result: any) : void => {
+				handleEvalResponse(result, outputChannel);
+			});
+		}
+
+	}));
+
+	context.subscriptions.push(commands.registerCommand('clojure.refresh', () => {
+		console.log("Calling refresh...")
+		rconn.refresh((err: any, result: any) : void => {
+			// TODO handle errors here
+			console.log("Refreshed Clojure code.");
+			});
+	}));
+
+	// TODO create a test runner class and move these to it
+	context.subscriptions.push(commands.registerCommand('clojure.run-all-tests', () => {
+		if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {
+			console.log("Calling refresh...")
+			rconn.refresh((err: any, result: any) : void => {
+				// TODO handle errors here
+				console.log("Refreshed Clojure code.");
+				rconn.runAllTests((err: any, result: any) : void => {
+					console.log("All tests run.");
+				});
+			});
+		} else {
+			rconn.runAllTests((err: any, result: any) : void => {
+				console.log("All tests run.");
+			});
+		}
+	}));
+
+	context.subscriptions.push(commands.registerCommand('clojure.run-test-file', () => {
+		let ns = EditorUtils.findNSForCurrentEditor();
+		if (cfg.get("refreshNamespacesBeforeRunnningTestNamespace") === true) {
+			rconn.refresh((err: any, result: any) => {
+				console.log("Refreshed Clojure code.");
+				rconn.runTestsInNS(ns, (err: any, result: any) => {
+					console.log("Tests for namespace " + ns + " run.");
+				});
+			});
+		} else {
+			rconn.runTestsInNS(ns, (err: any, result: any) => {
+					console.log("Tests for ns " + ns + " run.");
+				});
+		}
+	}));
+
+	context.subscriptions.push(commands.registerCommand('clojure.run-test', () => {
+		let ns = EditorUtils.findNSForCurrentEditor();
+		let test = EditorUtils.getSymobleUnderCursor();
+		if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
+			rconn.refresh((err: any, result: any) => {
+				rconn.runTest(ns, test, (err: any, result: any) => {
+					console.log("Test " + test + " run.");
+				});
+			});
+		} else {
+			rconn.runTest(ns, test, (err: any, result: any) => {
+					console.log("Test " + test + " run.");
+				});
+		}
+	}));
+}
+
+// Create a connection to the debugged process and run some init code
+function connect(context: ExtensionContext) {
+	console.log("Attaching to debugged process");
+	window.setStatusBarMessage("Attaching to debugged process");
+	let cfg = workspace.getConfiguration("clojure");
+	// TODO Get this from config
+	let repl_port = 7777;
+	let env = {};
+
+	var isInitialized = false;
+
+	// use default completions if none are available from Compliment
+	//context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new CompletionItemProvider()))
+
+	rconn = new ReplConnection("127.0.0.1", repl_port);
+	// TODO make this configurable or get config from debugger launch config
+	rconn.refresh((err: any, result: any) => {
+
+	});
+
+	rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
+	  console.log("Compliment namespace loaded");
+		window.setStatusBarMessage("Attached to process");
+	});
+}
+
+export function activate(context: ExtensionContext) {
+	console.log("Starting Clojure extension...");
+	let cfg = workspace.getConfiguration("clojure");
+	window.setStatusBarMessage("Activating Extension");
+
+	// read the launch.json file to get the side channel port
+	let launchJsonPath = join(workspace.rootPath, ".vscode", "launch.json");
+  let launchJsonStr = readFileSync(launchJsonPath).toString();
+  let launchJson = JSON.parse(stripJsonComments(launchJsonStr));
+
+  let sideChannelPort: number = launchJson["configurations"][0]["sideChannelPort"];
+
+
+  connect(context);
+
+	initSideChannel(sideChannelPort);
+
+	// The server is implemented in node
+	// let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
+	// // The debug options for the server
+	// let debugOptions = { execArgv: ["--nolazy", "--debug=6004"] };
+
+	// // If the extension is launched in debug mode the debug server options are used.
+	// // Otherwise the run options are used.
+	// let serverOptions: ServerOptions = {
+	// 	run : { module: serverModule, transport: TransportKind.ipc },
+	// 	debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
+	// }
+
+	// Options to control the language client
+	// let clientOptions: LanguageClientOptions = {
+	// 	// Register the server for plain text documents
+	// 	documentSelector: ['clojure'],
+	// 	synchronize: {
+	// 		// Synchronize the setting section 'languageServerExample' to the server
+	// 		configurationSection: 'languageServerExample',
+	// 		// Notify the server about file changes to '.clientrc files contain in the workspace
+	// 		fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
+	// 	}
+	// }
+
+	// Create the language client and start the client.
+	// let client = new LanguageClient('Language Server Example', serverOptions, clientOptions);
+	// let disposable = client.start();
+	// let promise = client.onReady();
 
 	// Push the disposable to the context's subscriptions so that the
 	// client can be deactivated on extension deactivation
-	context.subscriptions.push(disposable);
+	// context.subscriptions.push(disposable);
 
 	console.log("Clojure extension active");
 	window.setStatusBarMessage("Clojure extension active");

@@ -9,7 +9,7 @@
 
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
-import {readFileSync, copySync} from 'fs-extra';
+import {readFileSync, copySync, writeFileSync} from 'fs-extra';
 // import {blue} from 'chalk';
 import {basename, dirname, join} from 'path';
 import {spawn} from 'child_process';
@@ -20,6 +20,18 @@ import {ReplConnection} from './replConnection';
 let chalk = require("chalk");
 
 let EXIT_CMD = "(System/exit 0)";
+
+let projectClj = `(defproject repl_connect "0.1.0-SNAPSHOT"
+  :description "Embedded project for Debug REPL."
+  :url "http://example.com/FIXME"
+  :license {:name "Eclipse Public License"
+            :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :profiles {:dev {:dependencies [[debug-middleware "0.1.1-SNAPSHOT"]]
+                   :repl-options {:nrepl-middleware [debug-middleware.core/debug-middleware]}}}
+  :resource-paths []
+  :dependencies [[org.clojure/clojure "1.8.0"]
+                 [debug-middleware "0.1.1-SNAPSHOT"]
+                 [cdt "1.2.6.3"]])`;
 
 // Constants to represent the various states of the debugger
 class DebuggerState {
@@ -44,6 +56,8 @@ export interface LaunchRequestArguments {
 	toolsJar: string;
 	// Port for nREPL
 	replPort: number;
+	// Port for debugger nREPL
+	debugReplPort: number;
 	// Port for JDWP connection
 	debugPort: number;
 	// Port for side channel
@@ -84,6 +98,8 @@ class ClojureDebugSession extends DebugSession {
 	private configuration: any;
 	// debugger side channel port
 	private _sideChannelPort: number;
+	// path to project.clj for debugger REPL
+	private _tmpProjectDir: string;
 
 	// Get the full path to a source file. Input paths are of the form repl_test/core.clj.
 	// TODO Change this to search for the given debuggerPath under all the src directories.
@@ -340,11 +356,11 @@ class ClojureDebugSession extends DebugSession {
 
 				self._debuggerState = DebuggerState.LAUNCH_COMPLETE;
 
-				var sideChannel = s("http://localhost:" + self._sideChannelPort);
-				sideChannel.on('go-eval', (data) => {
-					sideChannel.emit("eval", "attach");
-					sideChannel.close();
-				});
+				// var sideChannel = s("http://localhost:" + self._sideChannelPort);
+				// sideChannel.on('go-eval', (data) => {
+				// 	sideChannel.emit("eval", "attach");
+				// 	sideChannel.close();
+				// });
 
 				self._replConnection.attach(debugged_port, (err: any, result: any) => {
 					console.log("Debug REPL attached to Debugged REPL");
@@ -378,7 +394,7 @@ class ClojureDebugSession extends DebugSession {
 							allThreadsContinued: true
 						};
 						// DO I need this?
-						// self.sendResponse(response);
+						self.sendResponse(response);
 
 						self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
 					}
@@ -398,42 +414,64 @@ class ClojureDebugSession extends DebugSession {
 		});
 	}
 
-	protected attachRequest(response: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments) {
-		console.log("ATTACH REQUEST");
-
-	}
-
 	private setupSideChannelAndDebugREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments, repl_port: number, debug_port: number, lein_path: string){
 		let self = this;
-		let sideChannel = s("http://localhost:" + self._sideChannelPort);
-		sideChannel.on('go-eval', (data) => {
-			sideChannel.emit("eval", "get-extension-directory");
-			sideChannel.on('get-extension-directory-result', (data) => {
-				self._extensionDir = data;
-				sideChannel.close();
-				// launch debugger REPL
+
+		// TODO find a better way to synchronize the connect than just trying repeatedly.
+		// var sideChannel = null;
+		// while (sideChannel == null) {
+		// 	try {
+		// 		sideChannel = s("http://localhost:" + self._sideChannelPort);
+		// 	} catch (Error){
+		// 		sideChannel = null;
+		// 	}
+		// }
+		// sideChannel.on('go-eval', (data) => {
+		// 	sideChannel.emit("eval", "get-extension-directory");
+		// 	sideChannel.on('get-extension-directory-result', (data) => {
+		// 		self._extensionDir = data;
+		// 		sideChannel.close();
+		// 		// launch debugger REPL
 				let env = {"HOME": process.env["HOME"]};
-				// create a tempory lein proejct
-				var tmpobj = tmp.dirSync({ mode: 0o750, prefix: 'repl_connnect_' });
-				console.log("PROJECT TMP DIR: ", tmpobj.name + "/project.clj");
-				copySync(self._extensionDir + "/out/project.clj", tmpobj.name + "/project.clj")
+
+				// copySync(self._extensionDir + "/out/project.clj", tmpobj.name + "/project.clj")
 				// Manual cleanup
 				//tmpobj.removeCallback();
 
-				// TODO remove this magic number (string)
-				self._cdtRepl = spawn(lein_path, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "7878"], {cwd: tmpobj.name, env: env });
+				var debugReplPort = 5556;
+				if (args.debugReplPort) {
+					debugReplPort = args.debugReplPort;
+				}
+				self._cdtRepl = spawn(lein_path, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
 				self._debuggerState = DebuggerState.REPL_STARTED;
 				console.log("DEBUGGER REPL STARTED");
 				// TODO remove this magic number
-				self.connectToCDTREPL(response, args, 7878, debug_port);
-			});
-		});
+				self.connectToCDTREPL(response, args, debugReplPort, debug_port);
+		// 	});
+		// });
+	}
+
+	private createDebuggerProject() {
+		// create a tempory lein proejct
+		var tmpobj = tmp.dirSync({ mode: 0o750, prefix: 'repl_connnect_' });
+		this._tmpProjectDir = tmpobj.name;
+		let projectPath = join(tmpobj.name, "project.clj");
+		console.log("PROJECT.CLJ FILE: ", projectPath);
+		writeFileSync(projectPath, projectClj);
+	}
+
+	protected attachRequest(response: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments) {
+		console.log("ATTACH REQUEST");
+		this.createDebuggerProject();
+
 	}
 
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
 		console.log("LAUNCH REQUEST");
 		this._isLaunched = true;
 		let self = this;
+
+		this.createDebuggerProject();
 
 		//var cwd = dirname(args.program);
 		this._cwd = args.cwd;
@@ -490,26 +528,28 @@ class ClojureDebugSession extends DebugSession {
 
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {
 		console.log("Diconnect requested");
+
+		this._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
+			// This is never called, apparently.
+		});
+
+		this._replConnection.close((err: any, result: any): void => {
+			// do nothing
+		});
+
 		var self = this;
-		if (this._isLaunched) {
+		let sideChannel = s("http://localhost:" + self._sideChannelPort);
 
-			this._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
-				// This is never called, apparently.
-			});
-			//self._primaryRepl.kill('SIGKILL');
-			let sideChannel = s("http://localhost:" + self._sideChannelPort);
-			sideChannel.on('go-eval', (data) => {
-					sideChannel.emit("exit");
-					self.sendResponse(response);
-					self.shutdown();
-			});
+		sideChannel.on('go-eval', (data) => {
+			if (this._isLaunched) {
+				sideChannel.emit("eval","terminate-and-exit");
+			} else {
+				sideChannel.emit("eval","exit");
+			}
 
-		} else {
-			this._replConnection.close((err: any, result: any): void => {
-				// do nothing
-			});
-		}
-
+			self.sendResponse(response);
+			self.shutdown();
+		});
 	}
 
 	protected sourceRequest(response: DebugProtocol.SourceResponse, args: DebugProtocol.SourceArguments): void {

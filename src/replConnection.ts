@@ -27,8 +27,19 @@ export class ReplConnection {
 	private commandSession: any;
 
 	constructor(replHost: string, replPort: number) {
-		let self = this;
+		this.connect(replPort, replHost);
+	}
+
+	public connect(replPort: number, replHost: string) {
+		if (this.conn){
+			this.conn.close((err: any, result: any) => {
+				if(err) {
+					console.error(err);
+				}
+			});
+		}
 		this.conn = nrepl_client.connect({port: replPort, host: replHost, verbose: false});
+		let self = this;
 		this.conn.clone((err: any, result: any) => {
 			self.session = result[0]["new-session"];
 			console.log("Eval session: " + self.session);
@@ -37,6 +48,10 @@ export class ReplConnection {
 				console.log("Command session: " + self.commandSession);
 			});
 		});
+	}
+
+	public isConnected(){
+		return this.conn != null;
 	}
 
 	// attach this REPL to the debugged REPL
@@ -150,5 +165,6 @@ export class ReplConnection {
 
 	public close(callback: callbackType) {
 		this.conn.close(callback);
+		this.conn = null;
 	}
 }
