@@ -68,19 +68,25 @@ function initSideChannel(sideChannelPort: number){
 	var sideChannel = s(sideChannelPort);
 	sideChannel.on('connection', (sock) => {
 
+		sock.on('connect-to-repl', (hostPortString) => {
+			var host, port;
+			[host, port] = hostPortString.split(":");
+			connect(host, port);
+		});
+
 		sock.on('eval-code', (code) => {
 			console.log("Evaluating code");
 			window.setStatusBarMessage("Evaluating Code")
 			let ns = EditorUtils.findNSForCurrentEditor();
-				rconn.eval(code, (err: any, result: any) => {
-					console.log("Code evaluated");
-					window.setStatusBarMessage("Code Evaluated");
-					if (err){
-						sock.emit('eval-code-result', err);
-					} else {
-						sock.emit('eval-code-result', result);
-					}
-				}, ns);
+			rconn.eval(code, (err: any, result: any) => {
+				console.log("Code evaluated");
+				window.setStatusBarMessage("Code Evaluated");
+				if (err){
+					sock.emit('eval-code-result', err);
+				} else {
+					sock.emit('eval-code-result', result);
+				}
+			}, ns);
 		});
 
 		sock.on('eval', (action) => {
@@ -109,10 +115,6 @@ function initSideChannel(sideChannelPort: number){
 				rconn.eval("(require '" + ns + ")", (err: any, result: any) => {
 					sock.emit('load-namespace-result')
 				});
-				break;
-
-		  case 'attach':
-
 				break;
 
 			default: console.error("Unknown side channel request");
@@ -216,28 +218,23 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 }
 
 // Create a connection to the debugged process and run some init code
-function connect(context: ExtensionContext) {
+function connect(host: string, port: number) {
 	console.log("Attaching to debugged process");
 	window.setStatusBarMessage("Attaching to debugged process");
 	let cfg = workspace.getConfiguration("clojure");
-	// TODO Get this from config
-	let repl_port = 7777;
-	let env = {};
 
-	var isInitialized = false;
-
-	// use default completions if none are available from Compliment
-	//context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new CompletionItemProvider()))
-
-	rconn = new ReplConnection("127.0.0.1", repl_port);
-	// TODO make this configurable or get config from debugger launch config
-	rconn.refresh((err: any, result: any) => {
-
-	});
-
-	rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
-	  console.log("Compliment namespace loaded");
-		window.setStatusBarMessage("Attached to process");
+	rconn.connect(host, port, (err: any, result: any) => {
+		// TODO make this configurable or get config from debugger launch config
+		rconn.refresh((err: any, result: any) => {
+			if (err) {
+				console.error(err);
+			} else {
+				rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
+					console.log("Compliment namespace loaded");
+					window.setStatusBarMessage("Attached to process");
+				});
+			}
+		});
 	});
 }
 
@@ -250,11 +247,12 @@ export function activate(context: ExtensionContext) {
 	let launchJsonPath = join(workspace.rootPath, ".vscode", "launch.json");
   let launchJsonStr = readFileSync(launchJsonPath).toString();
   let launchJson = JSON.parse(stripJsonComments(launchJsonStr));
-
   let sideChannelPort: number = launchJson["configurations"][0]["sideChannelPort"];
 
+  // Create the connection object but don't connect yet
+	rconn = new ReplConnection();
 
-  connect(context);
+	setUpActions(context, rconn);
 
 	initSideChannel(sideChannelPort);
 
@@ -293,4 +291,8 @@ export function activate(context: ExtensionContext) {
 
 	console.log("Clojure extension active");
 	window.setStatusBarMessage("Clojure extension active");
+}
+
+export function deactivate(context: ExtensionContext){
+	context.subscriptions = [];
 }

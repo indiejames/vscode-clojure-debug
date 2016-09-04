@@ -26,15 +26,17 @@ export class ReplConnection {
 	private session: any;
 	private commandSession: any;
 
-	constructor(replHost: string, replPort: number) {
-		this.connect(replPort, replHost);
+	// don't initialize anything in the constuctor - wait until connect is called
+	constructor() {
 	}
 
-	public connect(replPort: number, replHost: string) {
+	// set up the internal connection to a REPL
+	public connect(replHost: string, replPort: number, callback: callbackType) {
 		if (this.conn){
 			this.conn.close((err: any, result: any) => {
 				if(err) {
 					console.error(err);
+					callback(err, null);
 				}
 			});
 		}
@@ -46,6 +48,12 @@ export class ReplConnection {
 			self.conn.clone((err: any, result: any) => {
 				self.commandSession = result[0]["new-session"];
 				console.log("Command session: " + self.commandSession);
+				if(err) {
+					console.error(err);
+					callback(err, null);
+				} else {
+					callback(null, result);
+				}
 			});
 		});
 	}
@@ -62,14 +70,13 @@ export class ReplConnection {
 	// evaluate the given code (possibly in a given namespace)
 	public eval(code: string, callback: callbackType, ns?: string) {
 		code = wrapCodeInReadEval(code);
+		var command = {op: 'eval', code: code, session: this.session};
+
 		if (ns) {
-			// this.conn.eval(code, ns, this.session, callback);
-			this.conn.send({op: 'eval', ns: ns, code: code, session: this.session}, callback);
-		} else {
-			// this.conn.eval(code, null, this.session, callback);
-			this.conn.send({op: 'eval', code: code, session: this.session}, callback);
+			command["ns"] = ns;
 		}
 
+		this.conn.send(command, callback);
 	}
 
 	// TODO change all these string keys to keyword: keys

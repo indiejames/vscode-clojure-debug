@@ -54,9 +54,11 @@ class DebuggerSubState {
 export interface LaunchRequestArguments {
 	// Absolute path to the tool.jar file.
 	toolsJar: string;
-	// Port for nREPL
+	// Host for the debugged REPL
+	// replHost: string;
+	// Port for the debugged REPL
 	replPort: number;
-	// Port for debugger nREPL
+	// Port for debugger REPL
 	debugReplPort: number;
 	// Port for JDWP connection
 	debugPort: number;
@@ -197,9 +199,6 @@ class ClojureDebugSession extends DebugSession {
 		return rval;
 	}
 
-
-
-
 	public constructor(_debuggerLinesStartAt1: boolean = true, isServer: boolean = false) {
 		// We always use debuggerLinesStartAt1 = true for Clojure
 		super(true, isServer);
@@ -306,7 +305,7 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	// Handle output from the REPL after launch is complete
-	protected handleREPLOutput(output) {
+	protected handleReplOutput(output) {
 
 		if ((this._debuggerState == DebuggerState.REPL_STARTED) && (output.search(/Attached to process/) != -1)) {
 			this._debuggerState = DebuggerState.DEBUGGER_ATTACHED;
@@ -341,7 +340,7 @@ class ClojureDebugSession extends DebugSession {
 		}
 	}
 
-	private connectToCDTREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments, repl_port: number, debugged_port: number) {
+	private connectToDebugREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments, repl_port: number, debugged_port: number) {
 		this._cdtRepl.stdout.on('data', (data) => {
 			var output = '' + data;
 
@@ -350,7 +349,12 @@ class ClojureDebugSession extends DebugSession {
 			// if ((self._debuggerState == DebuggerState.DEBUGGER_ATTACHED) && (output.search(/nREPL server started/) != -1)) {
             if ((output.search(/nREPL server started/) != -1)) {
 				self._debuggerState = DebuggerState.REPL_READY;
-				self._replConnection = new ReplConnection("127.0.0.1", repl_port);
+				self._replConnection = new ReplConnection();
+				self._replConnection.connect("127.0.0.1", repl_port, (err: any, result: any) => {
+					if (err) {
+						console.log(err);
+					}
+				});
 
 				console.log("CONNECTED TO REPL");
 
@@ -402,7 +406,7 @@ class ClojureDebugSession extends DebugSession {
 
 			}
 
-			self.handleREPLOutput(output);
+			self.handleReplOutput(output);
 
 			self.pout(output);
 
@@ -414,41 +418,32 @@ class ClojureDebugSession extends DebugSession {
 		});
 	}
 
-	private setupSideChannelAndDebugREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments, repl_port: number, debug_port: number, lein_path: string){
+	private setupDebugREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments){
 		let self = this;
 
-		// TODO find a better way to synchronize the connect than just trying repeatedly.
-		// var sideChannel = null;
-		// while (sideChannel == null) {
-		// 	try {
-		// 		sideChannel = s("http://localhost:" + self._sideChannelPort);
-		// 	} catch (Error){
-		// 		sideChannel = null;
-		// 	}
-		// }
-		// sideChannel.on('go-eval', (data) => {
-		// 	sideChannel.emit("eval", "get-extension-directory");
-		// 	sideChannel.on('get-extension-directory-result', (data) => {
-		// 		self._extensionDir = data;
-		// 		sideChannel.close();
-		// 		// launch debugger REPL
-				let env = {"HOME": process.env["HOME"]};
+		let env = {"HOME": process.env["HOME"]};
 
-				// copySync(self._extensionDir + "/out/project.clj", tmpobj.name + "/project.clj")
-				// Manual cleanup
-				//tmpobj.removeCallback();
+		var debugReplPort = 5556;
+		if (args.debugReplPort) {
+			debugReplPort = args.debugReplPort;
+		}
 
-				var debugReplPort = 5556;
-				if (args.debugReplPort) {
-					debugReplPort = args.debugReplPort;
-				}
-				self._cdtRepl = spawn(lein_path, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
-				self._debuggerState = DebuggerState.REPL_STARTED;
-				console.log("DEBUGGER REPL STARTED");
-				// TODO remove this magic number
-				self.connectToCDTREPL(response, args, debugReplPort, debug_port);
-		// 	});
-		// });
+		let debugPort = 3030;
+		if (args.debugPort) {
+			debugPort = args.debugPort;
+		}
+
+		var lein_path = "/usr/local/bin/lein";
+		if (args.leinPath) {
+			lein_path = args.leinPath;
+		}
+
+		self._cdtRepl = spawn(lein_path, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
+		self._debuggerState = DebuggerState.REPL_STARTED;
+		console.log("DEBUGGER REPL STARTED");
+		// TODO remove this magic number
+		self.connectToDebugREPL(response, args, debugReplPort, debugPort);
+
 	}
 
 	private createDebuggerProject() {
@@ -473,17 +468,17 @@ class ClojureDebugSession extends DebugSession {
 
 		this.createDebuggerProject();
 
-		//var cwd = dirname(args.program);
 		this._cwd = args.cwd;
 		console.log("CWD: " + this._cwd);
-		var repl_port = 5555;
+
+		var replPort = 5555;
 		if (args.replPort) {
-			repl_port = args.replPort;
+			replPort = args.replPort;
 		}
 
-		var debug_port = 8030;
+		var debugPort = 8030;
 		if (args.debugPort) {
-			debug_port = args.debugPort;
+			debugPort = args.debugPort;
 		}
 
 		this._sideChannelPort = 3030;
@@ -497,11 +492,11 @@ class ClojureDebugSession extends DebugSession {
 		}
 
 		var env = {
-			"HOME": process.env["HOME"], "JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debug_port,
-			"CLOJURE_DEBUG_JDWP_PORT": "" + debug_port
+			"HOME": process.env["HOME"], "JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort,
+			"CLOJURE_DEBUG_JDWP_PORT": "" + debugPort
 		};
 
-		this._primaryRepl = spawn(lein_path, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + repl_port], { cwd: this._cwd, env: env });
+		this._primaryRepl = spawn(lein_path, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + replPort], { cwd: this._cwd, env: env });
 
 		this._primaryRepl.stdout.on('data', (data) => {
 			var output = '' + data;
@@ -509,7 +504,13 @@ class ClojureDebugSession extends DebugSession {
 
 			if ((output.search(/nREPL server started/) != -1)) {
 				console.log("PRIMARY REPL STARTED");
-				this.setupSideChannelAndDebugREPL(response, args, 7878, debug_port, lein_path);
+				this.setupDebugREPL(response, args);
+				let sideChannel = s("http://localhost:" + self._sideChannelPort);
+
+				sideChannel.on('go-eval', (data) => {
+					sideChannel.emit("connect-to-repl", "127.0.0.1:" + replPort);
+					sideChannel.close();
+				});
 			}
 		});
 
@@ -888,6 +889,16 @@ class ClojureDebugSession extends DebugSession {
 		return (status.indexOf("error") != -1)
 	}
 
+	private getErrorMessage(status: Array<string>): string {
+		for (var msg of status) {
+			if (msg != "done" && msg != "error") {
+				return msg;
+			}
+		}
+
+		return "UNKNOWN ERROR";
+	}
+
 	// Handle the result from an eval NOT at a breakpoint
 	private handleResult(response: DebugProtocol.EvaluateResponse, replResult: any): void {
 		// forward stdout from the REPL to the debugger
@@ -907,7 +918,7 @@ class ClojureDebugSession extends DebugSession {
 		let status = replResult["status"];
 		if (status) {
 			if (this.isErrorStatus(status)) {
-				let errorMessage = status[0];
+				let errorMessage = this.getErrorMessage(status);
 				response.success = false;
 				response.message = errorMessage;
 				this.sendResponse(response);
