@@ -120,7 +120,7 @@ class ClojureDebugSession extends DebugSession {
 	private _extensionDir: string;
 
 	// Clojure REPL process
-	private _cdtRepl: any;
+	private _debuggerRepl: any;
 	private _primaryRepl: any;
 
 	private __currentLine: number;
@@ -287,21 +287,18 @@ class ClojureDebugSession extends DebugSession {
 				default:
 
 			}
-			if (eventType == "breakpoint") {
-
-			}
-
 		}
 
 		// start listening for events again
 		let debug = this;
 		this._replConnection.getEvent((err: any, result: any) => {
 			// TODO handle errors here
-			console.log("GOT EVENT:");
-			console.log(result);
-			debug.handleEvent(err, result);
+			if (err) {
+				console.error(err);
+			} else {
+				debug.handleEvent(err, result);
+			}
 		});
-
 	}
 
 	// Handle output from the REPL after launch is complete
@@ -341,13 +338,12 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	private connectToDebugREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments, repl_port: number, debugged_port: number) {
-		this._cdtRepl.stdout.on('data', (data) => {
+		this._debuggerRepl.stdout.on('data', (data) => {
 			var output = '' + data;
 
 			let self = this;
 
-			// if ((self._debuggerState == DebuggerState.DEBUGGER_ATTACHED) && (output.search(/nREPL server started/) != -1)) {
-            if ((output.search(/nREPL server started/) != -1)) {
+      if ((output.search(/nREPL server started/) != -1)) {
 				self._debuggerState = DebuggerState.REPL_READY;
 				self._replConnection = new ReplConnection();
 				self._replConnection.connect("127.0.0.1", repl_port, (err: any, result: any) => {
@@ -359,12 +355,6 @@ class ClojureDebugSession extends DebugSession {
 				console.log("CONNECTED TO REPL");
 
 				self._debuggerState = DebuggerState.LAUNCH_COMPLETE;
-
-				// var sideChannel = s("http://localhost:" + self._sideChannelPort);
-				// sideChannel.on('go-eval', (data) => {
-				// 	sideChannel.emit("eval", "attach");
-				// 	sideChannel.close();
-				// });
 
 				self._replConnection.attach(debugged_port, (err: any, result: any) => {
 					console.log("Debug REPL attached to Debugged REPL");
@@ -408,11 +398,11 @@ class ClojureDebugSession extends DebugSession {
 
 			self.handleReplOutput(output);
 
-			self.pout(output);
+			// self.pout(output);
 
 		});
 
-		this._cdtRepl.stderr.on('data', (data) => {
+		this._debuggerRepl.stderr.on('data', (data) => {
 			this.perr(data);
 			console.log(`stderr: ${data}`);
 		});
@@ -438,7 +428,7 @@ class ClojureDebugSession extends DebugSession {
 			lein_path = args.leinPath;
 		}
 
-		self._cdtRepl = spawn(lein_path, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
+		self._debuggerRepl = spawn(lein_path, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
 		self._debuggerState = DebuggerState.REPL_STARTED;
 		console.log("DEBUGGER REPL STARTED");
 		// TODO remove this magic number
