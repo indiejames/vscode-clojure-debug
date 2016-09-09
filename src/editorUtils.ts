@@ -122,8 +122,7 @@ export namespace EditorUtils {
   }
 
   //Find the innermost form containing the cursor
-  export function getInnermostForm() {
-    var editor = window.activeTextEditor;
+  export function getInnermostForm(editor: TextEditor) {
     if (!editor) {
       return; // No open text editor
     }
@@ -183,8 +182,7 @@ export namespace EditorUtils {
   }
 
   // Find the symbol under the cursor
-  export function getSymobleUnderCursor(){
-    var editor = window.activeTextEditor;
+  export function getSymobleUnderCursor(editor: TextEditor){
     if (!editor) {
       return; // No open text editor
     }
@@ -195,8 +193,7 @@ export namespace EditorUtils {
   }
 
   // Find the top level form containing the cursor
-  export function getTopLevelFormForCursor() {
-    var editor = window.activeTextEditor;
+  export function getTopLevelFormForCursor(editor: TextEditor) {
     if (!editor) {
         return; // No open text editor
     }
@@ -219,9 +216,8 @@ export namespace EditorUtils {
     }
 
     // Find the namespace for the currently open file
-    export function findNSForCurrentEditor(): string {
+    export function findNSForCurrentEditor(editor: TextEditor): string {
       // get the contents of the current edtior
-      var editor = window.activeTextEditor;
       if (!editor) {
         return; // No open text editor
       }
@@ -337,8 +333,7 @@ export namespace EditorUtils {
 
     // Expand selection to the next-outermost brackets containing the cursor.
     // Repeated invocations will expand selection to increasingly outer brackets.
-    export function selectBrackets() {
-      var editor = window.activeTextEditor;
+    export function selectBrackets(editor: TextEditor) {
       if (!editor) {
         return; // no open text editor
       }
