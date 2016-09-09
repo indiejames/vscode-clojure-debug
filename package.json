@@ -33,8 +33,8 @@
     "strip-json-comments": "^2.0.1",
     "tmp": "^0.0.28",
     "vscode": "^0.11.x",
-    "vscode-debugadapter": "^1.10.0",
-    "vscode-debugprotocol": "^1.10.0",
+    "vscode-debugadapter": "^1.12.0",
+    "vscode-debugprotocol": "^1.12.0",
     "vscode-languageclient": "^1.4.2",
     "vscode-languageserver": "^1.4.1"
   },

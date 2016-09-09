@@ -239,12 +239,17 @@ class ClojureDebugSession extends DebugSession {
 
 		response.body.supportsConfigurationDoneRequest = true;
 
-		// We want to have VS Code call evaulate when hovering over source (yet. if there is a way to expand to a full
+		// We want to have VS Code call evaulate when hovering over source (Not yet. if there is a way to expand to a full
 		// form then we will want to do this.)
 		response.body.supportsEvaluateForHovers = false;
 
 		// SOME DAY!!!
 		response.body.supportsFunctionBreakpoints = false;
+
+		response.body.supportsSetVariable = false;
+
+		let exceptionBreakpointFilter = {filter: "all-exceptions", label: "Exceptions"};
+		response.body.exceptionBreakpointFilters = [exceptionBreakpointFilter];
 
 		this.sendResponse(response);
 		//super.initializeRequest(response, args);
@@ -374,7 +379,7 @@ class ClojureDebugSession extends DebugSession {
 					// 	});
 					// }
 
-
+					// TODO Figure out what to do here
 					if (args.stopOnEntry) {
 						self._currentLine = 1;
 						self.sendResponse(response);
@@ -387,8 +392,6 @@ class ClojureDebugSession extends DebugSession {
 							/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
 							allThreadsContinued: true
 						};
-						// DO I need this?
-						self.sendResponse(response);
 
 						self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
 					}
@@ -431,7 +434,6 @@ class ClojureDebugSession extends DebugSession {
 		self._debuggerRepl = spawn(lein_path, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
 		self._debuggerState = DebuggerState.REPL_STARTED;
 		console.log("DEBUGGER REPL STARTED");
-		// TODO remove this magic number
 		self.connectToDebugREPL(response, args, debugReplPort, debugPort);
 
 	}
@@ -441,7 +443,6 @@ class ClojureDebugSession extends DebugSession {
 		var tmpobj = tmp.dirSync({ mode: 0o750, prefix: 'repl_connnect_' });
 		this._tmpProjectDir = tmpobj.name;
 		let projectPath = join(tmpobj.name, "project.clj");
-		console.log("PROJECT.CLJ FILE: ", projectPath);
 		writeFileSync(projectPath, projectClj);
 	}
 
@@ -630,10 +631,7 @@ class ClojureDebugSession extends DebugSession {
 
 	protected setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments): void {
 		var type = "none";
-		if (args.filters.indexOf("uncaught") != -1) {
-			type = "uncaught";
-		}
-		if (args.filters.indexOf("all") != -1) {
+		if (args.filters.indexOf("all-exceptions") != -1) {
 			type = "all";
 		}
 		this._replConnection.setExceptionBreakpoint(type, (err: any, result: any) => {
@@ -755,19 +753,10 @@ class ClojureDebugSession extends DebugSession {
 			var frameLocals = variables[1];
 			var argScope = frameArgs.map((v: any): any => {
 				let val = debug.storeValue(v["name"], v["value"]);
-				// let val = this._variableHandles.get(varId)[0];
-				//let val = { name: v["name"], value: "" + v["value"], variablesReference: };
 				return val;
 			});
 			var localScope = frameLocals.map((v: any): any => {
-				// let val = { name: v["name"], value: "" + v["value"], variablesReference: 0 };
-				//let val = { name: v["name"], value: {a: "A", b: [{c: "C"}, {d: "D"}]}, variablesReference: 0};
-				// let val = { name: v["name"], value: "" + v["value"], variablesReference: this._variableHandles.create(v["value"])};
-				// let val = {name: v["name"], value: "" + v["value"], variablesRefrence: this.storeValue(v["name"], v["value"])};
-				// return val;
-				// return this.storeValue(v["name"], v["value"]);
 				let val = debug.storeValue(v["name"], v["value"]);
-				// let val = this._variableHandles.get(varId)[0];
 				return val;
 			});
 			const scopes = new Array<Scope>();
