@@ -7,7 +7,7 @@
 import * as path from 'path';
 import http = require('http');
 import s = require('socket.io');
-import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration } from 'vscode';
+import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration, TextEditor } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
@@ -23,6 +23,7 @@ import edn = require('jsedn');
 import {} from 'languages';
 
 let EXIT_CMD = "(System/exit 0)";
+var activeEditor = null;
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
@@ -77,7 +78,7 @@ function initSideChannel(sideChannelPort: number){
 		sock.on('eval-code', (code) => {
 			console.log("Evaluating code");
 			window.setStatusBarMessage("Evaluating Code")
-			let ns = EditorUtils.findNSForCurrentEditor();
+			let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
 			rconn.eval(code, (err: any, result: any) => {
 				console.log("Code evaluated");
 				window.setStatusBarMessage("Code Evaluated");
@@ -107,11 +108,11 @@ function initSideChannel(sideChannelPort: number){
 				break;
 
 			case 'get-namespace':
-				sock.emit('namespace-result', EditorUtils.findNSForCurrentEditor());
+				sock.emit('namespace-result', EditorUtils.findNSForCurrentEditor(activeEditor));
 				break;
 
 			case 'load-namespace':
-				let ns = EditorUtils.findNSForCurrentEditor();
+				let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
 				rconn.eval("(require '" + ns + ")", (err: any, result: any) => {
 					sock.emit('load-namespace-result')
 				});
@@ -133,7 +134,7 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 	context.subscriptions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
 	context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
   context.subscriptions.push(commands.registerCommand('clojure.expand_selection', () => {
-		EditorUtils.selectBrackets();
+		EditorUtils.selectBrackets(activeEditor);
 	}));
 
 	////////////////////////////////////////////////////
@@ -145,7 +146,7 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 		let selection = editor.selection;
 		let range = new Range(selection.start, selection.end);
 		let code = editor.document.getText(range);
-		let ns = EditorUtils.findNSForCurrentEditor();
+		let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
 		if (ns) {
 			rconn.eval(code, (err: any, result: any) : void => {
 				handleEvalResponse(result, outputChannel);
@@ -185,7 +186,7 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 	}));
 
 	context.subscriptions.push(commands.registerCommand('clojure.run-test-file', () => {
-		let ns = EditorUtils.findNSForCurrentEditor();
+		let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
 		if (cfg.get("refreshNamespacesBeforeRunnningTestNamespace") === true) {
 			rconn.refresh((err: any, result: any) => {
 				console.log("Refreshed Clojure code.");
@@ -201,8 +202,8 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 	}));
 
 	context.subscriptions.push(commands.registerCommand('clojure.run-test', () => {
-		let ns = EditorUtils.findNSForCurrentEditor();
-		let test = EditorUtils.getSymobleUnderCursor();
+		let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
+		let test = EditorUtils.getSymobleUnderCursor(activeEditor);
 		if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
 			rconn.refresh((err: any, result: any) => {
 				rconn.runTest(ns, test, (err: any, result: any) => {
@@ -242,6 +243,22 @@ export function activate(context: ExtensionContext) {
 	console.log("Starting Clojure extension...");
 	let cfg = workspace.getConfiguration("clojure");
 	window.setStatusBarMessage("Activating Extension");
+
+	// Keep track of the active file editor so we can execute code in the namespace currently
+	// being edited. This is necessary because as of VS Code 1.5 the input to the debugger
+	// gets returned by workspace.currentEditor when you type in it.
+	activeEditor = window.activeTextEditor;
+
+	window.onDidChangeActiveTextEditor((e: TextEditor) : any => {
+		let doc = e.document;
+		let fileName = doc.fileName;
+
+		// don't count the debugger input as a text editor. this is used to get the namespace
+		// in which to execute input code, so we only want to use actual file editors
+		if (fileName != "input") {
+			activeEditor = e;
+		}
+	});
 
 	// read the launch.json file to get the side channel port
 	let launchJsonPath = join(workspace.rootPath, ".vscode", "launch.json");
