@@ -10,13 +10,13 @@
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync, copySync, writeFileSync} from 'fs-extra';
-// import {blue} from 'chalk';
 import {basename, dirname, join} from 'path';
 import {spawn} from 'child_process';
 import nrepl_client = require('jg-nrepl-client');
 import s = require('socket.io-client');
 import tmp = require('tmp');
 import {ReplConnection} from './replConnection';
+import {parse, toJS} from 'jsedn';
 let chalk = require("chalk");
 
 let EXIT_CMD = "(System/exit 0)";
@@ -693,6 +693,8 @@ class ClojureDebugSession extends DebugSession {
 		});
 	}
 
+	// Store a variable so it can be inspected by the user in the debugger pane. Structured values
+	// are stored recursively to allow for expansion during inspection.
 	private storeValue(name: string, val: any): any {
 		if (val._keys) {
 			let vals = val._keys.map((key: any) : any => {
@@ -708,30 +710,14 @@ class ClojureDebugSession extends DebugSession {
 
 			let ref = this._variableHandles.create(vals);
 			return {name: name, value: "" + val, variablesReference: ref};
+		} else if (val instanceof Object) {
+			let vals = Object.getOwnPropertyNames(val).map((key: any) : any => {
+				return this.storeValue(key, val[key]);
+			});
+			let ref = this._variableHandles.create(vals);
+			return {name: name, value: "" + val, variablesReference: ref};
 		} else {
 			return {name: name, value: "" + val, variablesReference: 0};
-		}
-	}
-
-	// For non-primitve, non-array types stores a hierachical reference that can be used
-	// to aid value inspection and returns a refrerence. For primitive types and arrays it returns 0.
-	private storeValueB(name: string, val: any): any {
-		if (val._keys) {
-			// TODO try just returning a hard coded map like the ones from the mock debugger to see if it works
-			let ids =  val._keys.map((key: any) : any => {
-				let v = val[key];
-				return this.storeValue(key, v);
-			});
-
-			// return {
-			// 	name: name + "_o",
-			// 	type: "object",
-			// 	value: "Object",
-			// 	variablesReference: this._variableHandles.create(["object_"])
-			// }
-			return this._variableHandles.create([{name: name, value: "" + val, variablesReference: ids}]);
-		} else {
-			return this._variableHandles.create([{name: name, value: "" + val, variablesReference: 0}]);
 		}
 	}
 
@@ -748,17 +734,30 @@ class ClojureDebugSession extends DebugSession {
 			console.log("GOT VARIABLES");
 			console.log(result);
 			var variables = result[0]["vars"];
-			console.log("VARS: " + variables);
-			var frameArgs = variables[0];
-			var frameLocals = variables[1];
+			variables = parse(variables);
+			let jsVars = toJS(variables);
+			let jv = JSON.stringify(jsVars);
+			let frameVars = JSON.parse(jv);
+			let frameArgs = frameVars[0];
+			let frameLocals = frameVars[1];
+
+			// console.log("VARS: " + jsVars);
+			// var frameArgs = variables[0];
+			// var frameLocals = variables[1];
 			var argScope = frameArgs.map((v: any): any => {
-				let val = debug.storeValue(v["name"], v["value"]);
+				let name = Object.getOwnPropertyNames(v)[0];
+				let value = v[name];
+				let val = debug.storeValue(name, value);
 				return val;
 			});
 			var localScope = frameLocals.map((v: any): any => {
-				let val = debug.storeValue(v["name"], v["value"]);
+				let name = Object.getOwnPropertyNames(v)[0];
+				let value = v[name];
+				let val = debug.storeValue(name, value);
 				return val;
 			});
+
+
 			const scopes = new Array<Scope>();
 			scopes.push(new Scope("Local", debug._variableHandles.create(localScope), false));
 			scopes.push(new Scope("Argument", debug._variableHandles.create(argScope), false));
