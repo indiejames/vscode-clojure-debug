@@ -98,7 +98,23 @@ export class ReplConnection {
 
 	// list the vars for the given thread / stack frame
 	public listVars(threadName: string, frameIndex: number, callback: callbackType) {
-		this.conn.send({op: 'list-vars', 'thread-name': threadName, 'frame-index': frameIndex, 'session': this.commandSession}, callback);
+
+		try {
+			this.conn.send({op: 'list-vars', 'thread-name': threadName, 'frame-index': frameIndex, 'session': this.commandSession}, callback);
+		} catch (e){
+			// TODO - remove this when issue #70 is fixed.
+			// This is a hack to handle weird values that come back on some exception stack frames - they aren't
+			// handled by bencode correctly and cause exceptions.
+			// Issue #70 has been filed to fix this.
+			callback(null, "[[][]]");
+		}
+	}
+
+	// get the source file paths for the given paths. if a source is in a jar file the
+	// jar file will be extracted on the file system and the path to the extracted file
+	// returned
+	public getSourcePaths(paths: string[], callback: callbackType) {
+		this.conn.send({op: 'get-source-paths', 'source-files': paths, session: this.commandSession}, callback);
 	}
 
 	// set a breakpoint at the given line in the given file

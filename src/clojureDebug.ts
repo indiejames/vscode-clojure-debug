@@ -9,7 +9,7 @@
 
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
-import {readFileSync, copySync, writeFileSync} from 'fs-extra';
+import {readFileSync, copySync, writeFileSync, mkdirSync, createReadStream} from 'fs-extra';
 import {basename, dirname, join} from 'path';
 import {spawn} from 'child_process';
 import nrepl_client = require('jg-nrepl-client');
@@ -17,6 +17,7 @@ import s = require('socket.io-client');
 import tmp = require('tmp');
 import {ReplConnection} from './replConnection';
 import {parse, toJS} from 'jsedn';
+import {Extract} from 'unzip';
 let chalk = require("chalk");
 
 let EXIT_CMD = "(System/exit 0)";
@@ -107,7 +108,24 @@ class ClojureDebugSession extends DebugSession {
 	// TODO Change this to search for the given debuggerPath under all the src directories.
 	// For now assume all source is under src.
 	protected convertDebuggerPathToClient(debuggerPath: string): string {
-		return join(this._cwd, "src", debuggerPath);
+		// check to see if the path is a jar fie
+		// let regex = /file:(.+\/\.m2\/repository\/(.+\.jar))!\/(.+)/;
+		// let match = regex.exec(debuggerPath);
+		// if (match) {
+		// 	let jarFilePath = match[1];
+		// 	let outputDir = "/tmp/" + match[2];
+		// 	mkdirSync(outputDir);
+		// 	// extract the jar file
+		// 	createReadStream(jarFilePath).pipe(Extract({path: outputDir}));
+		// 	return join(outputDir, match[3]);
+
+		// } else {
+		if (debuggerPath.substr(0, 1) == "/") {
+			return debuggerPath;
+		} else {
+			return join(this._cwd, "src", debuggerPath);
+		// }
+		}
 	}
 
 	// just use the first thread as the default thread
@@ -401,7 +419,7 @@ class ClojureDebugSession extends DebugSession {
 
 			self.handleReplOutput(output);
 
-			// self.pout(output);
+			self.pout(output);
 
 		});
 
@@ -539,6 +557,7 @@ class ClojureDebugSession extends DebugSession {
 				sideChannel.emit("eval","exit");
 			}
 
+			sideChannel.close();
 			self.sendResponse(response);
 			self.shutdown();
 		});
@@ -613,6 +632,7 @@ class ClojureDebugSession extends DebugSession {
 				sideChannel.on('go-eval', (data) => {
 					sideChannel.on('load-namespace-result', (data) => {
 						self.finishBreakPointsRequest(response, args, fileContents, path)
+						sideChannel.close();
 					});
 					sideChannel.emit("eval", "load-namespace");
 
@@ -678,25 +698,47 @@ class ClojureDebugSession extends DebugSession {
 			console.log(result);
 			var resFrames = result[0]["frames"];
 			console.log(resFrames);
-			const frames: StackFrame[] = resFrames.map((frame: any, index: number): StackFrame => {
-				var f = new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClient(frame["srcPath"])), debug.convertDebuggerLineToClient(frame["line"]), 0);
-				f["threadName"] = th.name;
-				return f;
+
+			// make all source files available (unzipping jars as needed)
+			var sourcePaths: string[] = resFrames.map((frame: any, index: number) : string => {
+				return frame["srcPath"];
 			});
 
-			debug._frames = frames;
+			// let sideChannel = s("http://localhost:" + debug._sideChannelPort);
+			// sideChannel.on('go-eval', (data) => {
 
-			response.body = {
-				stackFrames: frames
-			};
-			debug.sendResponse(response);
+			// 	sideChannel.on('source-path-result', (result) => {
+
+					const frames: StackFrame[] = resFrames.map((frame: any, index: number): StackFrame => {
+						// let sourcePath = result[i];
+						let sourcePath = sourcePaths[index];
+						var f = new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClient(sourcePath)), debug.convertDebuggerLineToClient(frame["line"]), 0);
+						f["threadName"] = th.name;
+						return f;
+					});
+
+					debug._frames = frames;
+
+					response.body = {
+						stackFrames: frames
+					};
+					debug.sendResponse(response);
+
+				// 	sideChannel.close();
+
+				// });
+
+				// sideChannel.emit('get-source-paths', sourcePaths);
+			// });
 		});
 	}
 
 	// Store a variable so it can be inspected by the user in the debugger pane. Structured values
 	// are stored recursively to allow for expansion during inspection.
 	private storeValue(name: string, val: any): any {
-		if (val._keys) {
+		if (val == null) {
+			return {name :name, value: null, variablesReference: 0};
+		} else if (val._keys) {
 			let vals = val._keys.map((key: any) : any => {
 				return this.storeValue(key, val[key]);
 			});

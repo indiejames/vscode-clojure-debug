@@ -75,6 +75,17 @@ function initSideChannel(sideChannelPort: number){
 			connect(host, port);
 		});
 
+		sock.on('get-source-paths', (paths) => {
+			console.log("Getting source paths");
+			rconn.getSourcePaths(paths, (err: any, result: any) => {
+				if (err) {
+					sock.emit('source-path-result', err);
+				} else {
+					sock.emit('source-path-result', result);
+				}
+			});
+		});
+
 		sock.on('eval-code', (code) => {
 			console.log("Evaluating code");
 			window.setStatusBarMessage("Evaluating Code")
@@ -140,7 +151,7 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 	////////////////////////////////////////////////////
 
 	context.subscriptions.push(commands.registerCommand('clojure.eval', () => {
-		// only support evaluating select text for now.
+		// only support evaluating selected text for now.
 		// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
 		let editor = window.activeTextEditor;
 		let selection = editor.selection;
@@ -207,6 +218,7 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 		if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
 			rconn.refresh((err: any, result: any) => {
 				rconn.runTest(ns, test, (err: any, result: any) => {
+					outputChannel.append(result);
 					console.log("Test " + test + " run.");
 				});
 			});
@@ -230,7 +242,9 @@ function connect(host: string, port: number) {
 			if (err) {
 				console.error(err);
 			} else {
+				outputChannel.appendLine(result);
 				rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
+					outputChannel.appendLine(result);
 					console.log("Compliment namespace loaded");
 					window.setStatusBarMessage("Attached to process");
 				});
@@ -243,6 +257,9 @@ export function activate(context: ExtensionContext) {
 	console.log("Starting Clojure extension...");
 	let cfg = workspace.getConfiguration("clojure");
 	window.setStatusBarMessage("Activating Extension");
+
+	outputChannel = window.createOutputChannel("Clojure REPL");
+	outputChannel.show();
 
 	// Keep track of the active file editor so we can execute code in the namespace currently
 	// being edited. This is necessary because as of VS Code 1.5 the input to the debugger
