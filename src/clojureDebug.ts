@@ -9,14 +9,15 @@
 
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
-import {readFileSync, copySync, writeFileSync} from 'fs-extra';
-// import {blue} from 'chalk';
+import {readFileSync, copySync, writeFileSync, mkdirSync, createReadStream} from 'fs-extra';
 import {basename, dirname, join} from 'path';
 import {spawn} from 'child_process';
 import nrepl_client = require('jg-nrepl-client');
 import s = require('socket.io-client');
 import tmp = require('tmp');
 import {ReplConnection} from './replConnection';
+import {parse, toJS} from 'jsedn';
+import {Extract} from 'unzip';
 let chalk = require("chalk");
 
 let EXIT_CMD = "(System/exit 0)";
@@ -107,7 +108,24 @@ class ClojureDebugSession extends DebugSession {
 	// TODO Change this to search for the given debuggerPath under all the src directories.
 	// For now assume all source is under src.
 	protected convertDebuggerPathToClient(debuggerPath: string): string {
-		return join(this._cwd, "src", debuggerPath);
+		// check to see if the path is a jar fie
+		// let regex = /file:(.+\/\.m2\/repository\/(.+\.jar))!\/(.+)/;
+		// let match = regex.exec(debuggerPath);
+		// if (match) {
+		// 	let jarFilePath = match[1];
+		// 	let outputDir = "/tmp/" + match[2];
+		// 	mkdirSync(outputDir);
+		// 	// extract the jar file
+		// 	createReadStream(jarFilePath).pipe(Extract({path: outputDir}));
+		// 	return join(outputDir, match[3]);
+
+		// } else {
+		if (debuggerPath.substr(0, 1) == "/") {
+			return debuggerPath;
+		} else {
+			return join(this._cwd, "src", debuggerPath);
+		// }
+		}
 	}
 
 	// just use the first thread as the default thread
@@ -239,12 +257,17 @@ class ClojureDebugSession extends DebugSession {
 
 		response.body.supportsConfigurationDoneRequest = true;
 
-		// We want to have VS Code call evaulate when hovering over source (yet. if there is a way to expand to a full
+		// We want to have VS Code call evaulate when hovering over source (Not yet. if there is a way to expand to a full
 		// form then we will want to do this.)
 		response.body.supportsEvaluateForHovers = false;
 
 		// SOME DAY!!!
 		response.body.supportsFunctionBreakpoints = false;
+
+		response.body.supportsSetVariable = false;
+
+		let exceptionBreakpointFilter = {filter: "all-exceptions", label: "Exceptions"};
+		response.body.exceptionBreakpointFilters = [exceptionBreakpointFilter];
 
 		this.sendResponse(response);
 		//super.initializeRequest(response, args);
@@ -374,7 +397,7 @@ class ClojureDebugSession extends DebugSession {
 					// 	});
 					// }
 
-
+					// TODO Figure out what to do here
 					if (args.stopOnEntry) {
 						self._currentLine = 1;
 						self.sendResponse(response);
@@ -387,8 +410,6 @@ class ClojureDebugSession extends DebugSession {
 							/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
 							allThreadsContinued: true
 						};
-						// DO I need this?
-						self.sendResponse(response);
 
 						self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
 					}
@@ -398,7 +419,7 @@ class ClojureDebugSession extends DebugSession {
 
 			self.handleReplOutput(output);
 
-			// self.pout(output);
+			self.pout(output);
 
 		});
 
@@ -431,7 +452,6 @@ class ClojureDebugSession extends DebugSession {
 		self._debuggerRepl = spawn(lein_path, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
 		self._debuggerState = DebuggerState.REPL_STARTED;
 		console.log("DEBUGGER REPL STARTED");
-		// TODO remove this magic number
 		self.connectToDebugREPL(response, args, debugReplPort, debugPort);
 
 	}
@@ -441,7 +461,6 @@ class ClojureDebugSession extends DebugSession {
 		var tmpobj = tmp.dirSync({ mode: 0o750, prefix: 'repl_connnect_' });
 		this._tmpProjectDir = tmpobj.name;
 		let projectPath = join(tmpobj.name, "project.clj");
-		console.log("PROJECT.CLJ FILE: ", projectPath);
 		writeFileSync(projectPath, projectClj);
 	}
 
@@ -538,6 +557,7 @@ class ClojureDebugSession extends DebugSession {
 				sideChannel.emit("eval","exit");
 			}
 
+			sideChannel.close();
 			self.sendResponse(response);
 			self.shutdown();
 		});
@@ -612,6 +632,7 @@ class ClojureDebugSession extends DebugSession {
 				sideChannel.on('go-eval', (data) => {
 					sideChannel.on('load-namespace-result', (data) => {
 						self.finishBreakPointsRequest(response, args, fileContents, path)
+						sideChannel.close();
 					});
 					sideChannel.emit("eval", "load-namespace");
 
@@ -630,10 +651,7 @@ class ClojureDebugSession extends DebugSession {
 
 	protected setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments): void {
 		var type = "none";
-		if (args.filters.indexOf("uncaught") != -1) {
-			type = "uncaught";
-		}
-		if (args.filters.indexOf("all") != -1) {
+		if (args.filters.indexOf("all-exceptions") != -1) {
 			type = "all";
 		}
 		this._replConnection.setExceptionBreakpoint(type, (err: any, result: any) => {
@@ -680,23 +698,47 @@ class ClojureDebugSession extends DebugSession {
 			console.log(result);
 			var resFrames = result[0]["frames"];
 			console.log(resFrames);
-			const frames: StackFrame[] = resFrames.map((frame: any, index: number): StackFrame => {
-				var f = new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClient(frame["srcPath"])), debug.convertDebuggerLineToClient(frame["line"]), 0);
-				f["threadName"] = th.name;
-				return f;
+
+			// make all source files available (unzipping jars as needed)
+			var sourcePaths: string[] = resFrames.map((frame: any, index: number) : string => {
+				return frame["srcPath"];
 			});
 
-			debug._frames = frames;
+			// let sideChannel = s("http://localhost:" + debug._sideChannelPort);
+			// sideChannel.on('go-eval', (data) => {
 
-			response.body = {
-				stackFrames: frames
-			};
-			debug.sendResponse(response);
+			// 	sideChannel.on('source-path-result', (result) => {
+
+					const frames: StackFrame[] = resFrames.map((frame: any, index: number): StackFrame => {
+						// let sourcePath = result[i];
+						let sourcePath = sourcePaths[index];
+						var f = new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClient(sourcePath)), debug.convertDebuggerLineToClient(frame["line"]), 0);
+						f["threadName"] = th.name;
+						return f;
+					});
+
+					debug._frames = frames;
+
+					response.body = {
+						stackFrames: frames
+					};
+					debug.sendResponse(response);
+
+				// 	sideChannel.close();
+
+				// });
+
+				// sideChannel.emit('get-source-paths', sourcePaths);
+			// });
 		});
 	}
 
+	// Store a variable so it can be inspected by the user in the debugger pane. Structured values
+	// are stored recursively to allow for expansion during inspection.
 	private storeValue(name: string, val: any): any {
-		if (val._keys) {
+		if (val == null) {
+			return {name :name, value: null, variablesReference: 0};
+		} else if (val._keys) {
 			let vals = val._keys.map((key: any) : any => {
 				return this.storeValue(key, val[key]);
 			});
@@ -710,30 +752,14 @@ class ClojureDebugSession extends DebugSession {
 
 			let ref = this._variableHandles.create(vals);
 			return {name: name, value: "" + val, variablesReference: ref};
+		} else if (val instanceof Object) {
+			let vals = Object.getOwnPropertyNames(val).map((key: any) : any => {
+				return this.storeValue(key, val[key]);
+			});
+			let ref = this._variableHandles.create(vals);
+			return {name: name, value: "" + val, variablesReference: ref};
 		} else {
 			return {name: name, value: "" + val, variablesReference: 0};
-		}
-	}
-
-	// For non-primitve, non-array types stores a hierachical reference that can be used
-	// to aid value inspection and returns a refrerence. For primitive types and arrays it returns 0.
-	private storeValueB(name: string, val: any): any {
-		if (val._keys) {
-			// TODO try just returning a hard coded map like the ones from the mock debugger to see if it works
-			let ids =  val._keys.map((key: any) : any => {
-				let v = val[key];
-				return this.storeValue(key, v);
-			});
-
-			// return {
-			// 	name: name + "_o",
-			// 	type: "object",
-			// 	value: "Object",
-			// 	variablesReference: this._variableHandles.create(["object_"])
-			// }
-			return this._variableHandles.create([{name: name, value: "" + val, variablesReference: ids}]);
-		} else {
-			return this._variableHandles.create([{name: name, value: "" + val, variablesReference: 0}]);
 		}
 	}
 
@@ -750,26 +776,30 @@ class ClojureDebugSession extends DebugSession {
 			console.log("GOT VARIABLES");
 			console.log(result);
 			var variables = result[0]["vars"];
-			console.log("VARS: " + variables);
-			var frameArgs = variables[0];
-			var frameLocals = variables[1];
+			variables = parse(variables);
+			let jsVars = toJS(variables);
+			let jv = JSON.stringify(jsVars);
+			let frameVars = JSON.parse(jv);
+			let frameArgs = frameVars[0];
+			let frameLocals = frameVars[1];
+
+			// console.log("VARS: " + jsVars);
+			// var frameArgs = variables[0];
+			// var frameLocals = variables[1];
 			var argScope = frameArgs.map((v: any): any => {
-				let val = debug.storeValue(v["name"], v["value"]);
-				// let val = this._variableHandles.get(varId)[0];
-				//let val = { name: v["name"], value: "" + v["value"], variablesReference: };
+				let name = Object.getOwnPropertyNames(v)[0];
+				let value = v[name];
+				let val = debug.storeValue(name, value);
 				return val;
 			});
 			var localScope = frameLocals.map((v: any): any => {
-				// let val = { name: v["name"], value: "" + v["value"], variablesReference: 0 };
-				//let val = { name: v["name"], value: {a: "A", b: [{c: "C"}, {d: "D"}]}, variablesReference: 0};
-				// let val = { name: v["name"], value: "" + v["value"], variablesReference: this._variableHandles.create(v["value"])};
-				// let val = {name: v["name"], value: "" + v["value"], variablesRefrence: this.storeValue(v["name"], v["value"])};
-				// return val;
-				// return this.storeValue(v["name"], v["value"]);
-				let val = debug.storeValue(v["name"], v["value"]);
-				// let val = this._variableHandles.get(varId)[0];
+				let name = Object.getOwnPropertyNames(v)[0];
+				let value = v[name];
+				let val = debug.storeValue(name, value);
 				return val;
 			});
+
+
 			const scopes = new Array<Scope>();
 			scopes.push(new Scope("Local", debug._variableHandles.create(localScope), false));
 			scopes.push(new Scope("Argument", debug._variableHandles.create(argScope), false));
