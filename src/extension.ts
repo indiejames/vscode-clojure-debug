@@ -144,7 +144,7 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 	context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
 	context.subscriptions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
 	context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
-  context.subscriptions.push(commands.registerCommand('clojure.expand_selection', () => {
+ 	context.subscriptions.push(commands.registerCommand('clojure.expand_selection', () => {
 		EditorUtils.selectBrackets(activeEditor);
 	}));
 
@@ -257,6 +257,8 @@ export function activate(context: ExtensionContext) {
 	console.log("Starting Clojure extension...");
 	let cfg = workspace.getConfiguration("clojure");
 	window.setStatusBarMessage("Activating Extension");
+
+	outputChannel = window.createOutputChannel("Clojure");
 
 	// Keep track of the active file editor so we can execute code in the namespace currently
 	// being edited. This is necessary because as of VS Code 1.5 the input to the debugger

@@ -30,8 +30,41 @@ export class ReplConnection {
 	constructor() {
 	}
 
+	private doConnect(port: number, host: string, callback: callbackType) {
+		let self = this;
+		console.log("Connecting...")
+		this.conn = nrepl_client.connect({port: port, host: host, verbose: false});
+
+		this.conn.on('error', (error: any) => {
+			if (error.code == 'ECONNREFUSED'){
+				setTimeout(() => {
+					self.doConnect(port, host, callback);
+				}, 1000);
+			}
+		});
+
+		if (this.conn) {
+			self.conn.clone((err: any, result: any) => {
+				self.session = result[0]["new-session"];
+				console.log("Eval session: " + self.session);
+				self.conn.clone((err: any, result: any) => {
+					self.commandSession = result[0]["new-session"];
+					console.log("Command session: " + self.commandSession);
+					if(err) {
+						console.error(err);
+						callback(err, null);
+					} else {
+						callback(null, result);
+					}
+				});
+			});
+		}
+	}
+
 	// set up the internal connection to a REPL
 	public connect(replHost: string, replPort: number, callback: callbackType) {
+		let self = this;
+
 		if (this.conn){
 			this.conn.close((err: any, result: any) => {
 				if(err) {
@@ -40,22 +73,9 @@ export class ReplConnection {
 				}
 			});
 		}
-		this.conn = nrepl_client.connect({port: replPort, host: replHost, verbose: false});
-		let self = this;
-		this.conn.clone((err: any, result: any) => {
-			self.session = result[0]["new-session"];
-			console.log("Eval session: " + self.session);
-			self.conn.clone((err: any, result: any) => {
-				self.commandSession = result[0]["new-session"];
-				console.log("Command session: " + self.commandSession);
-				if(err) {
-					console.error(err);
-					callback(err, null);
-				} else {
-					callback(null, result);
-				}
-			});
-		});
+
+		// this.conn = nrepl_client.connect({port: replPort, host: replHost, verbose: false});
+		this.doConnect(replPort, replHost, callback);
 	}
 
 	public isConnected(){

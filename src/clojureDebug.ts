@@ -360,16 +360,16 @@ class ClojureDebugSession extends DebugSession {
 		}
 	}
 
-	private connectToDebugREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments, repl_port: number, debugged_port: number) {
+	private connectToDebugREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments, primaryReplPort: number, replPort: number, debugged_port: number) {
 		this._debuggerRepl.stdout.on('data', (data) => {
 			var output = '' + data;
 
 			let self = this;
 
-      if ((output.search(/nREPL server started/) != -1)) {
+      		if ((output.search(/nREPL server started/) != -1)) {
 				self._debuggerState = DebuggerState.REPL_READY;
 				self._replConnection = new ReplConnection();
-				self._replConnection.connect("127.0.0.1", repl_port, (err: any, result: any) => {
+				self._replConnection.connect("127.0.0.1", replPort, (err: any, result: any) => {
 					if (err) {
 						console.log(err);
 					}
@@ -381,6 +381,15 @@ class ClojureDebugSession extends DebugSession {
 
 				self._replConnection.attach(debugged_port, (err: any, result: any) => {
 					console.log("Debug REPL attached to Debugged REPL");
+
+					// tell the extension to connect
+					let sideChannel = s("http://localhost:" + self._sideChannelPort);
+
+					sideChannel.on('go-eval', (data) => {
+						// TODO - this may not always be on 127.0.0.1
+						sideChannel.emit("connect-to-repl", "127.0.0.1:" + primaryReplPort);
+						sideChannel.close();
+					});
 
 					// start listening for events
 					self.handleEvent(null, null);
@@ -434,6 +443,11 @@ class ClojureDebugSession extends DebugSession {
 
 		let env = {"HOME": process.env["HOME"]};
 
+		var primaryReplPort = 5555;
+		if (args.replPort) {
+			primaryReplPort = args.replPort;
+		}
+
 		var debugReplPort = 5556;
 		if (args.debugReplPort) {
 			debugReplPort = args.debugReplPort;
@@ -452,7 +466,7 @@ class ClojureDebugSession extends DebugSession {
 		self._debuggerRepl = spawn(lein_path, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
 		self._debuggerState = DebuggerState.REPL_STARTED;
 		console.log("DEBUGGER REPL STARTED");
-		self.connectToDebugREPL(response, args, debugReplPort, debugPort);
+		self.connectToDebugREPL(response, args, primaryReplPort, debugReplPort, debugPort);
 
 	}
 
@@ -500,40 +514,55 @@ class ClojureDebugSession extends DebugSession {
 			lein_path = args.leinPath;
 		}
 
+		let home: string = process.env["HOME"] + "";
+
 		var env = {
-			"HOME": process.env["HOME"], "JVM_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort,
-			"CLOJURE_DEBUG_JDWP_PORT": "" + debugPort
+			home: home, jvm_opts: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort,
+			CLOJURE_DEBUG_JDWP_PORT: "" + debugPort
 		};
 
-		this._primaryRepl = spawn(lein_path, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + replPort], { cwd: this._cwd, env: env });
+		let runArgs: DebugProtocol.RunInTerminalRequestArguments = {
+			kind: 'integrated',
+			title: ("Clojure REPL"),
+			args: ["lein", "with-profile", "+debug-repl", "repl", ":start", ":port", "" + replPort],
+			cwd: args.cwd,
+			env: {home: home,
+				  JVM_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort,
+				  CLOJURE_DEBUG_JDWP_PORT: "" + debugPort}
+		};
 
-		this._primaryRepl.stdout.on('data', (data) => {
-			var output = '' + data;
-			console.log(output);
-
-			if ((output.search(/nREPL server started/) != -1)) {
+		this.runInTerminalRequest(runArgs, 60000, runResponse => {
+			if (runResponse.success) {
 				console.log("PRIMARY REPL STARTED");
 				this.setupDebugREPL(response, args);
-				let sideChannel = s("http://localhost:" + self._sideChannelPort);
 
-				sideChannel.on('go-eval', (data) => {
-					sideChannel.emit("connect-to-repl", "127.0.0.1:" + replPort);
-					sideChannel.close();
-				});
+			} else {
+				this.sendErrorResponse(response, -1, "Cannot launch debug target in terminal.");
 			}
 		});
 
-		this._primaryRepl.stderr.on('data', (data) => {
-			self.perr(data);
-			console.log(`stderr: ${data}`);
-		});
+		// this._primaryRepl = spawn(lein_path, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + replPort], { cwd: this._cwd, env: env });
 
-		this._primaryRepl.on('close', (code) => {
-			if (code !== 0) {
-				console.log(`REPL process exited with code ${code}`);
-			}
-			console.log("REPL closed");
-		});
+		// this._primaryRepl.stdout.on('data', (data) => {
+		// 	var output = '' + data;
+		// 	console.log(output);
+
+		// 	if ((output.search(/nREPL server started/) != -1)) {
+
+		// 	}
+		// });
+
+		// this._primaryRepl.stderr.on('data', (data) => {
+		// 	self.perr(data);
+		// 	console.log(`stderr: ${data}`);
+		// });
+
+		// this._primaryRepl.on('close', (code) => {
+		// 	if (code !== 0) {
+		// 		console.log(`REPL process exited with code ${code}`);
+		// 	}
+		// 	console.log("REPL closed");
+		// });
 	}
 
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {
