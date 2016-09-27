@@ -28,10 +28,14 @@ export class ClojureHoverProvider implements HoverProvider {
 						var docstring = msg[0]["doc"];
 						if (docstring == undefined) {
 							resolve(undefined);
-						} else {
-							docstring = docstring.replace(/\\n/g,"\n");
+						} else if (docstring.constructor === Array && docstring.length > 0) {
+							// let signature = docstring[1];
+							// docstring[1] = {langauge: "Clojure", value: signature};
+							// docstring[2] = {language: "Clojure", value: "```\n" + docstring[2].replace(/\\n/g,"\n") + "\n```"};
 							let hover = new Hover(docstring);
 							resolve(hover);
+						} else {
+							resolve(undefined);
 						}
 
 					} else {
