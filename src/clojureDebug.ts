@@ -580,11 +580,8 @@ class ClojureDebugSession extends DebugSession {
 		let sideChannel = s("http://localhost:" + self._sideChannelPort);
 
 		sideChannel.on('go-eval', (data) => {
-			if (this._isLaunched) {
-				sideChannel.emit("eval","terminate-and-exit");
-			} else {
-				sideChannel.emit("eval","exit");
-			}
+
+			sideChannel.emit("eval","exit");
 
 			sideChannel.close();
 			self.sendResponse(response);
