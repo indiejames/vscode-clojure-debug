@@ -26,6 +26,7 @@ let EXIT_CMD = "(System/exit 0)";
 var activeEditor = null;
 
 var activeReplActions: Disposable[] = null;
+var debugTerminal = null;
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
@@ -111,6 +112,7 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 					// This is never called, apparently.
 					console.log("debugged process killed")
 			  });
+
 
 				// fall through
 

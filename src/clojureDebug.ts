@@ -55,8 +55,8 @@ class DebuggerSubState {
 export interface LaunchRequestArguments {
 	// Absolute path to the tool.jar file.
 	toolsJar: string;
-	// Host for the debugged REPL
-	// replHost: string;
+	// Host for the debugged REPL on attach requests
+	replHost: string;
 	// Port for the debugged REPL
 	replPort: number;
 	// Port for debugger REPL
@@ -65,6 +65,8 @@ export interface LaunchRequestArguments {
 	debugPort: number;
 	// Port for side channel
 	sideChannelPort: number;
+	// Console type for launch requests
+	console: string;
 	// Path to lein
 	leinPath: string,
 	// Current working directory
@@ -75,6 +77,8 @@ export interface LaunchRequestArguments {
 	stopOnEntry?: boolean;
 	// Refresh namespaces on launch. Defaults to true.
 	refreshOnLaunch?: boolean;
+
+
 
 }
 
@@ -103,6 +107,8 @@ class ClojureDebugSession extends DebugSession {
 	private _sideChannelPort: number;
 	// path to project.clj for debugger REPL
 	private _tmpProjectDir: string;
+	// whether or not the client support running in a terminal
+	private supportRunInTerminal: boolean;
 
 	// Get the full path to a source file. Input paths are of the form repl_test/core.clj.
 	// TODO Change this to search for the given debuggerPath under all the src directories.
@@ -251,6 +257,8 @@ class ClojureDebugSession extends DebugSession {
 		console.log("INITIALIZE REQUEST");
 
 		//this.configuration = workspace.getConfiguration("clojure-debug");
+
+		this.supportRunInTerminal = (args.supportsRunInTerminalRequest == true);
 
 		// announce that we are ready to accept breakpoints -> fire the initialized event to give UI a chance to set breakpoints
 		this.sendEvent(new InitializedEvent());
@@ -458,12 +466,12 @@ class ClojureDebugSession extends DebugSession {
 			debugPort = args.debugPort;
 		}
 
-		var lein_path = "/usr/local/bin/lein";
+		var leinPath = "/usr/local/bin/lein";
 		if (args.leinPath) {
-			lein_path = args.leinPath;
+			leinPath = args.leinPath;
 		}
 
-		self._debuggerRepl = spawn(lein_path, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
+		self._debuggerRepl = spawn(leinPath, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
 		self._debuggerState = DebuggerState.REPL_STARTED;
 		console.log("DEBUGGER REPL STARTED");
 		self.connectToDebugREPL(response, args, primaryReplPort, debugReplPort, debugPort);
@@ -517,11 +525,12 @@ class ClojureDebugSession extends DebugSession {
 		let home: string = process.env["HOME"] + "";
 
 		var env = {
-			home: home, jvm_opts: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort,
+			home: home,
+			JVM_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort,
 			CLOJURE_DEBUG_JDWP_PORT: "" + debugPort
 		};
 
-		let runArgs: DebugProtocol.RunInTerminalRequestArguments = {
+		var runArgs: DebugProtocol.RunInTerminalRequestArguments = {
 			kind: 'integrated',
 			title: ("Clojure REPL"),
 			args: ["lein", "with-profile", "+debug-repl", "repl", ":start", ":port", "" + replPort],
@@ -531,38 +540,55 @@ class ClojureDebugSession extends DebugSession {
 				  CLOJURE_DEBUG_JDWP_PORT: "" + debugPort}
 		};
 
-		this.runInTerminalRequest(runArgs, 60000, runResponse => {
-			if (runResponse.success) {
-				console.log("PRIMARY REPL STARTED");
-				this.setupDebugREPL(response, args);
+		// TODO create command form args
+		if (this.supportRunInTerminal && args.console == "integratedTerminal") {
+			this.runInTerminalRequest(runArgs, 600000, runResponse => {
+				if (runResponse.success) {
+					console.log("PRIMARY REPL STARTED");
+					this.setupDebugREPL(response, args);
 
-			} else {
-				this.sendErrorResponse(response, -1, "Cannot launch debug target in terminal.");
-			}
-		});
+				} else {
+					this.sendErrorResponse(response, -1, "Cannot launch debug target in terminal.");
+				}
+			});
+		} else if (this.supportRunInTerminal && args.console == "externalTerminal") {
+			runArgs["kind"] = "external";
 
-		// this._primaryRepl = spawn(lein_path, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + replPort], { cwd: this._cwd, env: env });
+			this.runInTerminalRequest(runArgs, 600000, runResponse => {
+				if (runResponse.success) {
+					console.log("PRIMARY REPL STARTED");
+					this.setupDebugREPL(response, args);
 
-		// this._primaryRepl.stdout.on('data', (data) => {
-		// 	var output = '' + data;
-		// 	console.log(output);
+				} else {
+					this.sendErrorResponse(response, -1, "Cannot launch debug target in terminal.");
+				}
+			});
 
-		// 	if ((output.search(/nREPL server started/) != -1)) {
+		} else {
+			// TODO create command from args
+			this._primaryRepl = spawn(lein_path, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + replPort], { cwd: this._cwd, env: env });
 
-		// 	}
-		// });
+			this._primaryRepl.stdout.on('data', (data) => {
+				var output = '' + data;
+				console.log(output);
 
-		// this._primaryRepl.stderr.on('data', (data) => {
-		// 	self.perr(data);
-		// 	console.log(`stderr: ${data}`);
-		// });
+				if ((output.search(/nREPL server started/) != -1)) {
+					this.setupDebugREPL(response, args);
+				}
+			});
 
-		// this._primaryRepl.on('close', (code) => {
-		// 	if (code !== 0) {
-		// 		console.log(`REPL process exited with code ${code}`);
-		// 	}
-		// 	console.log("REPL closed");
-		// });
+			this._primaryRepl.stderr.on('data', (data) => {
+				self.perr(data);
+				console.log(`stderr: ${data}`);
+			});
+
+			this._primaryRepl.on('close', (code) => {
+				if (code !== 0) {
+					console.log(`REPL process exited with code ${code}`);
+				}
+				console.log("REPL closed");
+			});
+		}
 	}
 
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {
@@ -580,8 +606,11 @@ class ClojureDebugSession extends DebugSession {
 		let sideChannel = s("http://localhost:" + self._sideChannelPort);
 
 		sideChannel.on('go-eval', (data) => {
-
-			sideChannel.emit("eval","exit");
+			if (this._isLaunched) {
+				sideChannel.emit("eval","terminate-and-exit");
+			} else {
+				sideChannel.emit("eval","exit");
+			}
 
 			sideChannel.close();
 			self.sendResponse(response);
