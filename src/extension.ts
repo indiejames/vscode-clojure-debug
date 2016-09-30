@@ -7,7 +7,7 @@
 import * as path from 'path';
 import http = require('http');
 import s = require('socket.io');
-import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration, TextEditor } from 'vscode';
+import { Terminal, window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration, TextEditor } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
@@ -26,7 +26,7 @@ let EXIT_CMD = "(System/exit 0)";
 var activeEditor = null;
 
 var activeReplActions: Disposable[] = null;
-var debugTerminal = null;
+var debugTerminal: Terminal = null;
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
@@ -71,6 +71,12 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 
 	var sideChannel = s(sideChannelPort);
 	sideChannel.on('connection', (sock) => {
+
+		sock.on('launch-repl', (command) => {
+			debugTerminal = window.createTerminal("James's Clojure REPL");
+			debugTerminal.sendText(command, true);
+			debugTerminal.show();
+		})
 
 		sock.on('connect-to-repl', (hostPortString) => {
 			var host, port;
@@ -122,6 +128,11 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 				rconn.close((err: any, msg: any) : any => {
 					console.log("Connection closed)");
 				});
+
+				if (debugTerminal) {
+					debugTerminal.dispose();
+					debugTerminal = null;
+				}
 
 				break;
 
