@@ -542,28 +542,28 @@ class ClojureDebugSession extends DebugSession {
 
 		// TODO create command form args
 		if (this.supportRunInTerminal && args.console == "integratedTerminal") {
+			// let cmd = "cd "
+            // let command = "cd /Users/jnorton/Clojure/repl_test ; env home=/Users/jnorton JVM_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9999 CLOJURE_DEBUG_JDWP_PORT=9999 lein with-profile +debug-repl repl :start :port 7777";
 
-            let command = "cd /Users/jnorton/Clojure/repl_test ; env home=/Users/jnorton JVM_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9999 CLOJURE_DEBUG_JDWP_PORT=9999 lein with-profile +debug-repl repl :start :port 7777";
+			// let sideChannel = s("http://localhost:" + self._sideChannelPort);
 
-			let sideChannel = s("http://localhost:" + self._sideChannelPort);
+			// sideChannel.on('go-eval', (data) => {
+			// 	sideChannel.emit("launch-repl", command);
+			// 	sideChannel.close();
 
-			sideChannel.on('go-eval', (data) => {
-				sideChannel.emit("launch-repl", command);
-				sideChannel.close();
-
-				console.log("PRIMARY REPL STARTED");
-				this.setupDebugREPL(response, args);
-			});
-
-			// this.runInTerminalRequest(runArgs, 600000, runResponse => {
-			// 	if (runResponse.success) {
-			// 		console.log("PRIMARY REPL STARTED");
-			// 		this.setupDebugREPL(response, args);
-
-			// 	} else {
-			// 		this.sendErrorResponse(response, -1, "Cannot launch debug target in terminal.");
-			// 	}
+			// 	console.log("PRIMARY REPL STARTED");
+			// 	this.setupDebugREPL(response, args);
 			// });
+
+			this.runInTerminalRequest(runArgs, 600000, runResponse => {
+				if (runResponse.success) {
+					console.log("PRIMARY REPL STARTED");
+					this.setupDebugREPL(response, args);
+
+				} else {
+					this.sendErrorResponse(response, -1, "Cannot launch debug target in terminal.");
+				}
+			});
 		} else if (this.supportRunInTerminal && args.console == "externalTerminal") {
 			runArgs["kind"] = "external";
 
