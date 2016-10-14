@@ -18,7 +18,6 @@ import s = require('socket.io-client');
 import tmp = require('tmp');
 import {ReplConnection} from './replConnection';
 import {parse, toJS} from 'jsedn';
-import {Extract} from 'unzip';
 let chalk = require("chalk");
 
 let EXIT_CMD = "(System/exit 0)";
