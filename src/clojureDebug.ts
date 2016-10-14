@@ -12,6 +12,7 @@ import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync, copySync, writeFileSync, mkdirSync, createReadStream} from 'fs-extra';
 import {basename, dirname, join} from 'path';
 import {spawn} from 'child_process';
+import * as os from 'os';
 import nrepl_client = require('jg-nrepl-client');
 import s = require('socket.io-client');
 import tmp = require('tmp');
@@ -478,17 +479,22 @@ class ClojureDebugSession extends DebugSession {
 
 	}
 
-	private createDebuggerProject() {
+	private createDebuggerProject(toolsJar: string) {
 		// create a tempory lein proejct
 		var tmpobj = tmp.dirSync({ mode: 0o750, prefix: 'repl_connnect_' });
 		this._tmpProjectDir = tmpobj.name;
 		let projectPath = join(tmpobj.name, "project.clj");
-		writeFileSync(projectPath, projectClj);
+		if (os.platform() == "windows") {
+			toolsJar = toolsJar.replace(/\\/g, "\\\\");
+		}
+		let projCljWithTools = projectClj.replace(":resource-paths []",":resource-paths [\"" + toolsJar + "\"]");
+		writeFileSync(projectPath, projCljWithTools);
 	}
 
 	protected attachRequest(response: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments) {
 		console.log("ATTACH REQUEST");
-		this.createDebuggerProject();
+		// FIXME - add toolsJar to args
+		this.createDebuggerProject("");
 
 	}
 
@@ -497,7 +503,7 @@ class ClojureDebugSession extends DebugSession {
 		this._isLaunched = true;
 		let self = this;
 
-		this.createDebuggerProject();
+		this.createDebuggerProject(args.toolsJar);
 
 		this._cwd = args.cwd;
 		console.log("CWD: " + this._cwd);
@@ -523,6 +529,7 @@ class ClojureDebugSession extends DebugSession {
 		}
 
 		let home: string = process.env["HOME"] + "";
+		let jvmOpts = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort;
 
 		var env = {
 			home: home,
@@ -554,6 +561,8 @@ class ClojureDebugSession extends DebugSession {
 			// 	console.log("PRIMARY REPL STARTED");
 			// 	this.setupDebugREPL(response, args);
 			// });
+
+			let windowsCmd = "cd " + args.cwd + " && cd /C set \"JVM_OPTS=" + jvmOpts + "\" && lein with-profile + debug-repl repl :start :port " + replPort;
 
 			this.runInTerminalRequest(runArgs, 600000, runResponse => {
 				if (runResponse.success) {
