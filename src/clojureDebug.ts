@@ -461,7 +461,7 @@ class ClojureDebugSession extends DebugSession {
 			debugReplPort = args.debugReplPort;
 		}
 
-		let debugPort = 3030;
+		let debugPort = 8030;
 		if (args.debugPort) {
 			debugPort = args.debugPort;
 		}
@@ -471,7 +471,7 @@ class ClojureDebugSession extends DebugSession {
 			leinPath = args.leinPath;
 		}
 
-		self._debuggerRepl = spawn(leinPath, ["update-in", ":resource-paths", "conj", "\"" + args.toolsJar + "\"", "--", "repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
+		self._debuggerRepl = spawn(leinPath, ["repl", ":headless", ":port", "" + debugReplPort], {cwd: this._tmpProjectDir, env: env });
 		self._debuggerState = DebuggerState.REPL_STARTED;
 		console.log("DEBUGGER REPL STARTED");
 		self.connectToDebugREPL(response, args, primaryReplPort, debugReplPort, debugPort);

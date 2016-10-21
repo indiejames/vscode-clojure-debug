@@ -32,7 +32,7 @@ export class ReplConnection {
 
 	private doConnect(port: number, host: string, callback: callbackType) {
 		let self = this;
-		console.log("Connecting...")
+		console.log("Connecting to port " + port + " on host " + host + "...");
 		this.conn = nrepl_client.connect({port: port, host: host, verbose: false});
 
 		this.conn.on('error', (error: any) => {
