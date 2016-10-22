@@ -483,7 +483,7 @@ class ClojureDebugSession extends DebugSession {
 		var tmpobj = tmp.dirSync({ mode: 0o750, prefix: 'repl_connnect_' });
 		this._tmpProjectDir = tmpobj.name;
 		let projectPath = join(tmpobj.name, "project.clj");
-		if (os.platform() == "windows") {
+		if (os.platform() == "win32") {
 			toolsJar = toolsJar.replace(/\\/g, "\\\\");
 		}
 		let projCljWithTools = projectClj.replace(":resource-paths []",":resource-paths [\"" + toolsJar + "\"]");
@@ -522,9 +522,9 @@ class ClojureDebugSession extends DebugSession {
 			this._sideChannelPort = args.sideChannelPort;
 		}
 
-		var lein_path = "/usr/local/bin/lein";
+		var leinPath = "/usr/local/bin/lein";
 		if (args.leinPath) {
-			lein_path = args.leinPath;
+			leinPath = args.leinPath;
 		}
 
 		let home: string = process.env["HOME"] + "";
@@ -539,7 +539,7 @@ class ClojureDebugSession extends DebugSession {
 		var runArgs: DebugProtocol.RunInTerminalRequestArguments = {
 			kind: 'integrated',
 			title: ("Clojure REPL"),
-			args: ["lein", "with-profile", "+debug-repl", "repl", ":start", ":port", "" + replPort],
+			args: [leinPath, "with-profile", "+debug-repl", "repl", ":start", ":port", "" + replPort],
 			cwd: args.cwd,
 			env: {home: home,
 				  JVM_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort,
@@ -561,7 +561,10 @@ class ClojureDebugSession extends DebugSession {
 			// 	this.setupDebugREPL(response, args);
 			// });
 
-			let windowsCmd = "cd " + args.cwd + " && cd /C set \"JVM_OPTS=" + jvmOpts + "\" && lein with-profile + debug-repl repl :start :port " + replPort;
+			let cmd = "cd " + args.cwd + "; export JVM_OPTS=" + jvmOpts + "; lein with-profile + debug-rpl repl :start :port " + replPort;
+			if (os.platform() == "win32") {
+				cmd = "cd " + args.cwd + " && cd /C set \"JVM_OPTS=" + jvmOpts + "\" && lein with-profile + debug-repl repl :start :port " + replPort;
+			}
 
 			this.runInTerminalRequest(runArgs, 600000, runResponse => {
 				if (runResponse.success) {
@@ -587,7 +590,7 @@ class ClojureDebugSession extends DebugSession {
 
 		} else {
 			// TODO create command from args
-			this._primaryRepl = spawn(lein_path, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + replPort], { cwd: this._cwd, env: env });
+			this._primaryRepl = spawn(leinPath, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + replPort], { cwd: this._cwd, env: env });
 
 			this._primaryRepl.stdout.on('data', (data) => {
 				var output = '' + data;
