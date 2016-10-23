@@ -593,7 +593,10 @@ class ClojureDebugSession extends DebugSession {
 
 		} else {
 			// TODO create command from args
-			this._primaryRepl = spawn(leinPath, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + replPort], { cwd: this._cwd, env: env });
+			// this._primaryRepl = spawn(leinPath, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + replPort], { cwd: this._cwd, env: env });
+			let cmd = args.commandLine[0];
+			let cmdArgs = args.commandLine.slice(1, args.commandLine.length);
+			this._primaryRepl = spawn(cmd, cmdArgs, {cwd: this._cwd, env: env});
 
 			this._primaryRepl.stdout.on('data', (data) => {
 				var output = '' + data;
