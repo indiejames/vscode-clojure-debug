@@ -71,8 +71,10 @@ export interface LaunchRequestArguments {
 	leinPath: string,
 	// Current working directory
 	cwd: string;
+	// The command to run with arguments
+	commandLine: string[];
 	// The environment variables that should be set when running the target.
-	env: string[];
+	env: {};
 	// Automatically stop target after launch. If not specified, target does not stop.
 	stopOnEntry?: boolean;
 	// Refresh namespaces on launch. Defaults to true.
@@ -532,14 +534,15 @@ class ClojureDebugSession extends DebugSession {
 
 		var env = {
 			home: home,
-			JVM_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort,
+			JVM_OPTS: jvmOpts,
 			CLOJURE_DEBUG_JDWP_PORT: "" + debugPort
 		};
 
 		var runArgs: DebugProtocol.RunInTerminalRequestArguments = {
 			kind: 'integrated',
 			title: ("Clojure REPL"),
-			args: [leinPath, "with-profile", "+debug-repl", "repl", ":start", ":port", "" + replPort],
+			// args: [leinPath, "with-profile", "+debug-repl", "repl", ":start", ":port", "" + replPort],
+			args: args.commandLine,
 			cwd: args.cwd,
 			env: {home: home,
 				  JVM_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort,
