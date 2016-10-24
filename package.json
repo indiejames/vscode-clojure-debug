@@ -9,7 +9,7 @@
     "name": "James Norton"
   },
   "engines": {
-    "vscode": "^1.5.x"
+    "vscode": "^1.6.x"
   },
   "icon": "images/Clojure-icon.png",
   "categories": [
