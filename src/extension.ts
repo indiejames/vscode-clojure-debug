@@ -7,7 +7,7 @@
 import * as path from 'path';
 import http = require('http');
 import s = require('socket.io');
-import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration, TextEditor } from 'vscode';
+import { Terminal, window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration, TextEditor } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
@@ -24,6 +24,9 @@ import {} from 'languages';
 
 let EXIT_CMD = "(System/exit 0)";
 var activeEditor = null;
+
+var activeReplActions: Disposable[] = null;
+var debugTerminal: Terminal = null;
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
@@ -60,7 +63,7 @@ function handleEvalResponse(response: Array<any>, outputChannel: OutputChannel) 
 	}
 }
 
-function initSideChannel(sideChannelPort: number){
+function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 	// start up a side channel that the debug adapter can use to query the extension
 
 	console.log("Setting up side channel on port " + sideChannelPort);
@@ -69,10 +72,16 @@ function initSideChannel(sideChannelPort: number){
 	var sideChannel = s(sideChannelPort);
 	sideChannel.on('connection', (sock) => {
 
+		sock.on('launch-repl', (command) => {
+			debugTerminal = window.createTerminal("James's Clojure REPL");
+			debugTerminal.sendText(command, true);
+			debugTerminal.show();
+		})
+
 		sock.on('connect-to-repl', (hostPortString) => {
 			var host, port;
 			[host, port] = hostPortString.split(":");
-			connect(host, port);
+			connect(context, host, port);
 		});
 
 		sock.on('get-source-paths', (paths) => {
@@ -104,17 +113,26 @@ function initSideChannel(sideChannelPort: number){
 		sock.on('eval', (action) => {
 			switch (action) {
 			case 'terminate-and-exit':
+
 			  rconn.eval(EXIT_CMD, (err: any, result: any): void => {
 					// This is never called, apparently.
 					console.log("debugged process killed")
-				});
+			  });
+
 
 				// fall through
 
 			case 'exit':
+				removeReplActions(context);
+
 				rconn.close((err: any, msg: any) : any => {
 					console.log("Connection closed)");
 				});
+
+				if (debugTerminal) {
+					debugTerminal.dispose();
+					debugTerminal = null;
+				}
 
 				break;
 
@@ -137,20 +155,40 @@ function initSideChannel(sideChannelPort: number){
 	});
 }
 
-function setUpActions(context: ExtensionContext, rconn: ReplConnection){
-	let cfg = workspace.getConfiguration("clojure");
-
+// Set up actions that work without the REPL
+function setUpActions(context: ExtensionContext) {
 	context.subscriptions.push(languages.setLanguageConfiguration("clojure", languageConfiguration));
-	context.subscriptions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
-	context.subscriptions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
-	context.subscriptions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
-  context.subscriptions.push(commands.registerCommand('clojure.expand_selection', () => {
+	context.subscriptions.push(commands.registerCommand('clojure.expand_selection', () => {
 		EditorUtils.selectBrackets(activeEditor);
 	}));
+}
+
+function removeReplActions(context: ExtensionContext) {
+	if (activeReplActions) {
+		for (var disposable of activeReplActions) {
+			let index = context.subscriptions.indexOf(disposable, 0);
+			if (index > -1) {
+				context.subscriptions.splice(index, 1);
+			}
+			disposable.dispose();
+		}
+
+		activeReplActions = null;
+	}
+}
+
+function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
+	let cfg = workspace.getConfiguration("clojure");
+
+	activeReplActions = [];
+
+	activeReplActions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
+	activeReplActions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
+	activeReplActions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
 
 	////////////////////////////////////////////////////
 
-	context.subscriptions.push(commands.registerCommand('clojure.eval', () => {
+	activeReplActions.push(commands.registerCommand('clojure.eval', () => {
 		// only support evaluating selected text for now.
 		// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
 		let editor = window.activeTextEditor;
@@ -170,7 +208,8 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 
 	}));
 
-	context.subscriptions.push(commands.registerCommand('clojure.refresh', () => {
+
+	activeReplActions.push(commands.registerCommand('clojure.refresh', () => {
 		console.log("Calling refresh...")
 		rconn.refresh((err: any, result: any) : void => {
 			// TODO handle errors here
@@ -179,7 +218,7 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 	}));
 
 	// TODO create a test runner class and move these to it
-	context.subscriptions.push(commands.registerCommand('clojure.run-all-tests', () => {
+	activeReplActions.push(commands.registerCommand('clojure.run-all-tests', () => {
 		if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {
 			console.log("Calling refresh...")
 			rconn.refresh((err: any, result: any) : void => {
@@ -196,7 +235,7 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 		}
 	}));
 
-	context.subscriptions.push(commands.registerCommand('clojure.run-test-file', () => {
+	activeReplActions.push(commands.registerCommand('clojure.run-test-file', () => {
 		let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
 		if (cfg.get("refreshNamespacesBeforeRunnningTestNamespace") === true) {
 			rconn.refresh((err: any, result: any) => {
@@ -212,7 +251,7 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 		}
 	}));
 
-	context.subscriptions.push(commands.registerCommand('clojure.run-test', () => {
+	activeReplActions.push(commands.registerCommand('clojure.run-test', () => {
 		let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
 		let test = EditorUtils.getSymobleUnderCursor(activeEditor);
 		if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
@@ -224,14 +263,17 @@ function setUpActions(context: ExtensionContext, rconn: ReplConnection){
 			});
 		} else {
 			rconn.runTest(ns, test, (err: any, result: any) => {
-					console.log("Test " + test + " run.");
-				});
+				console.log("Test " + test + " run.");
+			});
 		}
 	}));
+
+	context.subscriptions.concat(activeReplActions);
+
 }
 
 // Create a connection to the debugged process and run some init code
-function connect(host: string, port: number) {
+function connect(context: ExtensionContext, host: string, port: number) {
 	console.log("Attaching to debugged process");
 	window.setStatusBarMessage("Attaching to debugged process");
 	let cfg = workspace.getConfiguration("clojure");
@@ -246,6 +288,7 @@ function connect(host: string, port: number) {
 				rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
 					outputChannel.appendLine(result);
 					console.log("Compliment namespace loaded");
+					setUpReplActions(context, rconn);
 					window.setStatusBarMessage("Attached to process");
 				});
 			}
@@ -257,6 +300,8 @@ export function activate(context: ExtensionContext) {
 	console.log("Starting Clojure extension...");
 	let cfg = workspace.getConfiguration("clojure");
 	window.setStatusBarMessage("Activating Extension");
+
+	outputChannel = window.createOutputChannel("Clojure");
 
 	// Keep track of the active file editor so we can execute code in the namespace currently
 	// being edited. This is necessary because as of VS Code 1.5 the input to the debugger
@@ -276,16 +321,16 @@ export function activate(context: ExtensionContext) {
 
 	// read the launch.json file to get the side channel port
 	let launchJsonPath = join(workspace.rootPath, ".vscode", "launch.json");
-  let launchJsonStr = readFileSync(launchJsonPath).toString();
-  let launchJson = JSON.parse(stripJsonComments(launchJsonStr));
-  let sideChannelPort: number = launchJson["configurations"][0]["sideChannelPort"];
+	let launchJsonStr = readFileSync(launchJsonPath).toString();
+	let launchJson = JSON.parse(stripJsonComments(launchJsonStr));
+	let sideChannelPort: number = launchJson["configurations"][0]["sideChannelPort"];
 
   // Create the connection object but don't connect yet
 	rconn = new ReplConnection();
 
-	setUpActions(context, rconn);
+	setUpActions(context);
 
-	initSideChannel(sideChannelPort);
+	initSideChannel(context, sideChannelPort);
 
 	// The server is implemented in node
 	// let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));

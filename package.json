@@ -1,15 +1,15 @@
 {
-  "name": "clojure-debug",
-  "displayName": "Clojure Debug",
+  "name": "continuum",
+  "displayName": "Continuum",
   "license": "MIT",
   "version": "0.1.0",
   "publisher": "jamesnorton",
-  "description": "Clojure debugger / language support for VS Code.",
+  "description": "Clojure debugger / REPL / language support for VS Code.",
   "author": {
     "name": "James Norton"
   },
   "engines": {
-    "vscode": "^1.1.x"
+    "vscode": "^1.5.x"
   },
   "icon": "images/Clojure-icon.png",
   "categories": [
@@ -33,29 +33,29 @@
     "socket.io-client": "^1.4.8",
     "strip-json-comments": "^2.0.1",
     "tmp": "^0.0.28",
-    "unzip": "^0.1.1",
-    "vscode": "^0.11.x",
-    "vscode-debugadapter": "^1.12.0",
-    "vscode-debugprotocol": "^1.12.0",
+    "vscode": "^0.11.18",
+    "vscode-debugadapter": "^1.13.0",
+    "vscode-debugprotocol": "^1.13.0",
     "vscode-languageclient": "^1.4.2",
     "vscode-languageserver": "^1.4.1"
   },
   "devDependencies": {
-    "vscode": "^0.11.x",
+    "vscode": "^1.0.0",
     "mocha": "^2.4.5",
-    "typescript": "^1.8.9",
+    "typescript": "^2.0.2",
     "typings": "^0.7.9",
     "socket.io": "1.4.8"
   },
   "scripts": {
-    "prepublish": "tsc -p ./src",
-    "compile": "tsc -p ./src",
-    "watch": "tsc -w -p ./src",
-    "postinstall": "node ./node_modules/vscode/bin/install && cp ./clojure/project.clj ./out",
+    "prepublish": "node ./node_modules/typescript/bin/tsc -p ./src",
+    "compile": "node ./node_modules/typescript/bin/tsc -p ./src",
+    "watch": "node ./node_modules/typescript/bin/tsc -w -p ./src",
+    "postinstall": "node ./node_modules/vscode/bin/install",
     "test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
   },
   "activationEvents": [
-	  "workspaceContains:project.clj"
+	  "workspaceContains:project.clj",
+    "onLanguage:clojure"
   ],
   "main": "./out/extension",
   "contributes": {
@@ -155,6 +155,7 @@
           "launch": {
             "required": [
               "toolsJar",
+              "command",
               "cwd"
             ],
             "properties": {
@@ -162,6 +163,21 @@
                 "type": "string",
                 "description": "Path to the tools.jar in your Java installation.",
                 "default": "${JAVA_HOME}/lib/tools.jar"
+              },
+              "commandLine": {
+                "type": "array",
+                "description": "Command to run to launch the debugged program.",
+                "default": ["lein", "repl", ":start", "5555"]
+              },
+              "program": {
+                "type": "string",
+                "description": "Command to run to launch the debugged program.",
+                "default": "lein repl :start 5555"
+              },
+              "console": {
+                "enum": [ "internalConsole", "integratedTerminal", "externalTerminal" ],
+								"description": "Console to to use for launched programs. Defaults to internal debug console.",
+								"default": "internalConsole"
               },
               "leinPath": {
                 "type": "string",
@@ -213,7 +229,7 @@
         },
         "initialConfigurations": [
           {
-            "launchCommand": "lein repl :start 5555",
+            "commandLine": ["lein", "repl", ":start", "5555"],
             "name": "Clojure-Debug",
             "type": "clojure",
             "request": "launch",

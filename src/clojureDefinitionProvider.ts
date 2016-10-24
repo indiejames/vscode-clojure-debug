@@ -1,4 +1,4 @@
-import {DefinitionProvider, Definition, Location, TextDocument, Position, Uri, CancellationToken} from 'vscode';
+import {window, DefinitionProvider, Definition, Location, TextDocument, Position, Uri, CancellationToken} from 'vscode';
 import nrepl_client = require('jg-nrepl-client');
 import edn = require('jsedn');
 import {EditorUtils} from './editorUtils';
@@ -23,20 +23,25 @@ export class ClojureDefinitionProvider implements DefinitionProvider {
 
     return new Promise<Definition>((resolve, reject) => {
       // Use the REPL to find the definition point
-      self.connection.findDefinition(ns, symbol, (err: any, result: any) => {
-        if (result && result.length > 0) {
-          var def: Location[] = [];
-          let res = result[0];
-          let uri = Uri.file(res["path"]);
-          let line = res["line"] - 1;
-          let pos = new Position(line, 0);
-          def = [new Location(uri, pos)];
+      if (this.connection.isConnected()) {
+        self.connection.findDefinition(ns, symbol, (err: any, result: any) => {
+          if (result && result.length > 0) {
+            var def: Location[] = [];
+            let res = result[0];
+            let uri = Uri.file(res["path"]);
+            let line = res["line"] - 1;
+            let pos = new Position(line, 0);
+            def = [new Location(uri, pos)];
 
-          resolve(def);
-        } else {
-          reject(err);
-        }
-      });
+            resolve(def);
+          } else {
+            reject(err);
+          }
+        });
+      } else {
+        window.showErrorMessage("Please launch or attach to a REPL to enable definitions.")
+        resolve(undefined);
+      }
     });
   }
 }
