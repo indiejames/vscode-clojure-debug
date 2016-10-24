@@ -20,24 +20,31 @@ export class ClojureHoverProvider implements HoverProvider {
 		}
 		try {
 			return new Promise<Hover>((resolve, reject) => {
+				if (this.connection.isConnected()) {
+					this.connection.doc(ns, variable, (err: any, msg: any) => {
+						if (err) {
+							reject(err);
+						} else if (msg.constructor === Array && msg.length > 0) {
+							var docstring = msg[0]["doc"];
+							if (docstring == undefined) {
+								resolve(undefined);
+							} else if (docstring.constructor === Array && docstring.length > 0) {
+								// let signature = docstring[1];
+								// docstring[1] = {langauge: "Clojure", value: signature};
+								// docstring[2] = {language: "Clojure", value: "```\n" + docstring[2].replace(/\\n/g,"\n") + "\n```"};
+								let hover = new Hover(docstring);
+								resolve(hover);
+							} else {
+								resolve(undefined);
+							}
 
-				this.connection.doc(ns, variable, (err: any, msg: any) => {
-					if (err) {
-						reject(err);
-					} else if (msg.constructor === Array && msg.length > 0) {
-						var docstring = msg[0]["doc"];
-						if (docstring == undefined) {
-							resolve(undefined);
 						} else {
-							docstring = docstring.replace(/\\n/g,"\n");
-							let hover = new Hover(docstring);
-							resolve(hover);
+							resolve(undefined);
 						}
-
-					} else {
-						resolve(undefined);
-					}
-				});
+					});
+				} else {
+					resolve(undefined);
+				}
 			});
 		} catch (Error){
 			return Promise.reject("");
