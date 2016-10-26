@@ -300,7 +300,7 @@ export function activate(context: ExtensionContext) {
 	let cfg = workspace.getConfiguration("clojure");
 	window.setStatusBarMessage("Activating Extension");
 
-	// outputChannel = window.createOutputChannel("Clojure");
+	outputChannel = window.createOutputChannel("Clojure");
 
 	// Keep track of the active file editor so we can execute code in the namespace currently
 	// being edited. This is necessary because as of VS Code 1.5 the input to the debugger
