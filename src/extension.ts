@@ -7,7 +7,7 @@
 import * as path from 'path';
 import http = require('http');
 import s = require('socket.io');
-import { Terminal, window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration, TextEditor } from 'vscode';
+import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration, StatusBarItem, TextEditor } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
@@ -25,8 +25,9 @@ import {} from 'languages';
 let EXIT_CMD = "(System/exit 0)";
 var activeEditor = null;
 
+var exceptionBreakpointClassItem: StatusBarItem;
+
 var activeReplActions: Disposable[] = null;
-var debugTerminal: Terminal = null;
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
@@ -48,6 +49,7 @@ var extensionDir: String;
 function handleEvalResponse(response: Array<any>, outputChannel: OutputChannel) {
 	for (var resp of response) {
 		// TODO handle errors here
+		// TOD standardize the message handling (some are under 'eval' others are direct)
 
 		if (resp["out"]) {
 			outputChannel.append(resp["out"] + "\n");
@@ -72,16 +74,16 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 	var sideChannel = s(sideChannelPort);
 	sideChannel.on('connection', (sock) => {
 
-		sock.on('launch-repl', (command) => {
-			debugTerminal = window.createTerminal("James's Clojure REPL");
-			debugTerminal.sendText(command, true);
-			debugTerminal.show();
-		})
-
 		sock.on('connect-to-repl', (hostPortString) => {
 			var host, port;
 			[host, port] = hostPortString.split(":");
 			connect(context, host, port);
+		});
+
+		sock.on('get-breakpoint-exception-class', () => {
+			const itemStr = exceptionBreakpointClassItem.text;
+			const classStr = itemStr.substr(8, itemStr.length);
+			sock.emit('get-breakpoint-exception-class-result', classStr)
 		});
 
 		sock.on('get-source-paths', (paths) => {
@@ -129,11 +131,6 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 					console.log("Connection closed)");
 				});
 
-				if (debugTerminal) {
-					debugTerminal.dispose();
-					debugTerminal = null;
-				}
-
 				break;
 
 			case 'get-namespace':
@@ -164,6 +161,9 @@ function setUpActions(context: ExtensionContext) {
 }
 
 function removeReplActions(context: ExtensionContext) {
+	exceptionBreakpointClassItem.dispose();
+	exceptionBreakpointClassItem = null;
+
 	if (activeReplActions) {
 		for (var disposable of activeReplActions) {
 			let index = context.subscriptions.indexOf(disposable, 0);
@@ -179,6 +179,11 @@ function removeReplActions(context: ExtensionContext) {
 
 function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 	let cfg = workspace.getConfiguration("clojure");
+
+	exceptionBreakpointClassItem = window.createStatusBarItem();
+	exceptionBreakpointClassItem.text = "$(stop) Throwable"
+	exceptionBreakpointClassItem.command = "clojure.setExceptionBreakpointClass";
+	exceptionBreakpointClassItem.show();
 
 	activeReplActions = [];
 
@@ -208,13 +213,25 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 
 	}));
 
+	activeReplActions.push(commands.registerCommand('clojure.setExceptionBreakpointClass', () => {
+		const input = window.showInputBox({prompt: "Exception Class"});
+		input.then(value => {
+			exceptionBreakpointClassItem.text = "$(stop) " + value;
+			// reapply breakpoints to update exception breakpoints
+			const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
+			com.then(value => {
+				console.log(value);
+			}, rejected => {
+				console.error(rejected);
+			});
+		})}));
 
 	activeReplActions.push(commands.registerCommand('clojure.refresh', () => {
 		console.log("Calling refresh...")
 		rconn.refresh((err: any, result: any) : void => {
 			// TODO handle errors here
 			console.log("Refreshed Clojure code.");
-			});
+		});
 	}));
 
 	// TODO create a test runner class and move these to it
@@ -302,6 +319,12 @@ export function activate(context: ExtensionContext) {
 	window.setStatusBarMessage("Activating Extension");
 
 	outputChannel = window.createOutputChannel("Clojure");
+
+	let coms = commands.getCommands();
+	coms.then(value => {
+		console.log(value);
+	});
+
 
 	// Keep track of the active file editor so we can execute code in the namespace currently
 	// being edited. This is necessary because as of VS Code 1.5 the input to the debugger

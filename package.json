@@ -9,7 +9,7 @@
     "name": "James Norton"
   },
   "engines": {
-    "vscode": "^1.5.x"
+    "vscode": "^1.6.x"
   },
   "icon": "images/Clojure-icon.png",
   "categories": [
@@ -34,17 +34,17 @@
     "strip-json-comments": "^2.0.1",
     "tmp": "^0.0.28",
     "vscode": "^0.11.18",
+    "typescript": "^2.0.2",
     "vscode-debugadapter": "^1.13.0",
     "vscode-debugprotocol": "^1.13.0",
-    "vscode-languageclient": "^1.4.2",
-    "vscode-languageserver": "^1.4.1"
+    "vscode-languageclient": "^2.6.0",
+    "vscode-languageserver": "^2.6.0"
   },
   "devDependencies": {
-    "vscode": "^1.0.0",
+     "vscode": "^1.0.0",
     "mocha": "^2.4.5",
     "typescript": "^2.0.2",
-    "typings": "^0.7.9",
-    "socket.io": "1.4.8"
+    "typings": "^0.7.9"
   },
   "scripts": {
     "prepublish": "node ./node_modules/typescript/bin/tsc -p ./src",
