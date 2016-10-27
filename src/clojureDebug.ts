@@ -740,13 +740,28 @@ class ClojureDebugSession extends DebugSession {
 		if (args.filters.indexOf("all-exceptions") != -1) {
 			type = "all";
 		}
-		this._replConnection.setExceptionBreakpoint(type, (err: any, result: any) => {
-			if (err) {
-				response.success = false;
-			} else {
-				response.success = true;
-			}
-			this.sendResponse(response);
+		// get the class type for the exceptions from the extension
+		let self = this;
+		var exClass = "Throwable";
+		let sideChannel = s("http://localhost:" + this._sideChannelPort);
+		sideChannel.on('go-eval', (data) => {
+
+			sideChannel.on('get-breakpoint-exception-class-result', (result) => {
+				if (result && result != "") {
+					exClass = result;
+					this._replConnection.setExceptionBreakpoint(type, exClass, (err: any, result: any) => {
+						if (err) {
+							response.success = false;
+						} else {
+							response.success = true;
+						}
+						this.sendResponse(response);
+					});
+				}
+				sideChannel.close();
+			});
+
+			sideChannel.emit('get-breakpoint-exception-class');
 		});
 	}
 

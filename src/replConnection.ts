@@ -143,9 +143,9 @@ export class ReplConnection {
 	}
 
 	// set a breakpoint for exceptions. type is one of 'all', 'uncaught', or 'none', indicating that exception breakpoints
-	// should be cleared
-	public setExceptionBreakpoint(type: string, callback: callbackType) {
-		this.conn.send({op: 'set-exception-breakpoint', type: type}, callback);
+	// should be cleared. exClass is the class of exception you want to catch, e.g., 'Throwable', 'ClassCastException', etc.
+	public setExceptionBreakpoint(type: string, exClass: string, callback: callbackType) {
+		this.conn.send({op: 'set-exception-breakpoint', type: type, class: exClass}, callback);
 	}
 
 	// clear all breakpoints for the given file
