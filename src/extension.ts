@@ -230,7 +230,14 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 		console.log("Calling refresh...")
 		rconn.refresh((err: any, result: any) : void => {
 			// TODO handle errors here
-			console.log("Refreshed Clojure code.");
+			// reapply the breakpoints since they will have been invalidated on any reloaded code
+			const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
+			com.then(value => {
+				console.log(value);
+				console.log("Refreshed Clojure code.");
+			}, rejected => {
+				console.error(rejected);
+			});
 		});
 	}));
 
