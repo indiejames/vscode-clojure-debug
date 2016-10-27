@@ -169,11 +169,6 @@
                 "description": "Command to run to launch the debugged program.",
                 "default": ["lein", "repl", ":start", "5555"]
               },
-              "program": {
-                "type": "string",
-                "description": "Command to run to launch the debugged program.",
-                "default": "lein repl :start 5555"
-              },
               "console": {
                 "enum": [ "internalConsole", "integratedTerminal", "externalTerminal" ],
 								"description": "Console to to use for launched programs. Defaults to internal debug console.",
@@ -214,11 +209,6 @@
                 "description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
                 "default": "${workspaceRoot}"
               },
-              "stopOnEntry": {
-                "type": "boolean",
-                "description": "Automatically stops program on launch.",
-                "default": false
-              },
               "refreshOnLaunch": {
                 "type": "boolean",
                 "description": "Automatically loads all namespaces on launch.",
@@ -229,14 +219,13 @@
         },
         "initialConfigurations": [
           {
-            "commandLine": ["lein", "repl", ":start", "5555"],
+            "commandLine": ["lein", "with-profile", "+debug-repl", "repl", ":start", ":port", "5555"],
             "name": "Clojure-Debug",
             "type": "clojure",
             "request": "launch",
             "toolsJar": "${JAVA_HOME}/lib/tools.jar",
             "env": {},
             "cwd": "${workspaceRoot}",
-            "stopOnEntry": false,
             "refreshNamespacesOnLaunch": true
           }
         ]

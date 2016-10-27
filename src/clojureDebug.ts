@@ -75,13 +75,8 @@ export interface LaunchRequestArguments {
 	commandLine: string[];
 	// The environment variables that should be set when running the target.
 	env: {};
-	// Automatically stop target after launch. If not specified, target does not stop.
-	stopOnEntry?: boolean;
 	// Refresh namespaces on launch. Defaults to true.
 	refreshOnLaunch?: boolean;
-
-
-
 }
 
 // utility funciton to
@@ -404,34 +399,14 @@ class ClojureDebugSession extends DebugSession {
 					// start listening for events
 					self.handleEvent(null, null);
 
-					// if (args.refreshOnLaunch) {
+					// we just start to run until we hit a breakpoint or an exception
+					response.body = {
+						/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
+						allThreadsContinued: true
+					};
 
-					// } else {
-					// 	self._replConnection.listThreads((err: any, result: any) => {
-					// 		console.log(result);
-					// 		self.updateThreads(result[0]["threads"]);
+					self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
 
-					// 		console.log("Got threads");
-
-					// 	});
-					// }
-
-					// TODO Figure out what to do here
-					if (args.stopOnEntry) {
-						self._currentLine = 1;
-						self.sendResponse(response);
-
-						// we stop on the first line - TODO need to figure out what thread this would be and if we even want to support this
-						self.sendEvent(new StoppedEvent("entry", ClojureDebugSession.THREAD_ID));
-					} else {
-						// we just start to run until we hit a breakpoint or an exception
-						response.body = {
-							/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
-							allThreadsContinued: true
-						};
-
-						self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
-					}
 				});
 
 			}
@@ -542,7 +517,6 @@ class ClojureDebugSession extends DebugSession {
 		var runArgs: DebugProtocol.RunInTerminalRequestArguments = {
 			kind: 'integrated',
 			title: ("Clojure REPL"),
-			// args: [leinPath, "with-profile", "+debug-repl", "repl", ":start", ":port", "" + replPort],
 			args: args.commandLine,
 			cwd: args.cwd,
 			env: {home: home,

@@ -29,6 +29,8 @@ var exceptionBreakpointClassItem: StatusBarItem;
 
 var activeReplActions: Disposable[] = null;
 
+var refreshOnLaunch = true;
+
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
 		"lineComment": ";"
@@ -304,19 +306,21 @@ function connect(context: ExtensionContext, host: string, port: number) {
 
 	rconn.connect(host, port, (err: any, result: any) => {
 		// TODO make this configurable or get config from debugger launch config
-		rconn.refresh((err: any, result: any) => {
-			if (err) {
-				console.error(err);
-			} else {
-				outputChannel.appendLine(result);
-				rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
+		if (refreshOnLaunch) {
+			rconn.refresh((err: any, result: any) => {
+				if (err) {
+					console.error(err);
+				} else {
 					outputChannel.appendLine(result);
-					console.log("Compliment namespace loaded");
-					setUpReplActions(context, rconn);
-					window.setStatusBarMessage("Attached to process");
-				});
-			}
-		});
+					rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
+						outputChannel.appendLine(result);
+						console.log("Compliment namespace loaded");
+						setUpReplActions(context, rconn);
+						window.setStatusBarMessage("Attached to process");
+					});
+				}
+			});
+		}
 	});
 }
 
@@ -326,12 +330,6 @@ export function activate(context: ExtensionContext) {
 	window.setStatusBarMessage("Activating Extension");
 
 	outputChannel = window.createOutputChannel("Clojure");
-
-	let coms = commands.getCommands();
-	coms.then(value => {
-		console.log(value);
-	});
-
 
 	// Keep track of the active file editor so we can execute code in the namespace currently
 	// being edited. This is necessary because as of VS Code 1.5 the input to the debugger
@@ -354,6 +352,12 @@ export function activate(context: ExtensionContext) {
 	let launchJsonStr = readFileSync(launchJsonPath).toString();
 	let launchJson = JSON.parse(stripJsonComments(launchJsonStr));
 	let sideChannelPort: number = launchJson["configurations"][0]["sideChannelPort"];
+  let refresh = launchJson["configurations"][0]["refreshOnLaunch"];
+	if (refresh == false) {
+		refreshOnLaunch = false;
+	} else {
+		refreshOnLaunch = true;
+	}
 
   // Create the connection object but don't connect yet
 	rconn = new ReplConnection();
