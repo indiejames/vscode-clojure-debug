@@ -123,6 +123,7 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 					console.log("debugged process killed")
 			  });
 
+				// Figure out how to send a newline to the terminal here to clear it's input
 
 				// fall through
 
