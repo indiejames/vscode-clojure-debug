@@ -1109,13 +1109,13 @@ class ClojureDebugSession extends DebugSession {
 		var self = this;
 		var ns = 'user';
 
-		if (args.context == 'repl') {
+		if (args.context == 'repl' || args.context == 'watch') {
 			if (args.frameId != null) {
 				console.log("FRAME EVAL REQUESTED");
 				// evaluate in the context of the given thread/frame
 				this._replConnection.reval(args.frameId, expr, (err: any, result: any) => {
 					for (var res of result) {
-						self.handleFrameResult(response, res);
+ 						self.handleFrameResult(response, res);
 					}
 				});
 
