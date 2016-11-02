@@ -308,6 +308,13 @@ class ClojureDebugSession extends DebugSession {
 					this.sendEvent(new StoppedEvent("breakpoint", threadId));
 					break;
 
+			  case "step":
+				  var src = eventMap["src"];
+					var line = eventMap["line"];
+					this._currentLine = line;
+					this.sendEvent(new StoppedEvent("step", threadId));
+					break;
+
 				case "exception":
 					this.sendEvent(new StoppedEvent("exception", threadId));
 					break;
@@ -965,26 +972,45 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
-		console.log("CONTINUE REQUEST");
+		console.log("STEP OVER REQUEST");
+		const threadId = args.threadId;
+		const th = this.threadWithID(threadId)
+		const debug = this;
+		this._replConnection.stepOver(th.name, (err: any, result: any) => {
+			// TODO handle errors
+			debug.sendResponse(response);
+		});
+	}
 
-		for (let ln = this._currentLine + 1; ln < this._sourceLines.length; ln++) {
-			if (this._sourceLines[ln].trim().length > 0) {   // find next non-empty line
-				this._currentLine = ln;
-				this.sendResponse(response);
-				this.sendEvent(new StoppedEvent("step", ClojureDebugSession.THREAD_ID));
-				return;
-			}
-		}
-		this.sendResponse(response);
-		// no more lines: run to end
-		this.sendEvent(new TerminatedEvent());
+	protected stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments): void {
+		console.log("STEP IN REQUEST");
+		const threadId = args.threadId;
+		const th = this.threadWithID(threadId)
+		const debug = this;
+		this._replConnection.stepInto(th.name, (err: any, result: any) => {
+			// TODO handle errors
+			debug.sendResponse(response);
+		});
+	}
+
+	protected stepOutRequest(response: DebugProtocol.StepOutResponse, args: DebugProtocol.StepOutArguments): void {
+		console.log("STEP OUT REQUEST");
+		const threadId = args.threadId;
+		const th = this.threadWithID(threadId)
+		const debug = this;
+		this._replConnection.stepOut(th.name, (err: any, result: any) => {
+			// TODO handle errors
+			debug.sendResponse(response);
+		});
 	}
 
 	private isErrorStatus(status: Array<string>): boolean {
+		console.log("STEP IN REQUEST")
 		return (status.indexOf("error") != -1)
 	}
 
 	private getErrorMessage(status: Array<string>): string {
+		console.log("STEP OUT REQUEST")
 		for (var msg of status) {
 			if (msg != "done" && msg != "error") {
 				return msg;

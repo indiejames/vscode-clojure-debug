@@ -108,19 +108,19 @@ export class ReplConnection {
 
 	// list all the running threads
 	public listThreads(callback: callbackType) {
-		this.conn.send({op: 'list-threads', 'session': this.commandSession}, callback);
+		this.conn.send({op: 'list-threads', session: this.commandSession}, callback);
 	}
 
 	// list the stack frames for the given thread
 	public listFrames(threadName: string, callback: callbackType) {
-		this.conn.send({op: 'list-frames', 'thread-name': threadName, 'session': this.commandSession}, callback);
+		this.conn.send({op: 'list-frames', 'thread-name': threadName, session: this.commandSession}, callback);
 	}
 
 	// list the vars for the given thread / stack frame
 	public listVars(threadName: string, frameIndex: number, callback: callbackType) {
 
 		try {
-			this.conn.send({op: 'list-vars', 'thread-name': threadName, 'frame-index': frameIndex, 'session': this.commandSession}, callback);
+			this.conn.send({op: 'list-vars', 'thread-name': threadName, 'frame-index': frameIndex, session: this.commandSession}, callback);
 		} catch (e){
 			// TODO - remove this when issue #70 is fixed.
 			// This is a hack to handle weird values that come back on some exception stack frames - they aren't
@@ -139,7 +139,7 @@ export class ReplConnection {
 
 	// set a breakpoint at the given line in the given file
 	public setBreakpoint(path: string, line: number, callback: callbackType) {
-		this.conn.send({op: 'set-breakpoint', line: line, path: path, 'session': this.commandSession}, callback);
+		this.conn.send({op: 'set-breakpoint', line: line, path: path, session: this.commandSession}, callback);
 	}
 
 	// set a breakpoint for exceptions. type is one of 'all', 'uncaught', or 'none', indicating that exception breakpoints
@@ -150,12 +150,12 @@ export class ReplConnection {
 
 	// clear all breakpoints for the given file
 	public clearBreakpoints(path: string, callback: callbackType) {
-		this.conn.send({op: 'clear-breakpoints', path: path, 'session': this.commandSession}, callback);
+		this.conn.send({op: 'clear-breakpoints', path: path, session: this.commandSession}, callback);
 	}
 
 	// find the file and line where a function is defined
 	public findDefinition(ns: string, symbol: string, callback: callbackType) {
-		this.conn.send({op: 'find-definition', ns: ns, sym: symbol, 'session': this.commandSession}, callback);
+		this.conn.send({op: 'find-definition', ns: ns, sym: symbol, session: this.commandSession}, callback);
 	}
 
 	// find the completions for the prefix using Compliment
@@ -185,17 +185,32 @@ export class ReplConnection {
 
 	// continue after a breakpoint
 	public continue(callback: callbackType) {
-		this.conn.send({op: 'continue', 'session': this.commandSession}, callback);
+		this.conn.send({op: 'continue', session: this.commandSession}, callback);
+	}
+
+	// step over code after a breakpoint
+	public stepOver(threadName: string, callback: callbackType) {
+		this.conn.send({op: 'step-over', 'thread-name': threadName}, callback);
+	}
+
+		// step into code after a breakpoint
+	public stepInto(threadName: string, callback: callbackType) {
+		this.conn.send({op: 'step-into', 'thread-name': threadName}, callback);
+	}
+
+		// step out of code after a breakpoint
+	public stepOut(threadName: string, callback: callbackType) {
+		this.conn.send({op: 'step-out', 'thread-name': threadName}, callback);
 	}
 
 	// get and process a single event using the given callback
 	public getEvent(callback: callbackType) {
-		this.conn.send({op: 'get-event', 'session': this.commandSession}, callback);
+		this.conn.send({op: 'get-event', session: this.commandSession}, callback);
 	}
 
 	// reload any changed namespaces
 	public refresh(callback: callbackType) {
-		this.conn.send({op: 'refresh', 'session': this.commandSession}, callback);
+		this.conn.send({op: 'refresh', session: this.commandSession}, callback);
 	}
 
 	public setIgnore(callback: callbackType) {
