@@ -645,6 +645,7 @@ class ClojureDebugSession extends DebugSession {
 
 		var newPositions = [clientLines.length];
 		var breakpoints = [];
+		var processedCount = 0;
 
 		// verify breakpoint locations
 		// TODO fix this
@@ -652,29 +653,26 @@ class ClojureDebugSession extends DebugSession {
 			var l = this.convertClientLineToDebugger(clientLines[i]);
 			this._replConnection.setBreakpoint(path, l, (err: any, result: any) => {
 				console.log(result);
+				processedCount = processedCount + 1;
+				let verified = false;
+				const rval = result["msg"];
+				if (rval.indexOf("No breakpoints found ") == -1) {
+					verified = true;
+				}
+				newPositions[i] = l;
+				breakpoints.push({ verified: verified, line: this.convertDebuggerLineToClient(l) });
+				if (processedCount == clientLines.length) {
+					this._breakPoints[path] = newPositions;
+
+					// send back the actual breakpoints
+					response.body = {
+						breakpoints: breakpoints
+					};
+					this.sendResponse(response);
+				}
 			});
 
-			var verified = false;
-			if (l < lines.length) {
-				// if a line starts with '+' we don't allow to set a breakpoint but move the breakpoint down
-				if (lines[l].indexOf("+") == 0)
-					l++;
-				// if a line starts with '-' we don't allow to set a breakpoint but move the breakpoint up
-				if (lines[l].indexOf("-") == 0)
-					l--;
-				verified = true;    // this breakpoint has been validated
-			}
-			newPositions[i] = l;
-			breakpoints.push({ verified: verified, line: this.convertDebuggerLineToClient(l) });
 		}
-		this._breakPoints[path] = newPositions;
-
-		// send back the actual breakpoints
-		response.body = {
-			breakpoints: breakpoints
-		};
-		this.sendResponse(response);
-
 	}
 
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
