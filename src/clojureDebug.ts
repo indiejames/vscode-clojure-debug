@@ -257,9 +257,6 @@ class ClojureDebugSession extends DebugSession {
 
 		this.supportRunInTerminal = (args.supportsRunInTerminalRequest == true);
 
-		// announce that we are ready to accept breakpoints -> fire the initialized event to give UI a chance to set breakpoints
-		this.sendEvent(new InitializedEvent());
-
 		response.body.supportsConfigurationDoneRequest = true;
 
 		// We want to have VS Code call evaulate when hovering over source (Not yet. if there is a way to expand to a full
@@ -392,28 +389,34 @@ class ClojureDebugSession extends DebugSession {
 				self._debuggerState = DebuggerState.LAUNCH_COMPLETE;
 
 				self._replConnection.attach(debugged_port, (err: any, result: any) => {
-					console.log("Debug REPL attached to Debugged REPL");
+					if (err) {
+						console.error(err);
+					} else {
+						console.log("Debug REPL attached to Debugged REPL");
 
-					// tell the extension to connect
-					let sideChannel = s("http://localhost:" + self._sideChannelPort);
+						// tell the extension to connect
+						let sideChannel = s("http://localhost:" + self._sideChannelPort);
 
-					sideChannel.on('go-eval', (data) => {
-						// TODO - this may not always be on 127.0.0.1
-						sideChannel.emit("connect-to-repl", "127.0.0.1:" + primaryReplPort);
-						sideChannel.close();
-					});
+						sideChannel.on('go-eval', (data) => {
+							// TODO - this may not always be on 127.0.0.1
+							sideChannel.emit("connect-to-repl", "127.0.0.1:" + primaryReplPort);
+							sideChannel.close();
+						});
 
-					// start listening for events
-					self.handleEvent(null, null);
+						// start listening for events
+						self.handleEvent(null, null);
 
-					// we just start to run until we hit a breakpoint or an exception
-					response.body = {
-						/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
-						allThreadsContinued: true
-					};
+						// we just start to run until we hit a breakpoint or an exception
+						response.body = {
+							/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
+							allThreadsContinued: true
+						};
 
-					self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
+						self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
 
+						// announce that we are ready to accept breakpoints -> fire the initialized event to give UI a chance to set breakpoints
+						self.sendEvent(new InitializedEvent());
+					}
 				});
 
 			}
@@ -636,13 +639,12 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	// TODO Fix the check for successful breakpoints and return the correct list
-	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, fileContents: Buffer, path: string): void {
+	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, path: string): void {
 		console.log("FINISH BREAKPOINTS REQUEST");
 		var clientLines = args.lines;
 
-		// read file contents into array for direct access
-		var lines = fileContents.toString().split('\n');
-
+		const debugLines = JSON.stringify(clientLines, null, 4);
+		console.log(debugLines);
 		var newPositions = [clientLines.length];
 		var breakpoints = [];
 		var processedCount = 0;
@@ -650,17 +652,21 @@ class ClojureDebugSession extends DebugSession {
 		// verify breakpoint locations
 		// TODO fix this
 		for (var i = 0; i < clientLines.length; i++) {
-			var l = this.convertClientLineToDebugger(clientLines[i]);
+			const index = i;
+			const l = this.convertClientLineToDebugger(clientLines[i]);
 			this._replConnection.setBreakpoint(path, l, (err: any, result: any) => {
 				console.log(result);
 				processedCount = processedCount + 1;
 				let verified = false;
-				const rval = result["msg"];
+				const rval = result[0]["msg"];
 				if (rval.indexOf("No breakpoints found ") == -1) {
 					verified = true;
 				}
-				newPositions[i] = l;
-				breakpoints.push({ verified: verified, line: this.convertDebuggerLineToClient(l) });
+				newPositions[index] = l;
+				if (verified) {
+					breakpoints.push({ verified: verified, line: this.convertDebuggerLineToClient(l) });
+				}
+
 				if (processedCount == clientLines.length) {
 					this._breakPoints[path] = newPositions;
 
@@ -668,6 +674,8 @@ class ClojureDebugSession extends DebugSession {
 					response.body = {
 						breakpoints: breakpoints
 					};
+					const debug = JSON.stringify(response, null, 4);
+					console.log(debug);
 					this.sendResponse(response);
 				}
 			});
@@ -677,10 +685,13 @@ class ClojureDebugSession extends DebugSession {
 
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
 		console.log("Set breakpoint requested");
+		var clientLines = args.lines;
 
+		const debugLines = JSON.stringify(clientLines, null, 4);
+		console.log(debugLines);
 		var path = args.source.path;
 		var self = this;
-
+		const cArgs = args;
 		this._replConnection.clearBreakpoints(path, (err: any, result: any) => {
 			if (err) {
 				// TODO figure out what to do here
@@ -696,7 +707,7 @@ class ClojureDebugSession extends DebugSession {
 				let sideChannel = s("http://localhost:" + self._sideChannelPort);
 				sideChannel.on('go-eval', (data) => {
 					sideChannel.on('load-namespace-result', (data) => {
-						self.finishBreakPointsRequest(response, args, fileContents, path)
+						self.finishBreakPointsRequest(response, cArgs, path)
 						sideChannel.close();
 					});
 					sideChannel.emit("eval", "load-namespace");
