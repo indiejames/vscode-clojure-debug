@@ -397,10 +397,16 @@ class ClojureDebugSession extends DebugSession {
 						// tell the extension to connect
 						let sideChannel = s("http://localhost:" + self._sideChannelPort);
 
+						sideChannel.on('connect-to-repl-complete', () =>  {
+							sideChannel.close();
+							// announce that we are ready to accept breakpoints -> fire the initialized event to give UI a chance to set breakpoints
+							self.sendEvent(new InitializedEvent());
+						});
+
 						sideChannel.on('go-eval', (data) => {
 							// TODO - this may not always be on 127.0.0.1
 							sideChannel.emit("connect-to-repl", "127.0.0.1:" + primaryReplPort);
-							sideChannel.close();
+
 						});
 
 						// start listening for events
@@ -414,8 +420,7 @@ class ClojureDebugSession extends DebugSession {
 
 						self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
 
-						// announce that we are ready to accept breakpoints -> fire the initialized event to give UI a chance to set breakpoints
-						self.sendEvent(new InitializedEvent());
+
 					}
 				});
 
