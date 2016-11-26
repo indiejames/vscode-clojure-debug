@@ -79,7 +79,8 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 		sock.on('connect-to-repl', (hostPortString) => {
 			var host, port;
 			[host, port] = hostPortString.split(":");
-			connect(context, host, port);
+			connect(context, sock, host, port);
+
 		});
 
 		sock.on('get-breakpoint-exception-class', () => {
@@ -137,7 +138,7 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 				break;
 
 			case 'get-namespace':
-				sock.emit('namespace-result', EditorUtils.findNSForCurrentEditor(activeEditor));
+				sock.emit('get-namespace-result', EditorUtils.findNSForCurrentEditor(activeEditor));
 				break;
 
 			case 'load-namespace':
@@ -300,13 +301,12 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 }
 
 // Create a connection to the debugged process and run some init code
-function connect(context: ExtensionContext, host: string, port: number) {
+function connect(context: ExtensionContext, sock:SocketIO.Socket, host: string, port: number) {
 	console.log("Attaching to debugged process");
 	window.setStatusBarMessage("Attaching to debugged process");
 	let cfg = workspace.getConfiguration("clojure");
 
 	rconn.connect(host, port, (err: any, result: any) => {
-		// TODO make this configurable or get config from debugger launch config
 		if (refreshOnLaunch) {
 			rconn.refresh((err: any, result: any) => {
 				if (err) {
@@ -317,6 +317,8 @@ function connect(context: ExtensionContext, host: string, port: number) {
 						outputChannel.appendLine(result);
 						console.log("Compliment namespace loaded");
 						setUpReplActions(context, rconn);
+						sock.emit("connect-to-repl-complete", {});
+
 						window.setStatusBarMessage("Attached to process");
 					});
 				}
