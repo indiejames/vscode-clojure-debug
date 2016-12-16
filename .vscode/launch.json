@@ -70,5 +70,11 @@
 			"outDir": "${workspaceRoot}/out",
 			"cwd": "${workspaceRoot}"
 		}
+	],
+	"compounds": [
+		{
+			"name": "Server/Launch",
+			"configurations": ["clojure-debug server", "Launch Extension"]
+		}
 	]
 }
