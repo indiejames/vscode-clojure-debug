@@ -163,7 +163,7 @@ export class ReplConnection {
 		this.conn.send({op: 'get-completions', ns: ns, prefix: prefix, src: src, pos: offset, session: this.commandSession}, callback);
 	}
 
-	// get the docstring for the given vars
+	// get the docstring for the given var
 	public doc(ns: string, variable: string, callback: callbackType) {
 		this.conn.send({op: 'doc', ns: ns, var: variable, session: this.commandSession}, callback);
 	}
