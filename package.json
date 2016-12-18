@@ -104,7 +104,12 @@
       {
         "command": "clojure.refresh",
         "title": "Clojure: Refresh Code",
-        "description": "Refresh code without restarting the REPL."
+        "description": "Refresh changed code without restarting the REPL."
+      },
+      {
+        "command": "clojure.superRefresh",
+        "title": "Clojure: Super Refresh Code",
+        "description": "Refresh all code without restarting the REPL."
       },
       {
         "command": "clojure.run-all-tests",

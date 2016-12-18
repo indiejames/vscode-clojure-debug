@@ -259,6 +259,20 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 		});
 	}));
 
+	activeReplActions.push(commands.registerCommand('clojure.superRefresh', () => {
+		rconn.superRefresh((err: any, result: any) : void => {
+			// TODO handle errors here
+			// reapply the breakpoints since they will have been invalidated on any reloaded code
+			const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
+			com.then(value => {
+				console.log(value);
+				console.log("Refreshed Clojure code.");
+			}, rejected => {
+				console.error(rejected);
+			});
+		});
+	}));
+
 	// TODO create a test runner class and move these to it
 	activeReplActions.push(commands.registerCommand('clojure.run-all-tests', () => {
 		if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {

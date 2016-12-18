@@ -218,6 +218,11 @@ export class ReplConnection {
 		this.conn.send({op: 'refresh', session: this.commandSession}, callback);
 	}
 
+	// reload all namespaces
+	public superRefresh(callback: callbackType) {
+		this.conn.send({op: 'super-refresh', session: this.commandSession}, callback);
+	}
+
 	public setIgnore(callback: callbackType) {
 		this.conn.eval("(alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)", null, this.commandSession, (err: any, result: any) => {
 			if (err){
