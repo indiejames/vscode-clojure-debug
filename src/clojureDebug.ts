@@ -399,6 +399,16 @@ class ClojureDebugSession extends DebugSession {
 
 						sideChannel.on('connect-to-repl-complete', () =>  {
 							sideChannel.close();
+
+							// we just start to run until we hit a breakpoint or an exception
+							response.body = {
+								/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
+								allThreadsContinued: true
+							};
+
+							self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
+
+
 							// announce that we are ready to accept breakpoints -> fire the initialized event to give UI a chance to set breakpoints
 							self.sendEvent(new InitializedEvent());
 						});
@@ -412,13 +422,6 @@ class ClojureDebugSession extends DebugSession {
 						// start listening for events
 						self.handleEvent(null, null);
 
-						// we just start to run until we hit a breakpoint or an exception
-						response.body = {
-							/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
-							allThreadsContinued: true
-						};
-
-						self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
 
 
 					}
