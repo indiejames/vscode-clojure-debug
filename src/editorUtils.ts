@@ -361,4 +361,13 @@ export namespace EditorUtils {
       let newSelection = new Selection(anchor, active);
       editor.selection = newSelection;
     }
+
+    // Get the file path for the given editor
+    export function getFilePath(editor: TextEditor): string {
+      if (!editor) {
+        return; // no open text editor
+      }
+
+      return editor.document.fileName;
+    }
 }

@@ -208,6 +208,11 @@ export class ReplConnection {
 		this.conn.send({op: 'get-event', session: this.commandSession}, callback);
 	}
 
+	// load the clojure source file at the given path
+	public loadFile(path: string, callback: callbackType) {
+		this.conn.send({op: 'load-src-file', path: path, session: this.commandSession}, callback);
+	}
+
 	// reload any changed namespaces
 	public refresh(callback: callbackType) {
 		this.conn.send({op: 'refresh', session: this.commandSession}, callback);

@@ -87,16 +87,6 @@
     },
     "commands": [
       {
-        "command": "clojure.new_library_project",
-        "title": "Clojure: Create new library project",
-        "description": "Create a new leiningen based library project."
-      },
-      {
-        "command": "clojure.new_appliction_project",
-        "title": "Clojure: Create new application project",
-        "description": "Create a new leiningen based application project."
-      },
-      {
         "command": "clojure.eval",
         "title": "Clojure: Evaluate selected text",
         "description": "Evaluate the selected text in the file's namespace."
@@ -105,6 +95,11 @@
         "command": "clojure.expand_selection",
         "title": "Clojure: Expand Selection",
         "description": "Expand selection to containing brackets/parentheses."
+      },
+      {
+        "command": "clojure.load-file",
+        "title": "Clojure: Load File",
+        "description": "Load the currently open Clojure source file."
       },
       {
         "command": "clojure.refresh",

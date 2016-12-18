@@ -230,8 +230,22 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 			});
 		})}));
 
+ activeReplActions.push(commands.registerCommand('clojure.load-file', () => {
+	 const path = EditorUtils.getFilePath(activeEditor);
+	 rconn.loadFile(path, (err: any, result: any) : void => {
+			// TODO handle errors here
+			// reapply the breakpoints since they will have been invalidated on any reloaded code
+			const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
+			com.then(value => {
+				console.log(value);
+				console.log("Loaded Clojure code.");
+			}, rejected => {
+				console.error(rejected);
+			});
+		});
+ }));
+
 	activeReplActions.push(commands.registerCommand('clojure.refresh', () => {
-		console.log("Calling refresh...")
 		rconn.refresh((err: any, result: any) : void => {
 			// TODO handle errors here
 			// reapply the breakpoints since they will have been invalidated on any reloaded code
