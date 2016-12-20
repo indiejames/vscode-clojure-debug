@@ -573,6 +573,7 @@ class ClojureDebugSession extends DebugSession {
 			});
 
 		} else {
+			// debug console launch
 			 let cmd = args.commandLine[0];
 
 			let cmdArgs = args.commandLine.slice(1, args.commandLine.length);
@@ -581,6 +582,7 @@ class ClojureDebugSession extends DebugSession {
 
 			this._primaryRepl.stdout.on('data', (data) => {
 				var output = '' + data;
+				self.pout(output);
 				console.log(output);
 
 				if ((output.search(/nREPL server started/) != -1)) {
