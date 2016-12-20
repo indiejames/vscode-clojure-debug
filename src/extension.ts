@@ -14,7 +14,7 @@ import {ReplConnection} from './replConnection';
 import {readFileSync} from 'fs-extra';
 import {join} from 'path';
 import stripJsonComments = require('strip-json-comments');
-import {spawn} from 'child_process';
+import {exec} from 'child_process';
 import {ClojureCompletionItemProvider} from './clojureCompletionItemProvider';
 import {ClojureDefinitionProvider} from './clojureDefinitionProvider';
 import {ClojureHoverProvider} from './clojureHoverProvider';
@@ -119,14 +119,22 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 			switch (action) {
 			case 'terminate-and-exit':
 
-			  rconn.eval(EXIT_CMD, (err: any, result: any): void => {
-					// This is never called, apparently.
-					console.log("debugged process killed")
-			  });
+			  // rconn.eval(EXIT_CMD, (err: any, result: any): void => {
+				// 	// This is never called, apparently.
+				// 	console.log("debugged process killed")
+			  // });
 
-				// Figure out how to send a newline to the terminal here to clear it's input
+				// terminate the process for the JVM
+				rconn.pid((err: any, result: any): void => {
+					const pid = result[0]["pid"];
+					exec("kill -9 " + pid);
+					rconn.close((err: any, msg: any) : any => {
+						console.log("Connection closed)");
+					});
 
-				// fall through
+				});
+
+				break;
 
 			case 'exit':
 				removeReplActions(context);

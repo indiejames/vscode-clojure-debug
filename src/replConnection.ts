@@ -87,6 +87,16 @@ export class ReplConnection {
 		this.conn.send({op: 'attach', port: port}, callback);
 	}
 
+	// kill the JVM
+	public exit(callback: callbackType) {
+		this.conn.send({op: 'exit'}, callback);
+	}
+
+	// Get the process id for the debugged JVM
+	public pid(callback: callbackType) {
+		this.conn.send({op: 'pid'}, callback);
+	}
+
 	// evaluate the given code (possibly in a given namespace)
 	public eval(code: string, callback: callbackType, ns?: string) {
 		code = wrapCodeInReadEval(code);

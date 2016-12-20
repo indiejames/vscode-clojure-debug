@@ -155,8 +155,7 @@
           "launch": {
             "required": [
               "toolsJar",
-              "command",
-              "cwd"
+              "commandLine"
             ],
             "properties": {
               "toolsJar": {

@@ -523,44 +523,32 @@ class ClojureDebugSession extends DebugSession {
 			leinPath = args.leinPath;
 		}
 
-		let home: string = process.env["HOME"] + "";
-		let jvmOpts = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort;
+		var argEnv = {};
+		if (args.env) {
+			argEnv = args.env;
+		}
+		const home = process.env["HOME"];
+		var jvmOpts = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort;
+		if (args.env && args.env["JVM_OPTS"]) {
+			jvmOpts = jvmOpts + " " + args.env["JVM_OPTS"];
+		}
 
-		var env = {
-			home: home,
-			JVM_OPTS: jvmOpts,
-			CLOJURE_DEBUG_JDWP_PORT: "" + debugPort
-		};
+		var env = {"HOME": home, "CLOJURE_DEBUG_JDWP_PORT": "" + debugPort, "JVM_OPTS": jvmOpts};
+		for (var attrname in args.env) {
+			if (attrname != "JVM_OPTS") {
+				env[attrname] = args.env[attrname];
+			}
+		}
 
 		var runArgs: DebugProtocol.RunInTerminalRequestArguments = {
 			kind: 'integrated',
-			title: ("Clojure REPL"),
+			title: "Clojure REPL",
 			args: args.commandLine,
 			cwd: args.cwd,
-			env: {home: home,
-				  JVM_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort,
-				  CLOJURE_DEBUG_JDWP_PORT: "" + debugPort}
+			env: env
 		};
 
-		// TODO create command form args
 		if (this.supportRunInTerminal && args.console == "integratedTerminal") {
-			// let cmd = "cd "
-            // let command = "cd /Users/jnorton/Clojure/repl_test ; env home=/Users/jnorton JVM_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9999 CLOJURE_DEBUG_JDWP_PORT=9999 lein with-profile +debug-repl repl :start :port 7777";
-
-			// let sideChannel = s("http://localhost:" + self._sideChannelPort);
-
-			// sideChannel.on('go-eval', (data) => {
-			// 	sideChannel.emit("launch-repl", command);
-			// 	sideChannel.close();
-
-			// 	console.log("PRIMARY REPL STARTED");
-			// 	this.setupDebugREPL(response, args);
-			// });
-
-			let cmd = "cd " + args.cwd + "; export JVM_OPTS=" + jvmOpts + "; lein with-profile + debug-rpl repl :start :port " + replPort;
-			if (os.platform() == "win32") {
-				cmd = "cd " + args.cwd + " && cd /C set \"JVM_OPTS=" + jvmOpts + "\" && lein with-profile + debug-repl repl :start :port " + replPort;
-			}
 
 			this.runInTerminalRequest(runArgs, 600000, runResponse => {
 				if (runResponse.success) {
@@ -585,11 +573,11 @@ class ClojureDebugSession extends DebugSession {
 			});
 
 		} else {
-			// TODO create command from args
-			// this._primaryRepl = spawn(leinPath, ["with-profile", "+debug-repl", "repl", ":headless", ":port", "" + replPort], { cwd: this._cwd, env: env });
-			let cmd = args.commandLine[0];
+			 let cmd = args.commandLine[0];
+
 			let cmdArgs = args.commandLine.slice(1, args.commandLine.length);
-			this._primaryRepl = spawn(cmd, cmdArgs, {cwd: this._cwd, env: env});
+
+			this._primaryRepl = spawn(cmd, cmdArgs, {cwd: args.cwd, env: env});
 
 			this._primaryRepl.stdout.on('data', (data) => {
 				var output = '' + data;
@@ -617,28 +605,31 @@ class ClojureDebugSession extends DebugSession {
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {
 		console.log("Diconnect requested");
 
-		this._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
-			// This is never called, apparently.
-		});
-
-		this._replConnection.close((err: any, result: any): void => {
-			// do nothing
-		});
-
 		var self = this;
-		let sideChannel = s("http://localhost:" + self._sideChannelPort);
 
-		sideChannel.on('go-eval', (data) => {
-			if (this._isLaunched) {
-				sideChannel.emit("eval","terminate-and-exit");
-			} else {
-				sideChannel.emit("eval","exit");
-			}
+		this._replConnection.exit((err: any, result: any): void => {
+			self._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
+			// This is never called, apparently.
+			});
 
-			sideChannel.close();
-			self.sendResponse(response);
-			self.shutdown();
+			self._replConnection.close((err: any, result: any): void => {
+				// do nothing
+			});
 		});
+
+		// let sideChannel = s("http://localhost:" + self._sideChannelPort);
+
+		// sideChannel.on('go-eval', (data) => {
+		// 	if (this._isLaunched) {
+		// 		sideChannel.emit("eval","terminate-and-exit");
+		// 	} else {
+		// 		sideChannel.emit("eval","exit");
+		// 	}
+
+		// 	sideChannel.close();
+		// 	self.sendResponse(response);
+		// 	self.shutdown();
+		// });
 	}
 
 	protected sourceRequest(response: DebugProtocol.SourceResponse, args: DebugProtocol.SourceArguments): void {
