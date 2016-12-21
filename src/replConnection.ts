@@ -83,8 +83,8 @@ export class ReplConnection {
 	}
 
 	// attach this REPL to the debugged REPL
-	public attach(port: number, callback: callbackType) {
-		this.conn.send({op: 'attach', port: port}, callback);
+	public attach(host: string, port: number, callback: callbackType) {
+		this.conn.send({op: 'attach', host: host, port: port}, callback);
 	}
 
 	// kill the JVM

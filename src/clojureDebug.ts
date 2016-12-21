@@ -48,15 +48,14 @@ class DebuggerSubState {
 	public static get EVENT_IN_PROGRESS(): string { return "EVENT_IN_PROGRESS"; }
 }
 
-
 /**
- * This interface should always match the schema found in the clojure-debug extension manifest.
+ * Base class for LaunchRequestArguments and attachRequest
  */
-export interface LaunchRequestArguments {
+export interface BaseRequestArguments {
+	// Current working directory
+	cwd: string;
 	// Absolute path to the tool.jar file.
 	toolsJar: string;
-	// Host for the debugged REPL on attach requests
-	replHost: string;
 	// Port for the debugged REPL
 	replPort: number;
 	// Port for debugger REPL
@@ -65,12 +64,25 @@ export interface LaunchRequestArguments {
 	debugPort: number;
 	// Port for side channel
 	sideChannelPort: number;
+	// Path to lein
+	leinPath: string;
+	// not used - here to let this type act like a LaunchRequestArguments type
+}
+
+/**
+ * This interface should always match the schema found in the clojure-debug extension manifest.
+ */
+export interface AttachRequestArguments extends BaseRequestArguments {
+	// Host for the debugged REPL on attach requests
+	replHost: string;
+}
+
+/**
+ * This interface should always match the schema found in the clojure-debug extension manifest.
+ */
+export interface LaunchRequestArguments extends BaseRequestArguments {
 	// Console type for launch requests
 	console: string;
-	// Path to lein
-	leinPath: string,
-	// Current working directory
-	cwd: string;
 	// The command to run with arguments
 	commandLine: string[];
 	// The environment variables that should be set when running the target.
@@ -369,30 +381,37 @@ class ClojureDebugSession extends DebugSession {
 		}
 	}
 
-	private connectToDebugREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments, primaryReplPort: number, replPort: number, debugged_port: number) {
+	private connectToDebugREPL(response: DebugProtocol.LaunchResponse, args: BaseRequestArguments, primaryReplPort: number, replPort: number, debugged_port: number) {
+		let self = this;
+
 		this._debuggerRepl.stdout.on('data', (data) => {
 			var output = '' + data;
 
-			let self = this;
-
-      		if ((output.search(/nREPL server started/) != -1)) {
-				self._debuggerState = DebuggerState.REPL_READY;
-				self._replConnection = new ReplConnection();
-				self._replConnection.connect("127.0.0.1", replPort, (err: any, result: any) => {
-					if (err) {
-						console.log(err);
-					}
-				});
+      if ((output.search(/nREPL server started/) != -1)) {
+					self._debuggerState = DebuggerState.REPL_READY;
+					self._replConnection = new ReplConnection();
+					self._replConnection.connect("127.0.0.1", replPort, (err: any, result: any) => {
+						if (err) {
+							console.log(err);
+						}
+					});
 
 				console.log("CONNECTED TO REPL");
 
-				self._debuggerState = DebuggerState.LAUNCH_COMPLETE;
+				if (self._isLaunched) {
+					self._debuggerState = DebuggerState.LAUNCH_COMPLETE;
+				}
 
-				self._replConnection.attach(debugged_port, (err: any, result: any) => {
+				var debuggedHost = "localhost";
+				if (args["replHost"]) {
+					debuggedHost = args["replHost"];
+				}
+
+				self._replConnection.attach(debuggedHost, debugged_port, (err: any, result: any) => {
 					if (err) {
 						console.error(err);
 					} else {
-						console.log("Debug REPL attached to Debugged REPL");
+						console.log("Debugger REPL attached to Debugged REPL");
 
 						// tell the extension to connect
 						let sideChannel = s("http://localhost:" + self._sideChannelPort);
@@ -414,15 +433,16 @@ class ClojureDebugSession extends DebugSession {
 						});
 
 						sideChannel.on('go-eval', (data) => {
-							// TODO - this may not always be on 127.0.0.1
-							sideChannel.emit("connect-to-repl", "127.0.0.1:" + primaryReplPort);
+							var replHost = "127.0.0.1";
+							if (args["replHost"]) {
+								replHost = args["replHost"];
+							}
+							sideChannel.emit("connect-to-repl", replHost + ":" + primaryReplPort);
 
 						});
 
 						// start listening for events
 						self.handleEvent(null, null);
-
-
 
 					}
 				});
@@ -441,7 +461,7 @@ class ClojureDebugSession extends DebugSession {
 		});
 	}
 
-	private setupDebugREPL(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments){
+	private setupDebugREPL(response: DebugProtocol.LaunchResponse, args: BaseRequestArguments){
 		let self = this;
 
 		let env = {"HOME": process.env["HOME"]};
@@ -486,11 +506,15 @@ class ClojureDebugSession extends DebugSession {
 		writeFileSync(projectPath, projCljWithTools);
 	}
 
-	protected attachRequest(response: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments) {
+	protected attachRequest(response: DebugProtocol.AttachResponse, args: AttachRequestArguments) {
 		console.log("ATTACH REQUEST");
-		// FIXME - add toolsJar to args
-		this.createDebuggerProject("");
-
+		this._sideChannelPort = 3030;
+		this._cwd = args.cwd;
+		if (args.sideChannelPort) {
+			this._sideChannelPort = args.sideChannelPort;
+		}
+		this.createDebuggerProject(args.toolsJar);
+		this.setupDebugREPL(response, args);
 	}
 
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {

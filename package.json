@@ -152,6 +152,53 @@
         "program": "./out/clojureDebug.js",
         "runtime": "node",
         "configurationAttributes": {
+          "attach": {
+            "required": [
+              "toolsJar"
+            ],
+            "properties": {
+              "toolsJar": {
+                "type": "string",
+                "description": "Path to the tools.jar in your Java installation.",
+                "default": "${JAVA_HOME}/lib/tools.jar"
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
+                "default": "${workspaceRoot}"
+              },
+              "leinPath": {
+                "type": "string",
+                "description": "Path the the lein executable.",
+                "default": "/usr/local/bin/lein"
+              },
+              "replHost": {
+                "type": "string",
+                "description": "Host on which the debugged REPL is running.",
+                "default": "localhost"
+              },
+              "replPort": {
+                "type": "number",
+                "description": "Port on which the debugged nREPL is listening.",
+                "default": 5555
+              },
+              "debugReplPort": {
+                "type": "number",
+                "description": "Port on which the client/debugger nREPL should listen.",
+                "default": 5556
+              },
+              "debugPort": {
+                "type": "number",
+                "description": "JDI port on which the debugger should connect to the process to be debugged.",
+                "default": 8030
+              },
+              "sideChannelPort": {
+                "type": "number",
+                "description": "Port on which the debugger should talk to the extension.",
+                "default": 3030
+              }
+            }
+          },
           "launch": {
             "required": [
               "toolsJar",
