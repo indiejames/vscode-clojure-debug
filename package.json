@@ -54,7 +54,7 @@
     "test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
   },
   "activationEvents": [
-	  "workspaceContains:project.clj",
+    "workspaceContains:project.clj",
     "onLanguage:clojure"
   ],
   "main": "./out/extension",
@@ -63,11 +63,6 @@
       "type": "object",
       "title": "Clojure configuration",
       "properties": {
-        "clojure.languageServerExample.maxNumberOfProblems": {
-          "type": "number",
-          "default": 100,
-          "description": "Controls the maximum number of problems produced by the server."
-        },
         "clojure.refreshNamespacesBeforeRunnningAllTests": {
           "type": "boolean",
           "default": true,
@@ -154,7 +149,8 @@
         "configurationAttributes": {
           "attach": {
             "required": [
-              "toolsJar"
+              "toolsJar",
+              "sideChannelPort"
             ],
             "properties": {
               "toolsJar": {
@@ -166,6 +162,11 @@
                 "type": "string",
                 "description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
                 "default": "${workspaceRoot}"
+              },
+              "srcDirs": {
+                "type": "array",
+                "description": "An arry of directories relative to the project root that contain Clojure source files, e.g., src, test.",
+                "default": ["src", "test"]
               },
               "leinPath": {
                 "type": "string",
@@ -202,13 +203,19 @@
           "launch": {
             "required": [
               "toolsJar",
-              "commandLine"
+              "commandLine",
+              "sideChannelPort"
             ],
             "properties": {
               "toolsJar": {
                 "type": "string",
                 "description": "Path to the tools.jar in your Java installation.",
                 "default": "${JAVA_HOME}/lib/tools.jar"
+              },
+              "srcDirs": {
+                "type": "array",
+                "description": "An arry of directories relative to the project root that contain Clojure source files, e.g., src, test.",
+                "default": ["src", "test"]
               },
               "commandLine": {
                 "type": "array",
@@ -272,7 +279,8 @@
             "toolsJar": "${JAVA_HOME}/lib/tools.jar",
             "env": {},
             "cwd": "${workspaceRoot}",
-            "refreshNamespacesOnLaunch": true
+            "refreshNamespacesOnLaunch": true,
+            "srcDirs": ["src", "test"]
           }
         ]
       }

@@ -30,6 +30,7 @@ var exceptionBreakpointClassItem: StatusBarItem;
 var activeReplActions: Disposable[] = null;
 
 var refreshOnLaunch = true;
+var replActionsEnabled = false;
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
@@ -352,7 +353,11 @@ function connect(context: ExtensionContext, sock:SocketIO.Socket, host: string, 
 					rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
 						outputChannel.appendLine(result);
 						console.log("Compliment namespace loaded");
-						setUpReplActions(context, rconn);
+						if (!replActionsEnabled) {
+							setUpReplActions(context, rconn);
+							replActionsEnabled = true;
+						}
+
 						sock.emit("connect-to-repl-complete", {});
 
 						window.setStatusBarMessage("Attached to process");

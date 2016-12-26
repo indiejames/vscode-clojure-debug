@@ -632,16 +632,30 @@ class ClojureDebugSession extends DebugSession {
 		console.log("Diconnect requested");
 
 		var self = this;
-
-		this._replConnection.exit((err: any, result: any): void => {
+		if (self._isLaunched) {
+			// tell the debugger REPL to tell the debugged REPL to exit
+			this._replConnection.exit((err: any, result: any): void => {
+				// exit the debugger REPL
+				self._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
+				// This is never called, apparently.
+				});
+				// close the connection to the deugger REPL
+				self._replConnection.close((err: any, result: any): void => {
+					// do nothing
+				});
+			});
+		} else {
+			// exit the debugger REPL
 			self._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
-			// This is never called, apparently.
+				// This is never called, apparently.
 			});
-
+			// close the connection to the debugger REPL
 			self._replConnection.close((err: any, result: any): void => {
-				// do nothing
+					// do nothing
 			});
-		});
+		}
+
+
 
 		// let sideChannel = s("http://localhost:" + self._sideChannelPort);
 

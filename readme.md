@@ -36,6 +36,15 @@ For a description of profiles see the [leiningen profiles documenation](https://
 
 * Lines in Clojure do not always compile to a line in Java bytecode on which you can set a breakpoint. If you
 attempt to set a breakpoint on a line and it gets grayed out, try moving it up or down.
+* Watch variables are not supported *yet*.
+
+#### Side Channel Port
+
+* The extension uses a socket for communication between the debug adapter process and the extension process.
+The port used for the socket is set in the launch.json launch configuration file. It **must** be set for
+*all* launch configurations and it must be the same value for *all* of the them. The extension starts
+up when a debug session starts, but it has no way of knowing which profile was used to start the
+debug session, so it just reads the first one every time.
 
 #### Exception Breakpoints
 
@@ -50,6 +59,7 @@ that prevents the update from happening automatically.
 * It is advisable to temporarily disable exception breakponts before continuing after stopping on a breakpoint to due to
 an exception. Otherwise you will stop on every frame of the stack trace and have to hit continue repeatedly until you
 bubble back up out of the call stack.
+
 
 ### Dependencies
 
