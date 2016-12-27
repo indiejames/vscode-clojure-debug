@@ -5,14 +5,14 @@
 'use strict';
 
 import * as path from 'path';
+import {join} from 'path';
 import http = require('http');
 import s = require('socket.io');
 import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration, StatusBarItem, TextEditor } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
-import {readFileSync} from 'fs-extra';
-import {join} from 'path';
+import {readFileSync, existsSync} from 'fs-extra';
 import stripJsonComments = require('strip-json-comments');
 import {exec} from 'child_process';
 import {ClojureCompletionItemProvider} from './clojureCompletionItemProvider';
@@ -119,20 +119,21 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 		sock.on('eval', (action) => {
 			switch (action) {
 			case 'terminate-and-exit':
-
+				// TODO clean this up
 			  // rconn.eval(EXIT_CMD, (err: any, result: any): void => {
 				// 	// This is never called, apparently.
 				// 	console.log("debugged process killed")
 			  // });
-
+				sideChannel.close();
 				// terminate the process for the JVM
 				rconn.pid((err: any, result: any): void => {
+					// TODO this seems to never be reached
 					const pid = result[0]["pid"];
-					exec("kill -9 " + pid);
+					// exec("kill -9 " + pid);
 					rconn.close((err: any, msg: any) : any => {
+						// sideChannel.close();
 						console.log("Connection closed)");
 					});
-
 				});
 
 				break;
@@ -141,6 +142,7 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 				removeReplActions(context);
 
 				rconn.close((err: any, msg: any) : any => {
+					sideChannel.close();
 					console.log("Connection closed)");
 				});
 
@@ -165,11 +167,57 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 	});
 }
 
+// read the launch.json file to get relevant info
+function parseLaunchJson() {
+	let launchJson = null;
+
+	let launchJsonPath = join(workspace.rootPath, ".vscode", "launch.json");
+	if (existsSync(launchJsonPath)) {
+		let launchJsonStr = readFileSync(launchJsonPath).toString();
+		launchJson = JSON.parse(stripJsonComments(launchJsonStr));
+	}
+
+	return launchJson;
+}
+
 // Set up actions that work without the REPL
 function setUpActions(context: ExtensionContext) {
 	context.subscriptions.push(languages.setLanguageConfiguration("clojure", languageConfiguration));
 	context.subscriptions.push(commands.registerCommand('clojure.expand_selection', () => {
 		EditorUtils.selectBrackets(activeEditor);
+	}));
+	context.subscriptions.push(commands.registerCommand('clojure.debug', () => {
+		// if launch.json exists and there are available configurations then offer a menu of choices to the user
+		let launchJson = parseLaunchJson();
+		if (launchJson) {
+
+			const configNames = launchJson["configurations"].map((config: any) => {
+				return config["name"];
+			});
+
+			if (!configNames || configNames.length < 1) {
+					window.showErrorMessage("Please add at least one configuration to launch.json before launching the debugger.");
+			} else {
+				window.showQuickPick(configNames).then((res)=> {
+					let configName = res;
+					let index = configNames.indexOf(configName);
+					let sideChannelPort: number = launchJson["configurations"][index]["sideChannelPort"];
+
+					let refresh = launchJson["configurations"][index]["refreshOnLaunch"];
+					if (refresh == false) {
+						refreshOnLaunch = false;
+					} else {
+						refreshOnLaunch = true;
+					}
+					initSideChannel(context, sideChannelPort);
+
+					commands.executeCommand('vscode.startDebug', configName);
+				});
+			}
+		} else {
+			window.showErrorMessage("Please create a launch.json file and add at least one configuration before launching the debugger.");
+		}
+
 	}));
 }
 
@@ -223,7 +271,6 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 				handleEvalResponse(result, outputChannel);
 			});
 		}
-
 	}));
 
 	activeReplActions.push(commands.registerCommand('clojure.setExceptionBreakpointClass', () => {
@@ -373,6 +420,8 @@ export function activate(context: ExtensionContext) {
 	let cfg = workspace.getConfiguration("clojure");
 	window.setStatusBarMessage("Activating Extension");
 
+
+
 	outputChannel = window.createOutputChannel("Clojure");
 
 	// Keep track of the active file editor so we can execute code in the namespace currently
@@ -391,24 +440,12 @@ export function activate(context: ExtensionContext) {
 		}
 	});
 
-	// read the launch.json file to get the side channel port
-	let launchJsonPath = join(workspace.rootPath, ".vscode", "launch.json");
-	let launchJsonStr = readFileSync(launchJsonPath).toString();
-	let launchJson = JSON.parse(stripJsonComments(launchJsonStr));
-	let sideChannelPort: number = launchJson["configurations"][0]["sideChannelPort"];
-  let refresh = launchJson["configurations"][0]["refreshOnLaunch"];
-	if (refresh == false) {
-		refreshOnLaunch = false;
-	} else {
-		refreshOnLaunch = true;
-	}
+
 
   // Create the connection object but don't connect yet
 	rconn = new ReplConnection();
 
 	setUpActions(context);
-
-	initSideChannel(context, sideChannelPort);
 
 	// The server is implemented in node
 	// let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));

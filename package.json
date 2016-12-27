@@ -92,6 +92,11 @@
         "description": "Expand selection to containing brackets/parentheses."
       },
       {
+        "command": "clojure.debug",
+        "title": "Clojure: Start Debug Session",
+        "description": "Start a debug session"
+      },
+      {
         "command": "clojure.load-file",
         "title": "Clojure: Load File",
         "description": "Load the currently open Clojure source file."
