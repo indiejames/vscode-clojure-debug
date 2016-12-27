@@ -34,14 +34,14 @@ var replActionsEnabled = false;
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
-		"lineComment": ";"
+		"lineComment": "//"
 	},
 	brackets: [
 		["{", "}"],
 		["[", "]"],
 		["(", ")"]
 	],
-	wordPattern: /[^\s()"',;~@#$%^&{}\[\]\\`\n]+/g
+	wordPattern: /[^\s\(\)"',;~@#$%^&{}\[\]\\`\n]+/g
 }
 
 var debuggedProcessLaunched = false;
@@ -182,7 +182,6 @@ function parseLaunchJson() {
 
 // Set up actions that work without the REPL
 function setUpActions(context: ExtensionContext) {
-	context.subscriptions.push(languages.setLanguageConfiguration("clojure", languageConfiguration));
 	context.subscriptions.push(commands.registerCommand('clojure.expand_selection', () => {
 		EditorUtils.selectBrackets(activeEditor);
 	}));
@@ -420,7 +419,7 @@ export function activate(context: ExtensionContext) {
 	let cfg = workspace.getConfiguration("clojure");
 	window.setStatusBarMessage("Activating Extension");
 
-
+	languages.setLanguageConfiguration("clojure", languageConfiguration);
 
 	outputChannel = window.createOutputChannel("Clojure");
 

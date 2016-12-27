@@ -55,6 +55,7 @@
   },
   "activationEvents": [
     "workspaceContains:project.clj",
+    "workspaceContains:build.boot",
     "onLanguage:clojure"
   ],
   "main": "./out/extension",
@@ -80,6 +81,11 @@
         }
       }
     },
+    "languages": [{
+        "id": "clojure",
+        "extensions": [ ".clj", ".cljs"],
+        "aliases": [ "Clojure"]
+    }],
     "commands": [
       {
         "command": "clojure.eval",
@@ -214,8 +220,7 @@
             "properties": {
               "toolsJar": {
                 "type": "string",
-                "description": "Path to the tools.jar in your Java installation.",
-                "default": "${JAVA_HOME}/lib/tools.jar"
+                "description": "Path to the tools.jar in your Java installation."
               },
               "srcDirs": {
                 "type": "array",
@@ -281,7 +286,8 @@
             "name": "Clojure-Debug",
             "type": "clojure",
             "request": "launch",
-            "toolsJar": "${JAVA_HOME}/lib/tools.jar",
+            "toolsJar": "${env.JAVA_HOME}/lib/tools.jar",
+            "sideChannelPort": "3030",
             "env": {},
             "cwd": "${workspaceRoot}",
             "refreshNamespacesOnLaunch": true,

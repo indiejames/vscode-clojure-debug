@@ -2,7 +2,7 @@
 {
 	"javascript.validate.enable": false,
 	"files.trimTrailingWhitespace": true,
-	"eslint.enable": false,
 	"editor.insertSpaces": false,
-	"typescript.check.workspaceVersion": false
+	"typescript.check.workspaceVersion": false,
+	"editor.wordSeparators": " ()\"',;~@#$%^&{}[]\\`\n"
 }
