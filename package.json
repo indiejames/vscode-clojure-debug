@@ -161,7 +161,7 @@
               "toolsJar": {
                 "type": "string",
                 "description": "Path to the tools.jar in your Java installation.",
-                "default": "${JAVA_HOME}/lib/tools.jar"
+                "default": "${env.JAVA_HOME}/lib/tools.jar"
               },
               "cwd": {
                 "type": "string",
@@ -170,7 +170,7 @@
               },
               "srcDirs": {
                 "type": "array",
-                "description": "An arry of directories relative to the project root that contain Clojure source files, e.g., src, test.",
+                "description": "An array of directories relative to the project root that contain Clojure source files, e.g., src, test.",
                 "default": ["src", "test"]
               },
               "leinPath": {
