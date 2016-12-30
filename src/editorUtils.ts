@@ -204,12 +204,12 @@ export namespace EditorUtils {
   // Finds a Clojure Namespace declaration in the editor and returns the name
   // of the namespace.
     export function findNSDeclaration(code: string) {
-      let regex = /\(ns ([^\s\)]+)/;
+      let regex = /\(ns(\s+\^\{[\s\S]*?\})?\s+([\w\.\-_\d\*\+!\?]+)/;
       var ns = null;
 
       let match = regex.exec(code);
       if (match) {
-        ns = match[1];
+        ns = match[2];
       }
 
       return ns;

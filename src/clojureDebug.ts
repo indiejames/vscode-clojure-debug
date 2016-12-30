@@ -681,7 +681,8 @@ class ClojureDebugSession extends DebugSession {
 	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, path: string): void {
 		console.log("FINISH BREAKPOINTS REQUEST");
 		var clientLines = args.lines;
-
+		// make exploded jar file paths amenable to cdt
+		const cdtPath = path.replace(".jar/", ".jar:");
 		const debugLines = JSON.stringify(clientLines, null, 4);
 		console.log(debugLines);
 		var newPositions = [clientLines.length];
@@ -693,7 +694,7 @@ class ClojureDebugSession extends DebugSession {
 		for (var i = 0; i < clientLines.length; i++) {
 			const index = i;
 			const l = this.convertClientLineToDebugger(clientLines[i]);
-			this._replConnection.setBreakpoint(path, l, (err: any, result: any) => {
+			this._replConnection.setBreakpoint(cdtPath, l, (err: any, result: any) => {
 				console.log(result);
 				processedCount = processedCount + 1;
 				let verified = false;
@@ -729,9 +730,11 @@ class ClojureDebugSession extends DebugSession {
 		const debugLines = JSON.stringify(clientLines, null, 4);
 		console.log(debugLines);
 		var path = args.source.path;
+		// make exploded jar file paths amenable to cdt
+		const cdtPath = path.replace(".jar/", ".jar:/");
 		var self = this;
 		const cArgs = args;
-		this._replConnection.clearBreakpoints(path, (err: any, result: any) => {
+		this._replConnection.clearBreakpoints(cdtPath, (err: any, result: any) => {
 			if (err) {
 				// TODO figure out what to do here
 				console.error(err);

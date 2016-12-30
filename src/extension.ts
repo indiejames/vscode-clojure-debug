@@ -197,20 +197,23 @@ function setUpActions(context: ExtensionContext) {
 			if (!configNames || configNames.length < 1) {
 					window.showErrorMessage("Please add at least one configuration to launch.json before launching the debugger.");
 			} else {
-				window.showQuickPick(configNames).then((res)=> {
-					let configName = res;
-					let index = configNames.indexOf(configName);
-					let sideChannelPort: number = launchJson["configurations"][index]["sideChannelPort"];
+				const options = {placeHolder: "Choose a launch profile"};
+				window.showQuickPick(configNames, options).then((res)=> {
+					if (res) {
+						let configName = res;
+						let index = configNames.indexOf(configName);
+						let sideChannelPort: number = launchJson["configurations"][index]["sideChannelPort"];
 
-					let refresh = launchJson["configurations"][index]["refreshOnLaunch"];
-					if (refresh == false) {
-						refreshOnLaunch = false;
-					} else {
-						refreshOnLaunch = true;
+						let refresh = launchJson["configurations"][index]["refreshOnLaunch"];
+						if (refresh == false) {
+							refreshOnLaunch = false;
+						} else {
+							refreshOnLaunch = true;
+						}
+						initSideChannel(context, sideChannelPort);
+
+						commands.executeCommand('vscode.startDebug', configName);
 					}
-					initSideChannel(context, sideChannelPort);
-
-					commands.executeCommand('vscode.startDebug', configName);
 				});
 			}
 		} else {
