@@ -77,44 +77,60 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 	var sideChannel = s(sideChannelPort);
 	sideChannel.on('connection', (sock) => {
 
-		sock.on('connect-to-repl', (hostPortString) => {
+		sock.on('connect-to-repl', (data) => {
+			const reqId = data["id"];
+			const hostPortString = data["hostPort"];
 			var host, port;
 			[host, port] = hostPortString.split(":");
-			connect(context, sock, host, port);
+			connect(context, reqId, sock, host, port);
 
 		});
 
-		sock.on('get-breakpoint-exception-class', () => {
+		sock.on('get-breakpoint-exception-class', (data) => {
+			const reqId = data["id"];
 			const itemStr = exceptionBreakpointClassItem.text;
 			const classStr = itemStr.substr(8, itemStr.length);
-			sock.emit('get-breakpoint-exception-class-result', classStr)
+			sock.emit('get-breakpoint-exception-class-result', {id: reqId, class: classStr});
 		});
 
-		sock.on('get-source-paths', (paths) => {
-			console.log("Getting source paths");
-			rconn.getSourcePaths(paths, (err: any, result: any) => {
-				if (err) {
-					sock.emit('source-path-result', err);
-				} else {
-					sock.emit('source-path-result', result);
-				}
-			});
-		});
+		// sock.on('get-source-paths', (paths) => {
+		// 	console.log("Getting source paths");
+		// 	rconn.getSourcePaths(paths, (err: any, result: any) => {
+		// 		if (err) {
+		// 			sock.emit('source-path-result', err);
+		// 		} else {
+		// 			sock.emit('source-path-result', result);
+		// 		}
+		// 	});
+		// });
 
-		sock.on('eval-code', (code) => {
+		sock.on('eval-code', (data) => {
 			console.log("Evaluating code");
 			window.setStatusBarMessage("Evaluating Code")
+			const code = data["expression"];
+			const reqId = data["id"];
 			// let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
 			let ns = 'user';
 			rconn.eval(code, (err: any, result: any) => {
 				console.log("Code evaluated");
 				window.setStatusBarMessage("Code Evaluated");
 				if (err){
-					sock.emit('eval-code-result', err);
+					sock.emit('eval-code-result', {id: reqId, error: err});
 				} else {
-					sock.emit('eval-code-result', result);
+					sock.emit('eval-code-result', {id: reqId, result: result});
 				}
 			}, ns);
+		});
+
+		sock.on('load-namespace', (data) => {
+			const reqId = data["id"];
+			const ns = data["ns"];
+			rconn.eval("(require '" + ns + ")", (err: any, result: any) => {
+				if (err) {
+					sock.emit('load-namespace-result', {id: reqId, error: err});
+				}
+					sock.emit('load-namespace-result', {id: reqId});
+				});
 		});
 
 		sock.on('eval', (action) => {
@@ -149,9 +165,9 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 
 				break;
 
-			case 'get-namespace':
-				sock.emit('get-namespace-result', EditorUtils.findNSForCurrentEditor(activeEditor));
-				break;
+			// case 'get-namespace':
+			// 	sock.emit('get-namespace-result', EditorUtils.findNSForCurrentEditor(activeEditor));
+			// 	break;
 
 			case 'load-namespace':
 				let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
@@ -388,7 +404,7 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 }
 
 // Create a connection to the debugged process and run some init code
-function connect(context: ExtensionContext, sock:SocketIO.Socket, host: string, port: number) {
+function connect(context: ExtensionContext, reqId: number, sock:SocketIO.Socket, host: string, port: number) {
 	console.log("Attaching to debugged process");
 	window.setStatusBarMessage("Attaching to debugged process");
 	let cfg = workspace.getConfiguration("clojure");
@@ -408,7 +424,7 @@ function connect(context: ExtensionContext, sock:SocketIO.Socket, host: string, 
 							replActionsEnabled = true;
 						}
 
-						sock.emit("connect-to-repl-complete", {});
+						sock.emit("connect-to-repl-complete", {id: reqId});
 
 						window.setStatusBarMessage("Attached to process");
 					});

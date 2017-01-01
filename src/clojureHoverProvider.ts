@@ -14,6 +14,10 @@ export class ClojureHoverProvider implements HoverProvider {
     let ns = EditorUtils.findNSDeclaration(document.getText());
     let wordRange = document.getWordRangeAtPosition(position);
     let variable = document.getText(wordRange);
+		// ignore things outside of a namespace
+		if (ns == null) {
+			return Promise.reject("");
+		}
 		// ignore keywords
 		if (variable.substr(0,1) == ":") {
 			return Promise.reject("");

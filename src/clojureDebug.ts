@@ -112,10 +112,23 @@ class ClojureDebugSession extends DebugSession {
 	private configuration: any;
 	// debugger side channel port
 	private _sideChannelPort: number;
+	// side channel socket
+	private sideChannel: any;
 	// path to project.clj for debugger REPL
 	private _tmpProjectDir: string;
 	// whether or not the client support running in a terminal
 	private supportRunInTerminal: boolean;
+	// map of side channel request ids to debug request data
+	private requestData: any = {};
+	// side channel request id seqeunce
+	private requestId = 0;
+
+	// get and increment the requestId for side channel requests
+	private getNextRequestId(): number {
+		const rval = this.requestId;
+		this.requestId = this.requestId + 1;
+		return rval;
+	}
 
 	// Get the full path to a source file. Input paths are of the form repl_test/core.clj.
 	// TODO Change this to search for the given debuggerPath under all the src directories.
@@ -169,10 +182,10 @@ class ClojureDebugSession extends DebugSession {
 	// update the list of Threads with the given list of thread names
 	private updateThreads(thds: string[]) {
 		// add in new threads
-		for (var t of thds) {
+		for (let t of thds) {
 			// TypeScript arrays don't have a `find` method
-			var index = -1;
-			for (var i = 0; i < this.__threads.length; i++) {
+			let index = -1;
+			for (let i = 0; i < this.__threads.length; i++) {
 				const thread = this.__threads[i];
 				if (thread.name == t) {
 					index = i;
@@ -180,7 +193,7 @@ class ClojureDebugSession extends DebugSession {
 				}
 			}
 			if (index == -1) {
-				var newThread = new Thread(this.__threadIndex, t);
+				const newThread = new Thread(this.__threadIndex, t);
 				this.__threadIndex = this.__threadIndex + 1;
 				this.__threads.push(newThread);
 			}
@@ -199,15 +212,15 @@ class ClojureDebugSession extends DebugSession {
 	// Returns the Thread with the given name.
 	private threadWithName(name: string): Thread {
 		// TypeScript arrays don't have a `find` method
-		var index = -1;
-		for (var i = 0; i < this.__threads.length; i++) {
+		let index = -1;
+		for (let i = 0; i < this.__threads.length; i++) {
 			const thread = this.__threads[i];
 			if (thread.name == name) {
 				index = i;
 				break;
 			}
 		}
-		var rval = null;
+		let rval = null;
 		if (index != -1) {
 			rval = this.__threads[index];
 		}
@@ -217,9 +230,9 @@ class ClojureDebugSession extends DebugSession {
 
 	// Returns the Thread with the given id
 	private threadWithID(id: number): Thread {
-		var rval: Thread = null;
+		let rval: Thread = null;
 
-		for (var i = 0; i < this.__threads.length; i++) {
+		for (let i = 0; i < this.__threads.length; i++) {
 			const t = this.__threads[i];
 			if (t.id == id) {
 				rval = t;
@@ -247,7 +260,7 @@ class ClojureDebugSession extends DebugSession {
 
 	// send data form the REPL's stdout to be displayed in the debugger
 	protected output(text, category) {
-		var outputEvent = new OutputEvent(text, category);
+		const outputEvent = new OutputEvent(text, category);
 		this.sendEvent(outputEvent);
 		console.log(text);
 	}
@@ -258,6 +271,84 @@ class ClojureDebugSession extends DebugSession {
 
 	protected perr(text) {
 		this.output(text, "stderr");
+	}
+
+	protected setUpSideChannel(){
+		const self = this;
+		this.sideChannel = s("http://localhost:" + this._sideChannelPort);
+
+		this.sideChannel.on('connect-to-repl-complete', (resp) =>  {
+			const respId = resp["id"];
+			let reqData = self.requestData[respId];
+			let response = reqData["response"];
+
+			delete self.requestData[respId];
+
+			// we just start to run until we hit a breakpoint or an exception
+			response.body = {
+				/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
+				allThreadsContinued: true
+			};
+
+			self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
+
+
+			// announce that we are ready to accept breakpoints -> fire the initialized event to give UI a chance to set breakpoints
+			self.sendEvent(new InitializedEvent());
+		});
+
+		// used by set breakpoint requests
+		this.sideChannel.on('load-namespace-result', (result) => {
+			const respId = result["id"];
+			const reqData = self.requestData[respId];
+			const response = reqData["response"];
+			const args = reqData["args"];
+			const path = reqData["path"];
+			delete self.requestData[respId];
+			self.finishBreakPointsRequest(response, args, path)
+		});
+
+		// handle exception breakpoint requests
+		this.sideChannel.on('get-breakpoint-exception-class-result', (result) => {
+			const respId = result["id"];
+			const reqData = self.requestData[respId];
+			const args = reqData["args"];
+			const response = reqData["response"];
+			delete self.requestData[respId];
+			let type = "none";
+			if (args.filters.indexOf("all-exceptions") != -1) {
+				type = "all";
+			}
+			let exClass = "Throwable";
+			if (result["class"] && result["class"] != "") {
+				exClass = result["class"];
+				self._replConnection.setExceptionBreakpoint(type, exClass, (err: any, result: any) => {
+					if (err) {
+						response.success = false;
+					} else {
+						response.success = true;
+					}
+					this.sendResponse(response);
+				});
+			}
+		});
+
+		// eval requests
+		this.sideChannel.on('eval-code-result', (result) => {
+			const respId = result["id"];
+			const reqData = self.requestData[respId];
+			const response = reqData["response"];
+
+			for (let res of result["result"]) {
+				if (res["status"] && res["status"] == ["done"]) {
+					delete self.requestData[respId];
+				}
+				// TODO prevent this from attempting to send more than one response - gather up the results
+				// and send them when "status" is "done".
+				self.handleResult(response, res);
+			}
+		});
+
 	}
 
 	protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
@@ -292,11 +383,11 @@ class ClojureDebugSession extends DebugSession {
 	private handleEvent(err: any, result: any) {
 		if (result != null) {
 			let event = result[0]["event"];
-			var eventMap = JSON.parse(event);
-			var threadName = eventMap["thread"];
+			const eventMap = JSON.parse(event);
+			const threadName = eventMap["thread"];
 			let eventType = eventMap["event-type"];
 			const thread = this.threadWithName(threadName);
-			var threadId = -1;
+			let threadId = -1;
 
 			if (thread == null) {
 				threadId = this.__threadIndex;
@@ -308,17 +399,17 @@ class ClojureDebugSession extends DebugSession {
 
 			switch (eventType) {
 				case "breakpoint":
-					var src = eventMap["src"];
-					var line = eventMap["line"];
-					this._currentLine = line;
+					//let src = eventMap["src"];
+					//line = eventMap["line"];
+					this._currentLine = eventMap["line"];
 					console.log("Sending breakpoint event to debugger for thread " + threadId);
 					this.sendEvent(new StoppedEvent("breakpoint", threadId));
 					break;
 
 			  case "step":
-				  var src = eventMap["src"];
-					var line = eventMap["line"];
-					this._currentLine = line;
+				  //let src = eventMap["src"];
+					//line = eventMap["line"];
+					this._currentLine = eventMap["line"];
 					this.sendEvent(new StoppedEvent("step", threadId));
 					break;
 
@@ -354,11 +445,11 @@ class ClojureDebugSession extends DebugSession {
 		if (this._debuggerSubState == DebuggerSubState.EVENT_IN_PROGRESS) {
 			this._debuggerSubState = DebuggerSubState.NOP;
 
-			var eventMap = JSON.parse(output);
-			var event = eventMap["event"];
-			var threadName = eventMap["thread"];
+			const eventMap = JSON.parse(output);
+			const event = eventMap["event"];
+			const threadName = eventMap["thread"];
 			const thread = this.threadWithName(threadName);
-			var threadId = -1;
+			let threadId = -1;
 
 			if (thread == null) {
 				threadId = this.__threadIndex;
@@ -367,8 +458,8 @@ class ClojureDebugSession extends DebugSession {
 			}
 
 			if (event == "breakpoint") {
-				var src = eventMap["src"];
-				var line = eventMap["line"];
+				const src = eventMap["src"];
+				const line = eventMap["line"];
 				this._currentLine = line;
 				this.sendEvent(new StoppedEvent("breakpoint", threadId));
 			}
@@ -383,7 +474,7 @@ class ClojureDebugSession extends DebugSession {
 		let self = this;
 
 		this._debuggerRepl.stdout.on('data', (data) => {
-			var output = '' + data;
+			const output = '' + data;
 
       if ((output.search(/nREPL server started/) != -1)) {
 					self._debuggerState = DebuggerState.REPL_READY;
@@ -400,7 +491,7 @@ class ClojureDebugSession extends DebugSession {
 					self._debuggerState = DebuggerState.LAUNCH_COMPLETE;
 				}
 
-				var debuggedHost = "localhost";
+				let debuggedHost = "localhost";
 				if (args["replHost"]) {
 					debuggedHost = args["replHost"];
 				}
@@ -412,32 +503,13 @@ class ClojureDebugSession extends DebugSession {
 						console.log("Debugger REPL attached to Debugged REPL");
 
 						// tell the extension to connect
-						let sideChannel = s("http://localhost:" + self._sideChannelPort);
-
-						sideChannel.on('connect-to-repl-complete', () =>  {
-							sideChannel.close();
-
-							// we just start to run until we hit a breakpoint or an exception
-							response.body = {
-								/** If true, the continue request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility. */
-								allThreadsContinued: true
-							};
-
-							self.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: ClojureDebugSession.THREAD_ID });
-
-
-							// announce that we are ready to accept breakpoints -> fire the initialized event to give UI a chance to set breakpoints
-							self.sendEvent(new InitializedEvent());
-						});
-
-						sideChannel.on('go-eval', (data) => {
-							var replHost = "127.0.0.1";
-							if (args["replHost"]) {
-								replHost = args["replHost"];
-							}
-							sideChannel.emit("connect-to-repl", replHost + ":" + primaryReplPort);
-
-						});
+						let replHost = "127.0.0.1";
+						if (args["replHost"]) {
+							replHost = args["replHost"];
+						}
+						const reqId = self.getNextRequestId();
+						self.requestData[reqId] = {response: response};
+						self.sideChannel.emit("connect-to-repl", {id: reqId, hostPort: replHost + ":" + primaryReplPort});
 
 						// start listening for events
 						self.handleEvent(null, null);
@@ -459,17 +531,17 @@ class ClojureDebugSession extends DebugSession {
 		});
 	}
 
-	private setupDebugREPL(response: DebugProtocol.LaunchResponse, args: BaseRequestArguments){
-		let self = this;
+	private setUpDebugREPL(response: DebugProtocol.LaunchResponse, args: BaseRequestArguments){
+		const self = this;
 
-		let env = {"HOME": process.env["HOME"]};
+		const env = {"HOME": process.env["HOME"]};
 
-		var primaryReplPort = 5555;
+		let primaryReplPort = 5555;
 		if (args.replPort) {
 			primaryReplPort = args.replPort;
 		}
 
-		var debugReplPort = 5556;
+		let debugReplPort = 5556;
 		if (args.debugReplPort) {
 			debugReplPort = args.debugReplPort;
 		}
@@ -479,7 +551,7 @@ class ClojureDebugSession extends DebugSession {
 			debugPort = args.debugPort;
 		}
 
-		var leinPath = "/usr/local/bin/lein";
+		let leinPath = "/usr/local/bin/lein";
 		if (args.leinPath) {
 			leinPath = args.leinPath;
 		}
@@ -493,7 +565,7 @@ class ClojureDebugSession extends DebugSession {
 
 	private createDebuggerProject(toolsJar: string) {
 		// create a tempory lein proejct
-		var tmpobj = tmp.dirSync({ mode: 0o750, prefix: 'repl_connnect_' });
+		const tmpobj = tmp.dirSync({ mode: 0o750, prefix: 'repl_connnect_' });
 		this._tmpProjectDir = tmpobj.name;
 		let projectPath = join(tmpobj.name, "project.clj");
 
@@ -511,26 +583,26 @@ class ClojureDebugSession extends DebugSession {
 		if (args.sideChannelPort) {
 			this._sideChannelPort = args.sideChannelPort;
 		}
+		this.setUpSideChannel();
 		this.createDebuggerProject(args.toolsJar);
-		this.setupDebugREPL(response, args);
+		this.setUpDebugREPL(response, args);
 	}
 
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
 		console.log("LAUNCH REQUEST");
 		this._isLaunched = true;
-		let self = this;
-
+		const self = this;
 		this.createDebuggerProject(args.toolsJar);
 
 		this._cwd = args.cwd;
 		console.log("CWD: " + this._cwd);
 
-		var replPort = 5555;
+		let replPort = 5555;
 		if (args.replPort) {
 			replPort = args.replPort;
 		}
 
-		var debugPort = 8030;
+		let debugPort = 8030;
 		if (args.debugPort) {
 			debugPort = args.debugPort;
 		}
@@ -540,29 +612,31 @@ class ClojureDebugSession extends DebugSession {
 			this._sideChannelPort = args.sideChannelPort;
 		}
 
-		var leinPath = "/usr/local/bin/lein";
+		this.setUpSideChannel();
+
+		let leinPath = "/usr/local/bin/lein";
 		if (args.leinPath) {
 			leinPath = args.leinPath;
 		}
 
-		var argEnv = {};
+		let argEnv = {};
 		if (args.env) {
 			argEnv = args.env;
 		}
 		const home = process.env["HOME"];
-		var jvmOpts = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort;
+		let jvmOpts = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort;
 		if (args.env && args.env["JVM_OPTS"]) {
 			jvmOpts = jvmOpts + " " + args.env["JVM_OPTS"];
 		}
 
-		var env = {"HOME": home, "CLOJURE_DEBUG_JDWP_PORT": "" + debugPort, "JVM_OPTS": jvmOpts};
-		for (var attrname in args.env) {
+		const env = {"HOME": home, "CLOJURE_DEBUG_JDWP_PORT": "" + debugPort, "JVM_OPTS": jvmOpts};
+		for (let attrname in args.env) {
 			if (attrname != "JVM_OPTS") {
 				env[attrname] = args.env[attrname];
 			}
 		}
 
-		var runArgs: DebugProtocol.RunInTerminalRequestArguments = {
+		const runArgs: DebugProtocol.RunInTerminalRequestArguments = {
 			kind: 'integrated',
 			title: "Clojure REPL",
 			args: args.commandLine,
@@ -575,7 +649,7 @@ class ClojureDebugSession extends DebugSession {
 			this.runInTerminalRequest(runArgs, 600000, runResponse => {
 				if (runResponse.success) {
 					console.log("PRIMARY REPL STARTED");
-					this.setupDebugREPL(response, args);
+					this.setUpDebugREPL(response, args);
 
 				} else {
 					this.sendErrorResponse(response, -1, "Cannot launch debug target in terminal.");
@@ -587,7 +661,7 @@ class ClojureDebugSession extends DebugSession {
 			this.runInTerminalRequest(runArgs, 600000, runResponse => {
 				if (runResponse.success) {
 					console.log("PRIMARY REPL STARTED");
-					this.setupDebugREPL(response, args);
+					this.setUpDebugREPL(response, args);
 
 				} else {
 					this.sendErrorResponse(response, -1, "Cannot launch debug target in terminal.");
@@ -603,12 +677,12 @@ class ClojureDebugSession extends DebugSession {
 			this._primaryRepl = spawn(cmd, cmdArgs, {cwd: args.cwd, env: env});
 
 			this._primaryRepl.stdout.on('data', (data) => {
-				var output = '' + data;
+				const output = '' + data;
 				self.pout(output);
 				console.log(output);
 
 				if ((output.search(/nREPL server started/) != -1)) {
-					this.setupDebugREPL(response, args);
+					this.setUpDebugREPL(response, args);
 				}
 			});
 
@@ -629,8 +703,8 @@ class ClojureDebugSession extends DebugSession {
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {
 		console.log("Diconnect requested");
 
-		var self = this;
-		if (self._isLaunched) {
+		if (this._isLaunched) {
+			const self = this;
 			// tell the debugger REPL to tell the debugged REPL to exit
 			this._replConnection.exit((err: any, result: any): void => {
 				// exit the debugger REPL
@@ -642,32 +716,22 @@ class ClojureDebugSession extends DebugSession {
 					// do nothing
 				});
 			});
+			this.sideChannel.emit("eval","terminate-and-exit");
 		} else {
 			// exit the debugger REPL
-			self._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
+			this._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
 				// This is never called, apparently.
 			});
 			// close the connection to the debugger REPL
-			self._replConnection.close((err: any, result: any): void => {
+			this._replConnection.close((err: any, result: any): void => {
 					// do nothing
 			});
+			this.sideChannel.emit("eval","exit");
 		}
 
-
-
-		let sideChannel = s("http://localhost:" + self._sideChannelPort);
-
-		sideChannel.on('go-eval', (data) => {
-			if (this._isLaunched) {
-				sideChannel.emit("eval","terminate-and-exit");
-			} else {
-				sideChannel.emit("eval","exit");
-			}
-
-			sideChannel.close();
-			self.sendResponse(response);
-			self.shutdown();
-		});
+		this.sideChannel.close();
+		this.sendResponse(response);
+		this.shutdown();
 	}
 
 	protected sourceRequest(response: DebugProtocol.SourceResponse, args: DebugProtocol.SourceArguments): void {
@@ -678,18 +742,18 @@ class ClojureDebugSession extends DebugSession {
 	// TODO Fix the check for successful breakpoints and return the correct list
 	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, path: string): void {
 		console.log("FINISH BREAKPOINTS REQUEST");
-		var clientLines = args.lines;
+		const clientLines = args.lines;
 		// make exploded jar file paths amenable to cdt
 		const cdtPath = path.replace(".jar/", ".jar:");
 		const debugLines = JSON.stringify(clientLines, null, 4);
 		console.log(debugLines);
-		var newPositions = [clientLines.length];
-		var breakpoints = [];
-		var processedCount = 0;
+		const newPositions = [clientLines.length];
+		const breakpoints = [];
+		let processedCount = 0;
 
 		// verify breakpoint locations
 		// TODO fix this
-		for (var i = 0; i < clientLines.length; i++) {
+		for (let i = 0; i < clientLines.length; i++) {
 			const index = i;
 			const l = this.convertClientLineToDebugger(clientLines[i]);
 			this._replConnection.setBreakpoint(cdtPath, l, (err: any, result: any) => {
@@ -723,42 +787,32 @@ class ClojureDebugSession extends DebugSession {
 
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
 		console.log("Set breakpoint requested");
-		var clientLines = args.lines;
+		const clientLines = args.lines;
 
 		const debugLines = JSON.stringify(clientLines, null, 4);
 		console.log(debugLines);
-		var path = args.source.path;
+		const path = args.source.path;
 		// make exploded jar file paths amenable to cdt
 		const cdtPath = path.replace(".jar/", ".jar:/");
-		var self = this;
-		const cArgs = args;
+		const reqId = this.getNextRequestId();
+		this.requestData[reqId] = {response: response, args: args, path: path};
+		const self = this;
+
 		this._replConnection.clearBreakpoints(cdtPath, (err: any, result: any) => {
 			if (err) {
 				// TODO figure out what to do here
 				console.error(err);
 			} else {
-				var fileContents = readFileSync(path);
-				var regex = /\(ns\s+?(.*?)(\s|\))/;
-				var ns = regex.exec(fileContents.toString())[1];
+				const fileContents = readFileSync(path);
+				//const regex = /\(ns\s+?(.*?)(\s|\))/;
+				const regex = /\(ns(\s+\^\{[\s\S]*?\})?\s+([\w\.\-_\d\*\+!\?]+)/;
+				const ns = regex.exec(fileContents.toString())[2];
 
 				// Load the associated namespace into the REPL.
 				// We have to use the extension connection to load the namespace
 				// We must wait for the response before replying with the SetBreakpointResponse.
-				let sideChannel = s("http://localhost:" + self._sideChannelPort);
-				sideChannel.on('go-eval', (data) => {
-					sideChannel.on('load-namespace-result', (data) => {
-						self.finishBreakPointsRequest(response, cArgs, path)
-						sideChannel.close();
-					});
-					sideChannel.emit("eval", "load-namespace");
-
-				});
+				self.sideChannel.emit("load-namespace", {id: reqId, ns: ns});
 			}
-
-
-			// 	//console.log(result);
-			// });
-
 		});
 
 		// TODO reject breakpoint requests outside of a namespace
@@ -766,33 +820,10 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments): void {
-		var type = "none";
-		if (args.filters.indexOf("all-exceptions") != -1) {
-			type = "all";
-		}
-		// get the class type for the exceptions from the extension
-		let self = this;
-		var exClass = "Throwable";
-		let sideChannel = s("http://localhost:" + this._sideChannelPort);
-		sideChannel.on('go-eval', (data) => {
-
-			sideChannel.on('get-breakpoint-exception-class-result', (result) => {
-				if (result && result != "") {
-					exClass = result;
-					this._replConnection.setExceptionBreakpoint(type, exClass, (err: any, result: any) => {
-						if (err) {
-							response.success = false;
-						} else {
-							response.success = true;
-						}
-						this.sendResponse(response);
-					});
-				}
-				sideChannel.close();
-			});
-
-			sideChannel.emit('get-breakpoint-exception-class');
-		});
+		// get the class type for the exceptions from the extension (response handler will do the rest)
+		const reqId = this.getNextRequestId();
+		this.requestData[reqId] = {response: response, args: args}
+		this.sideChannel.emit('get-breakpoint-exception-class', {id: reqId});
 	}
 
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
@@ -827,11 +858,11 @@ class ClojureDebugSession extends DebugSession {
 		const debug = this;
 		this._replConnection.listFrames(th.name, (err: any, result: any) => {
 			console.log(result);
-			var resFrames = result[0]["frames"];
+			const resFrames = result[0]["frames"];
 			console.log(resFrames);
 
 			// make all source files available (unzipping jars as needed)
-			var sourcePaths: string[] = resFrames.map((frame: any, index: number) : string => {
+			const sourcePaths: string[] = resFrames.map((frame: any, index: number) : string => {
 				return frame["srcPath"];
 			});
 
@@ -843,7 +874,7 @@ class ClojureDebugSession extends DebugSession {
 					const frames: StackFrame[] = resFrames.map((frame: any, index: number): StackFrame => {
 						// let sourcePath = result[i];
 						let sourcePath = sourcePaths[index];
-						var f = new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClient(sourcePath)), debug.convertDebuggerLineToClient(frame["line"]), 0);
+						const f = new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClient(sourcePath)), debug.convertDebuggerLineToClient(frame["line"]), 0);
 						f["threadName"] = th.name;
 						return f;
 					});
@@ -876,7 +907,7 @@ class ClojureDebugSession extends DebugSession {
 			let ref = this._variableHandles.create(vals);
 			return {name: name, value: "" + val, variablesReference: ref};
 		} else if (val instanceof Array) {
-			var index = 0;
+			let index = 0;
 			let vals = val.map((v: any) : any => {
 				return this.storeValue("" + index++, v);
 			});
@@ -906,7 +937,7 @@ class ClojureDebugSession extends DebugSession {
 		this._replConnection.listVars(threadName, frame.id, (err: any, result: any) => {
 			console.log("GOT VARIABLES");
 			console.log(result);
-			var variables = result[0]["vars"];
+			let variables = result[0]["vars"];
 			variables = parse(variables);
 			let jsVars = toJS(variables);
 			let jv = JSON.stringify(jsVars);
@@ -915,15 +946,15 @@ class ClojureDebugSession extends DebugSession {
 			let frameLocals = frameVars[1];
 
 			// console.log("VARS: " + jsVars);
-			// var frameArgs = variables[0];
-			// var frameLocals = variables[1];
-			var argScope = frameArgs.map((v: any): any => {
+			// const frameArgs = variables[0];
+			// const frameLocals = variables[1];
+			const argScope = frameArgs.map((v: any): any => {
 				let name = Object.getOwnPropertyNames(v)[0];
 				let value = v[name];
 				let val = debug.storeValue(name, value);
 				return val;
 			});
-			var localScope = frameLocals.map((v: any): any => {
+			const localScope = frameLocals.map((v: any): any => {
 				let name = Object.getOwnPropertyNames(v)[0];
 				let value = v[name];
 				let val = debug.storeValue(name, value);
@@ -945,7 +976,7 @@ class ClojureDebugSession extends DebugSession {
 
 	protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
 		console.log("VARIABLES REQUEST");
-		var variables = [];
+		let variables = [];
 
 		const vars = this._variableHandles.get(args.variablesReference);
 		if (vars != null) {
@@ -1060,7 +1091,7 @@ class ClojureDebugSession extends DebugSession {
 
 	private getErrorMessage(status: Array<string>): string {
 		console.log("STEP OUT REQUEST")
-		for (var msg of status) {
+		for (let msg of status) {
 			if (msg != "done" && msg != "error") {
 				return msg;
 			}
@@ -1069,22 +1100,24 @@ class ClojureDebugSession extends DebugSession {
 		return "UNKNOWN ERROR";
 	}
 
-	// Handle the result from an eval NOT at a breakpoint
+	// Handle the result from an eval NOT at a breakpoint. Results sometimes come in more than one response,
+	// so we have to gather them until complete (indicated by the presense of the "status" in the
+	// response). We use the session-id of the nrepl request to group respones together.
 	private handleResult(response: DebugProtocol.EvaluateResponse, replResult: any): void {
 		// forward stdout from the REPL to the debugger
-		var out = replResult["out"];
+		const out = replResult["out"];
 		if (out && out != "") {
 			this.pout(out);
 		}
 
 		// forwared stderr from the REPL to the debugger
-		var err = replResult["err"];
+		const err = replResult["err"];
 		if (err && err != "") {
 			this.perr(err);
 		}
 
-		var session = replResult["session"];
-		var result = this._evalResults[session] || {};
+		const session = replResult["session"];
+		const result = this._evalResults[session] || {};
 		let status = replResult["status"];
 		if (status) {
 			if (this.isErrorStatus(status)) {
@@ -1094,36 +1127,33 @@ class ClojureDebugSession extends DebugSession {
 				this.sendResponse(response);
 				this._evalResults[session] = null;
 			} else if(replResult["status"][0] == "done") {
+
 				response.body = {
 					result: result["value"],
 					// TODO implement this for complex results
 					variablesReference: 0
 				}
 
-				var err = result["error"];
+				const err = result["error"];
 				if (err && err != "") {
 					response.success = false;
 					response.message = err;
 				}
 
 				this.sendResponse(response);
-				this._evalResults[session] = null;
+				delete this._evalResults[session];
 
 			} else if (status[0] == "eval-error") {
-				var ex = replResult["ex"];
+				const ex = replResult["ex"];
 				if (ex && ex != "") {
-					var err = result["error"] || "";
+					const err = result["error"] || "";
 					result["error"] = err + "\n" + ex;
-					response.success = false;
-					response.message = ex;
-					this.sendResponse(response);
-					this._evalResults[session] = null;
 				}
 			}
 		} else {
 
 			if (replResult["value"]) {
-				var value = result["value"] || "";
+				const value = result["value"] || "";
 				result["value"] = value + replResult["value"];
 			}
 
@@ -1133,20 +1163,20 @@ class ClojureDebugSession extends DebugSession {
 
 	private handleFrameResult(response: DebugProtocol.EvaluateResponse, replResult: any): void {
 		// forward stdout form the REPL to the debugger
-		var out = replResult["out"];
+		const out = replResult["out"];
 		if (out && out != "") {
 			this.pout(out);
 		}
 
 		// forwared stderr from the REPL to the debugger
-		var err = replResult["err"];
+		const err = replResult["err"];
 		if (err && err != "") {
 			this.perr(err);
 		}
 
-		var session = replResult["session"];
-		// var result = this._evalResults[session] || {};
-		var result = replResult["value"];
+		const session = replResult["session"];
+		// const result = this._evalResults[session] || {};
+		const result = replResult["value"];
 		if (replResult["status"] && replResult["status"][0] == "done") {
 			response.body = {
 				// result: result["value"],
@@ -1155,7 +1185,7 @@ class ClojureDebugSession extends DebugSession {
 				variablesReference: 0
 			}
 
-			var err = result["error"];
+			const err = result["error"];
 			if (err && err != "") {
 				response.success = false;
 				response.message = err;
@@ -1167,12 +1197,12 @@ class ClojureDebugSession extends DebugSession {
 		} else {
 
 			if (replResult["value"]) {
-				var value = result["value"] || "";
+				const value = result["value"] || "";
 				result["value"] = value + replResult["value"];
 			}
-			var ex = replResult["ex"];
+			const ex = replResult["ex"];
 			if (ex && ex != "") {
-				var err = result["error"] || "";
+				const err = result["error"] || "";
 				result["error"] = err + "\n" + ex;
 			}
 			this._evalResults[session] = result;
@@ -1180,16 +1210,16 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
-		var expr = args.expression;
-		var self = this;
-		var ns = 'user';
+		const expr = args.expression;
+		const self = this;
+		const ns = 'user';
 
 		if (args.context == 'repl' || args.context == 'watch') {
 			if (args.frameId != null) {
 				console.log("FRAME EVAL REQUESTED");
 				// evaluate in the context of the given thread/frame
 				this._replConnection.reval(args.frameId, expr, (err: any, result: any) => {
-					for (var res of result) {
+					for (let res of result) {
  						self.handleFrameResult(response, res);
 					}
 				});
@@ -1197,18 +1227,10 @@ class ClojureDebugSession extends DebugSession {
 			} else {
 				// use extesion to eval code
 				console.log("EVAL REQUESTED");
-				let sideChannel = s("http://localhost:" + self._sideChannelPort);
-				sideChannel.on('go-eval', (data) => {
-
-					sideChannel.on('eval-code-result', (result) => {
-						for (var res of result) {
-							self.handleResult(response, res);
-						}
-						sideChannel.close();
-					});
-					sideChannel.emit('eval-code', expr);
-				});
-		  	}
+				const reqId = self.getNextRequestId();
+				self.requestData[reqId] = {response: response, args: args};
+				this.sideChannel.emit('eval-code', {id: reqId, expression: expr});
+		  }
 		}
 	}
 }
