@@ -297,6 +297,15 @@ class ClojureDebugSession extends DebugSession {
 			self.sendEvent(new InitializedEvent());
 		});
 
+		// These two handlers let the extension print to the debug console
+		this.sideChannel.on('pout', (data) => {
+			this.pout(data);
+		});
+
+		this.sideChannel.on('perr', (data) => {
+			this.perr(data);
+		})
+
 		// used by set breakpoint requests
 		this.sideChannel.on('load-namespace-result', (result) => {
 			const respId = result["id"];
@@ -1116,6 +1125,8 @@ class ClojureDebugSession extends DebugSession {
 			this.perr(err);
 		}
 
+		// TODO there might be a race condition here. Maybe better to use request id instead
+		// of session
 		const session = replResult["session"];
 		const result = this._evalResults[session] || {};
 		let status = replResult["status"];

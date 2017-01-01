@@ -25,6 +25,8 @@ import {} from 'languages';
 let EXIT_CMD = "(System/exit 0)";
 var activeEditor = null;
 
+var sideChannelSocket: SocketIO.Socket = null;
+
 var exceptionBreakpointClassItem: StatusBarItem;
 
 var activeReplActions: Disposable[] = null;
@@ -55,7 +57,8 @@ function handleEvalResponse(response: Array<any>, outputChannel: OutputChannel) 
 		// TOD standardize the message handling (some are under 'eval' others are direct)
 
 		if (resp["out"]) {
-			outputChannel.append(resp["out"] + "\n");
+			pout(resp["out"]);
+			//outputChannel.append(resp["out"] + "\n");
 		}
 
 		if (resp["value"]) {
@@ -63,19 +66,34 @@ function handleEvalResponse(response: Array<any>, outputChannel: OutputChannel) 
 			if (resp["ns"]) {
 				ns = resp["ns"];
 			}
-			outputChannel.append(ns + "=> " + resp["value"] + "\n");
+			pout (ns + "=> " + resp["value"]);
+			//outputChannel.append(ns + "=> " + resp["value"] + "\n");
 		}
 	}
 }
 
-function initSideChannel(context: ExtensionContext, sideChannelPort: number){
+// The following two functions are used to print to the debug console.
+function pout(data: any) {
+	if (sideChannelSocket && data) {
+		sideChannelSocket.emit('pout', data);
+	}
+}
+
+function perr(data: any) {
+	if (sideChannelSocket && data) {
+		sideChannelSocket.emit('perr', data);
+	}
+}
+
+function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
 	// start up a side channel that the debug adapter can use to query the extension
 
 	console.log("Setting up side channel on port " + sideChannelPort);
 	window.setStatusBarMessage("Setting up side channel on port " + sideChannelPort);
 
-	var sideChannel = s(sideChannelPort);
+	let sideChannel = s(sideChannelPort);
 	sideChannel.on('connection', (sock) => {
+		sideChannelSocket = sock;
 
 		sock.on('connect-to-repl', (data) => {
 			const reqId = data["id"];
@@ -141,6 +159,7 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 				// 	// This is never called, apparently.
 				// 	console.log("debugged process killed")
 			  // });
+				sideChannelSocket = null;
 				sideChannel.close();
 				// terminate the process for the JVM
 				rconn.pid((err: any, result: any): void => {
@@ -159,6 +178,7 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 				removeReplActions(context);
 
 				rconn.close((err: any, msg: any) : any => {
+					sideChannelSocket = null;
 					sideChannel.close();
 					console.log("Connection closed)");
 				});
