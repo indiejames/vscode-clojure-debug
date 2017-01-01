@@ -51,22 +51,63 @@ var rconn: ReplConnection;
 var outputChannel: any;
 var extensionDir: String;
 
-function handleEvalResponse(response: Array<any>, outputChannel: OutputChannel) {
+var lastEvalNS = "";
+
+var evalResponse: any = {};
+
+function handleEvalResponse(response: Array<any>) {
+
 	for (var resp of response) {
-		// TODO handle errors here
+
+		if (resp["ns"]) {
+			 evalResponse["ns"] = resp["ns"];
+		}
+
 		// TOD standardize the message handling (some are under 'eval' others are direct)
+		if (resp["status"]) {
+			if (resp["status"][0] == "done") {
+				let ns = lastEvalNS;
+				if (evalResponse["ns"]) {
+					ns = evalResponse["ns"];
+				}
+				pout(ns + "=>")
+				if (evalResponse["ex"]) {
+					perr(evalResponse["ex"])
+				}
+				if (evalResponse["root-ex"]) {
+					perr("Root exception: " + evalResponse["root-ex"]);
+				}
+				if (evalResponse["out"]) {
+					pout(evalResponse["out"]);
+				}
+				if (evalResponse["value"]) {
+					pout (evalResponse["value"]);
+				}
+				evalResponse = {};
+			}
+			else if (resp["status"][0] == "eval-error") {
+				evalResponse["ex"] = resp["ex"];
+				evalResponse["root-ex"] = resp["root-ex"];
+				// perr(resp["ex"]);
+				// perr(resp["root-ex"]);
+			}
+
+		}
+
 
 		if (resp["out"]) {
-			pout(resp["out"]);
+			//pout(resp["out"]);
+			if (evalResponse["out"] != null) {
+				evalResponse["out"] = evalResponse["out"] + "\n" + resp["out"];
+			} else {
+				evalResponse["out"] = resp["out"];
+			}
 			//outputChannel.append(resp["out"] + "\n");
 		}
 
 		if (resp["value"]) {
-			var ns = "user";
-			if (resp["ns"]) {
-				ns = resp["ns"];
-			}
-			pout (ns + "=> " + resp["value"]);
+			evalResponse["value"] = resp["value"];
+			// pout (ns + "=> " + resp["value"]);
 			//outputChannel.append(ns + "=> " + resp["value"] + "\n");
 		}
 	}
@@ -302,12 +343,14 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 		let code = editor.document.getText(range);
 		let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
 		if (ns) {
+			lastEvalNS = ns;
 			rconn.eval(code, (err: any, result: any) : void => {
-				handleEvalResponse(result, outputChannel);
+				handleEvalResponse(result);
 			}, ns);
 		} else {
+			lastEvalNS = "";
 			rconn.eval(code, (err: any, result: any) : void => {
-				handleEvalResponse(result, outputChannel);
+				handleEvalResponse(result);
 			});
 		}
 	}));
