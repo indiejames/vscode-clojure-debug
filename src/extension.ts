@@ -104,7 +104,8 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number){
 		sock.on('eval-code', (code) => {
 			console.log("Evaluating code");
 			window.setStatusBarMessage("Evaluating Code")
-			let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
+			// let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
+			let ns = 'user';
 			rconn.eval(code, (err: any, result: any) => {
 				console.log("Code evaluated");
 				window.setStatusBarMessage("Code Evaluated");

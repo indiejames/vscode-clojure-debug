@@ -91,8 +91,6 @@ export interface LaunchRequestArguments extends BaseRequestArguments {
 	refreshOnLaunch?: boolean;
 }
 
-// utility funciton to
-
 class ClojureDebugSession extends DebugSession {
 
 	private _sourceFile: string;
@@ -1197,7 +1195,7 @@ class ClojureDebugSession extends DebugSession {
 				});
 
 			} else {
-				// get context for eval from extension
+				// use extesion to eval code
 				console.log("EVAL REQUESTED");
 				let sideChannel = s("http://localhost:" + self._sideChannelPort);
 				sideChannel.on('go-eval', (data) => {
