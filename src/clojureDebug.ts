@@ -27,12 +27,11 @@ let projectClj = `(defproject repl_connect "0.1.0-SNAPSHOT"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :profiles {:dev {:dependencies [[debug-middleware "0.1.1-SNAPSHOT"]]
+  :profiles {:dev {:dependencies [[debug-middleware "0.1.2-SNAPSHOT"]]
                    :repl-options {:nrepl-middleware [debug-middleware.core/debug-middleware]}}}
   :resource-paths []
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [debug-middleware "0.1.1-SNAPSHOT"]
-                 [cdt "1.2.6.3"]])`;
+                 [debug-middleware "0.1.2-SNAPSHOT"]])`;
 
 // Constants to represent the various states of the debugger
 class DebuggerState {
