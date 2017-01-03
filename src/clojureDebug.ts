@@ -19,6 +19,7 @@ import tmp = require('tmp');
 import {ReplConnection} from './replConnection';
 import {parse, toJS} from 'jsedn';
 let chalk = require("chalk");
+let fined = require("fined");
 
 let EXIT_CMD = "(System/exit 0)";
 
@@ -857,7 +858,7 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
-		console.log("STACK FRAME REQUEST");
+		console.log("STACK TRACE REQUEST");
 		const levels = args.levels;
 		const threadId = args.threadId;
 		console.log("LEVELS: " + levels);
@@ -1093,12 +1094,10 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	private isErrorStatus(status: Array<string>): boolean {
-		console.log("STEP IN REQUEST")
 		return (status.indexOf("error") != -1)
 	}
 
 	private getErrorMessage(status: Array<string>): string {
-		console.log("STEP OUT REQUEST")
 		for (let msg of status) {
 			if (msg != "done" && msg != "error") {
 				return msg;

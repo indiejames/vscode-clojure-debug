@@ -16,9 +16,10 @@ export class ClojureCompletionItemProvider implements CompletionItemProvider {
 
   private completionsParams(document: TextDocument, position: Position): [string, string, string, number] {
     let fileContents = document.getText();
-    var regex = /\(ns\s+?(.*?)(\s|\))/;
-    //var ns = regex.exec(fileContents.toString())[1];
     var ns = EditorUtils.findNSDeclaration(fileContents);
+    if (ns == null) {
+      ns = "user";
+    }
     let prefixRange = document.getWordRangeAtPosition(position);
     var prefix = "";
     if (prefixRange != null) {
@@ -36,38 +37,42 @@ export class ClojureCompletionItemProvider implements CompletionItemProvider {
     // Get the parameters needed for completion
     let [src, ns, prefix, offset] = self.completionsParams(document, position);
 
+    let rval = null;
+
     if (prefix == "") {
-      return Promise.resolve(new CompletionList([], true));
-    }
+      rval = Promise.resolve(new CompletionList([], true));
+    } else {
+      rval = new Promise<CompletionList>((resolve, reject) => {
 
-    return new Promise<CompletionList>((resolve, reject) => {
+        // Sometimes vscode freaks out and sends the whole source as the prefix
+        // so I check for newlines and reject them here.
+        if (prefix == "") {
+          let ci =  new CompletionItem("");
+          resolve(new CompletionList([], true));
+        } else {
 
-      // Sometimes vscode freaks out and sends the whole source as the prefix
-      // so I check for newlines and reject them here.
-      if (prefix == "") {
-        let ci =  new CompletionItem("");
-        resolve(new CompletionList([], true));
-      } else {
-
-        // Call Compliment to get the completions
-        // TODO - add optimization to check the length of the prefix and set isInComplete in the CompletionList
-        // to false if the length is > 3 chars (or whatever length namespace show up in the list at).
-        self.connection.findCompletions(ns, prefix, src, offset, (err: any, result: any) => {
-          if (result && result.length > 0) {
-            let results = CompletionUtils.complimentResultsToCompletionItems(result[0]["completions"]);
-            if (results != null) {
-              let completionList = new CompletionList(results, (prefix.length < 2));
-              completionList.isIncomplete = true;
-              resolve(completionList);
+          // Call Compliment to get the completions
+          // TODO - add optimization to check the length of the prefix and set isInComplete in the CompletionList
+          // to false if the length is > 3 chars (or whatever length namespace show up in the list at).
+          self.connection.findCompletions(ns, prefix, src, offset, (err: any, result: any) => {
+            if (result && result.length > 0) {
+              let results = CompletionUtils.complimentResultsToCompletionItems(result[0]["completions"]);
+              if (results != null) {
+                let completionList = new CompletionList(results, (prefix.length < 2));
+                completionList.isIncomplete = true;
+                resolve(completionList);
+              } else {
+                resolve(new CompletionList([], true));
+              }
             } else {
+              //reject(err);
               resolve(new CompletionList([], true));
             }
-          } else {
-            //reject(err);
-            resolve(new CompletionList([], true));
-          }
-        });
-      }
-    });
+          });
+        }
+      });
+    }
+
+    return rval;
   }
 }

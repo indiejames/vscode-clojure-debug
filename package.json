@@ -26,6 +26,7 @@
   "dependencies": {
     "bencode": "^0.10.0",
     "chalk": "^1.1.1",
+    "fined": "^1.0.2",
     "fs-extra": "^0.30.0",
     "jg-nrepl-client": "0.2.3",
     "jsedn": "0.3.5",
