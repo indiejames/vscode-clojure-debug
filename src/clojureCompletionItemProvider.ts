@@ -58,7 +58,8 @@ export class ClojureCompletionItemProvider implements CompletionItemProvider {
             if (result && result.length > 0) {
               let results = CompletionUtils.complimentResultsToCompletionItems(result[0]["completions"]);
               if (results != null) {
-                let completionList = new CompletionList(results, (prefix.length < 2));
+                let completionList = new CompletionList(results, true);
+                // let completionList = new CompletionList(results, (prefix.length < 2));
                 completionList.isIncomplete = true;
                 resolve(completionList);
               } else {

@@ -24,6 +24,7 @@
     "url": "https://github.com/indiejames/vscode-clojure-debug/issues"
   },
   "dependencies": {
+    "core-js": "^2.4.1",
     "bencode": "^0.10.0",
     "chalk": "^1.1.1",
     "fined": "^1.0.2",

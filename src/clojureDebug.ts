@@ -20,6 +20,7 @@ import {ReplConnection} from './replConnection';
 import {parse, toJS} from 'jsedn';
 let chalk = require("chalk");
 let fined = require("fined");
+let core = require('core-js/library');
 
 let EXIT_CMD = "(System/exit 0)";
 
@@ -131,26 +132,23 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	// Get the full path to a source file. Input paths are of the form repl_test/core.clj.
-	// TODO Change this to search for the given debuggerPath under all the src directories.
-	// For now assume all source is under src.
-	protected convertDebuggerPathToClient(debuggerPath: string): string {
-		// check to see if the path is a jar fie
-		// let regex = /file:(.+\/\.m2\/repository\/(.+\.jar))!\/(.+)/;
-		// let match = regex.exec(debuggerPath);
-		// if (match) {
-		// 	let jarFilePath = match[1];
-		// 	let outputDir = "/tmp/" + match[2];
-		// 	mkdirSync(outputDir);
-		// 	// extract the jar file
-		// 	createReadStream(jarFilePath).pipe(Extract({path: outputDir}));
-		// 	return join(outputDir, match[3]);
-
-		// } else {
+	// This is only used at breakpoints, so we use the stored breakpoints to determine
+	// what the original full path was.
+	protected convertDebuggerPathToClientPath(debuggerPath: string, line: number): string {
+		let rval = "";
 		if (debuggerPath.substr(0, 1) == "/") {
-			return debuggerPath;
+			rval = debuggerPath;
 		} else {
-			return join(this._cwd, "src", debuggerPath);
-		// }
+			// TODO this is inefficient - should stop on match
+			for (let path in this._breakPoints) {
+				const lines = this._breakPoints[path];
+				if(core.String.endsWith(path, debuggerPath) && lines.includes(line)) {
+					rval = path;
+					break;
+				}
+			}
+
+			return rval;
 		}
 	}
 
@@ -754,18 +752,20 @@ class ClojureDebugSession extends DebugSession {
 		const clientLines = args.lines;
 		// make exploded jar file paths amenable to cdt
 		const cdtPath = path.replace(".jar/", ".jar:");
+
 		const debugLines = JSON.stringify(clientLines, null, 4);
 		console.log(debugLines);
 		const newPositions = [clientLines.length];
 		const breakpoints = [];
 		let processedCount = 0;
 
-		// verify breakpoint locations
-		// TODO fix this
+		delete this._breakPoints[path];
+
+		const self = this;
 		for (let i = 0; i < clientLines.length; i++) {
 			const index = i;
-			const l = this.convertClientLineToDebugger(clientLines[i]);
-			this._replConnection.setBreakpoint(cdtPath, l, (err: any, result: any) => {
+			const l = self.convertClientLineToDebugger(clientLines[i]);
+			self._replConnection.setBreakpoint(cdtPath, l, (err: any, result: any) => {
 				console.log(result);
 				processedCount = processedCount + 1;
 				let verified = false;
@@ -775,11 +775,11 @@ class ClojureDebugSession extends DebugSession {
 				}
 				newPositions[index] = l;
 				if (verified) {
-					breakpoints.push({ verified: verified, line: this.convertDebuggerLineToClient(l) });
+					breakpoints.push({ verified: verified, line: self.convertDebuggerLineToClient(l) });
 				}
 
 				if (processedCount == clientLines.length) {
-					this._breakPoints[path] = newPositions;
+					self._breakPoints[path] = newPositions;
 
 					// send back the actual breakpoints
 					response.body = {
@@ -787,7 +787,7 @@ class ClojureDebugSession extends DebugSession {
 					};
 					const debug = JSON.stringify(response, null, 4);
 					console.log(debug);
-					this.sendResponse(response);
+					self.sendResponse(response);
 				}
 			});
 
@@ -883,7 +883,8 @@ class ClojureDebugSession extends DebugSession {
 					const frames: StackFrame[] = resFrames.map((frame: any, index: number): StackFrame => {
 						// let sourcePath = result[i];
 						let sourcePath = sourcePaths[index];
-						const f = new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClient(sourcePath)), debug.convertDebuggerLineToClient(frame["line"]), 0);
+						let line = frame["line"];
+						const f = new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClientPath(sourcePath, line)), debug.convertDebuggerLineToClient(line), 0);
 						f["threadName"] = th.name;
 						return f;
 					});
