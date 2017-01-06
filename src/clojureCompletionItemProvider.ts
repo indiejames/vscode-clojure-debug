@@ -7,6 +7,24 @@ import {ReplConnection} from './replConnection';
 let chalk = require("chalk");
 let core = require('core-js/library');
 
+// combine to arrays of CompletionItems by adding all the items from the second array that are not already represented
+// in the first array to the first array
+function joinAndRemoveDuplicates(list1: Array<CompletionItem>, list2: Array<CompletionItem>): Array<CompletionItem> {
+
+  let rval = list1;
+
+  let terms = list1.map((val: CompletionItem): string => {
+    return val.label;
+  });
+
+  for (var ci of list2) {
+    if (terms.indexOf(ci.label) == -1) {
+      rval.push(ci);
+    }
+  }
+  return rval;
+}
+
 export class ClojureCompletionItemProvider implements CompletionItemProvider {
 
   private connection: ReplConnection;
@@ -57,10 +75,10 @@ export class ClojureCompletionItemProvider implements CompletionItemProvider {
           let wordSet = new core.Set(allWords);
           let words = core.Array.from(wordSet);
 
-          // find the actualmatching words
+          // find the actual matching words
           let matches = words.filter((val: string): boolean => {
-            return (val != prefix && val.substr(0, prefix.length) == prefix);
-          });
+            return (val.substr(0, prefix.length) == prefix);
+          }).sort();
 
           let textCompletions = matches.map((val: string) => {
             let ci =  new CompletionItem(val);
@@ -75,8 +93,7 @@ export class ClojureCompletionItemProvider implements CompletionItemProvider {
             if (result && result.length > 0) {
               let results = CompletionUtils.complimentResultsToCompletionItems(result[0]["completions"]);
               if (results != null) {
-                let completionList = new CompletionList(results.concat(textCompletions), true);
-                // let completionList = new CompletionList(results, (prefix.length < 2));
+                let completionList = new CompletionList(joinAndRemoveDuplicates(results, textCompletions), true);
                 completionList.isIncomplete = true;
                 resolve(completionList);
               } else {
