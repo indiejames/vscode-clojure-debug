@@ -1,10 +1,11 @@
-import {CompletionItemProvider, CompletionList, CompletionItem, CancellationToken, TextDocument, Position} from 'vscode';
+import {CompletionItemProvider, CompletionList, CompletionItem, CompletionItemKind, CancellationToken, TextDocument, Position} from 'vscode';
 import nrepl_client = require('jg-nrepl-client');
 import edn = require('jsedn');
 import {EditorUtils} from './editorUtils';
 import {CompletionUtils} from './completionUtils';
 import {ReplConnection} from './replConnection';
 let chalk = require("chalk");
+let core = require('core-js/library');
 
 export class ClojureCompletionItemProvider implements CompletionItemProvider {
 
@@ -51,6 +52,22 @@ export class ClojureCompletionItemProvider implements CompletionItemProvider {
           resolve(new CompletionList([], true));
         } else {
 
+          // get string match completions
+          let allWords = src.match(/[^\s\(\)"',;~@#$%^&{}\[\]\\`\n]+/g);
+          let wordSet = new core.Set(allWords);
+          let words = core.Array.from(wordSet);
+
+          // find the actualmatching words
+          let matches = words.filter((val: string): boolean => {
+            return (val != prefix && val.substr(0, prefix.length) == prefix);
+          });
+
+          let textCompletions = matches.map((val: string) => {
+            let ci =  new CompletionItem(val);
+            ci.kind = CompletionItemKind.Text;
+            return ci;
+          });
+
           // Call Compliment to get the completions
           // TODO - add optimization to check the length of the prefix and set isInComplete in the CompletionList
           // to false if the length is > 3 chars (or whatever length namespace show up in the list at).
@@ -58,7 +75,7 @@ export class ClojureCompletionItemProvider implements CompletionItemProvider {
             if (result && result.length > 0) {
               let results = CompletionUtils.complimentResultsToCompletionItems(result[0]["completions"]);
               if (results != null) {
-                let completionList = new CompletionList(results, true);
+                let completionList = new CompletionList(results.concat(textCompletions), true);
                 // let completionList = new CompletionList(results, (prefix.length < 2));
                 completionList.isIncomplete = true;
                 resolve(completionList);
