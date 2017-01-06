@@ -36,7 +36,7 @@ var replActionsEnabled = false;
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
-		"lineComment": "//"
+		"lineComment": ";"
 	},
 	brackets: [
 		["{", "}"],
