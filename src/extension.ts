@@ -56,6 +56,7 @@ var lastEvalNS = "";
 var evalResponse: any = {};
 
 function handleEvalResponse(response: Array<any>) {
+	window.setStatusBarMessage("Code Evaluated");
 
 	for (var resp of response) {
 
@@ -165,7 +166,7 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
 
 		sock.on('eval-code', (data) => {
 			console.log("Evaluating code");
-			window.setStatusBarMessage("Evaluating Code")
+			window.setStatusBarMessage("$(pulse) Evaluating Code $(pulse)")
 			const code = data["expression"];
 			const reqId = data["id"];
 			// let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
@@ -337,6 +338,7 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 	activeReplActions.push(commands.registerCommand('clojure.eval', () => {
 		// only support evaluating selected text for now.
 		// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
+		window.setStatusBarMessage("$(pulse) Evaluating Code")
 		let editor = window.activeTextEditor;
 		let selection = editor.selection;
 		let range = new Range(selection.start, selection.end);
