@@ -28,7 +28,7 @@ export class ClojureDefinitionProvider implements DefinitionProvider {
 		} else {
       rval = new Promise<Definition>((resolve, reject) => {
         // Use the REPL to find the definition point
-        if (this.connection.isConnected()) {
+        if (self.connection.isConnected()) {
           self.connection.findDefinition(ns, symbol, (err: any, result: any) => {
             if (result && result.length > 0) {
               var def: Location[] = [];
