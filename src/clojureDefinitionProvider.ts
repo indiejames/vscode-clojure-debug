@@ -33,12 +33,18 @@ export class ClojureDefinitionProvider implements DefinitionProvider {
             if (result && result.length > 0) {
               var def: Location[] = [];
               let res = result[0];
-              let uri = Uri.file(res["path"]);
-              let line = res["line"] - 1;
-              let pos = new Position(line, 0);
-              def = [new Location(uri, pos)];
+              if (res["message"]) {
+                window.showInformationMessage(res["message"]);
+                reject(undefined);
+              } else {
+                let uri = Uri.file(res["path"]);
+                let line = res["line"] - 1;
+                let pos = new Position(line, 0);
+                def = [new Location(uri, pos)];
 
-              resolve(def);
+                resolve(def);
+              }
+
             } else {
               reject(err);
             }
