@@ -18,7 +18,7 @@ as language support and debugging functionality.
 * Examine stack frames / variables at breakpoint
 * Eval code at breakpoints
 
-![IDE](http://www.giphy.com/gifs/l0ExlCNmB8LyADc5i)
+![IDE](http://i.giphy.com/26gsl2Nf9Qvhtw7eg.gif)
 
 ### Planned Features
 
