@@ -1,6 +1,7 @@
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- *--------------------------------------------------------*/
+/* --------------------------------------------------------------------------------------------
+ * Copyright (c) James Norton. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for license information.
+ * ------------------------------------------------------------------------------------------ */
 
 "use strict";
 
@@ -10,7 +11,7 @@
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, OutputEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync, copySync, writeFileSync, mkdirSync, createReadStream} from 'fs-extra';
-import {basename, dirname, join} from 'path';
+import {basename, dirname, join, sep} from 'path';
 import {spawn} from 'child_process';
 import * as os from 'os';
 import nrepl_client = require('jg-nrepl-client');
@@ -19,7 +20,7 @@ import tmp = require('tmp');
 import {ReplConnection} from './replConnection';
 import {parse, toJS} from 'jsedn';
 let chalk = require("chalk");
-let fined = require("fined");
+let find = require('find');
 let core = require('core-js/library');
 
 let EXIT_CMD = "(System/exit 0)";
@@ -123,6 +124,8 @@ class ClojureDebugSession extends DebugSession {
 	private requestData: any = {};
 	// side channel request id seqeunce
 	private requestId = 0;
+	// cache of src paths to facillitate efficient lookup at breakpoints, etc.
+	private srcPaths: any = {};
 
 	// get and increment the requestId for side channel requests
 	private getNextRequestId(): number {
@@ -132,14 +135,15 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	// Get the full path to a source file. Input paths are of the form repl_test/core.clj.
-	// This is only used at breakpoints, so we use the stored breakpoints to determine
-	// what the original full path was.
+	// The path is usually not an absolute path, e.g., repl_test/core.clj, so this is
+	// necessarily not perfect as there may be more than one match.
 	protected convertDebuggerPathToClientPath(debuggerPath: string, line: number): string {
 		let rval = "";
 		if (debuggerPath.substr(0, 1) == "/") {
 			rval = debuggerPath;
 		} else {
-			// TODO this is inefficient - should stop on match
+
+			// check for perfect match by path and line number matching a set breakpoint
 			for (let path in this._breakPoints) {
 				const lines = this._breakPoints[path];
 				if(core.String.endsWith(path, debuggerPath) && lines.includes(line)) {
@@ -147,6 +151,31 @@ class ClojureDebugSession extends DebugSession {
 					break;
 				}
 			}
+
+			// check our cache
+			if (rval == "") {
+				rval = this.srcPaths[debuggerPath];
+			}
+
+			if (rval == null) {
+				// brute force search the workspace for matches and then the tmp jars directories
+				let regex = new RegExp(".*?" + debuggerPath);
+				let files = find.fileSync(regex, this._cwd);
+				rval = files[0];
+
+				if (rval == null) {
+					// check the temp jars directories
+					const home = process.env["HOME"];
+					files = find.fileSync(regex, home + sep +  ".lein" + sep + "tmp-vscode-jars")
+					rval = files[0];
+				}
+			}
+
+			if (rval == null) {
+				rval = "";
+			}
+
+			this.srcPaths[debuggerPath] = rval;
 
 			return rval;
 		}
@@ -464,6 +493,7 @@ class ClojureDebugSession extends DebugSession {
 				this.__threadIndex = this.__threadIndex + 1;
 			}
 
+			// TODO - is this necessary?
 			if (event == "breakpoint") {
 				const src = eventMap["src"];
 				const line = eventMap["line"];
@@ -877,33 +907,22 @@ class ClojureDebugSession extends DebugSession {
 				return frame["srcPath"];
 			});
 
-			// let sideChannel = s("http://localhost:" + debug._sideChannelPort);
-			// sideChannel.on('go-eval', (data) => {
+			const frames: StackFrame[] = resFrames.map((frame: any, index: number): StackFrame => {
+				// let sourcePath = result[i];
+				let sourcePath = sourcePaths[index];
+				let line = frame["line"];
+				const f = new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClientPath(sourcePath, line)), debug.convertDebuggerLineToClient(line), 0);
+				f["threadName"] = th.name;
+				return f;
+			});
 
-			// 	sideChannel.on('source-path-result', (result) => {
+			debug._frames = frames;
 
-					const frames: StackFrame[] = resFrames.map((frame: any, index: number): StackFrame => {
-						// let sourcePath = result[i];
-						let sourcePath = sourcePaths[index];
-						let line = frame["line"];
-						const f = new StackFrame(index, `${frame["srcName"]}(${index})`, new Source(frame["srcName"], debug.convertDebuggerPathToClientPath(sourcePath, line)), debug.convertDebuggerLineToClient(line), 0);
-						f["threadName"] = th.name;
-						return f;
-					});
+			response.body = {
+				stackFrames: frames
+			};
+			debug.sendResponse(response);
 
-					debug._frames = frames;
-
-					response.body = {
-						stackFrames: frames
-					};
-					debug.sendResponse(response);
-
-				// 	sideChannel.close();
-
-				// });
-
-				// sideChannel.emit('get-source-paths', sourcePaths);
-			// });
 		});
 	}
 
@@ -1068,10 +1087,12 @@ class ClojureDebugSession extends DebugSession {
 		const threadId = args.threadId;
 		const th = this.threadWithID(threadId)
 		const debug = this;
+
 		this._replConnection.stepOver(th.name, (err: any, result: any) => {
 			// TODO handle errors
 			debug.sendResponse(response);
 		});
+
 	}
 
 	protected stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments): void {
