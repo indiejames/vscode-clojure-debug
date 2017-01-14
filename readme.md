@@ -1,34 +1,64 @@
-# VS Code Clojure Debug
+# VS Code Continuum
 
-This is a VS Code package for developing Clojure projects. It provides a REPL as well
-as debugging functionality.
+This is a VS Code extension for developing Clojure projects. It provides a REPL as well
+as language support and debugging functionality.
 
 ## Features
 
 * Integrated REPL
+* Support for attaching to an external REPL
+* Code evaluation from editor
 * Autocompletion
 * Docstring lookup on hover
 * Peek at / jump to symbol definition
 * Run all tests in a project
 * Run all tests in a file
 * Run a single test
+* Set breakpoints
+* Examine stack frames / variables at breakpoint
+* Eval code at breakpoints
+
+### Planned Features
+
+* Snippets
+* Symbol search
+* Find references
+* Linter support
+* Test result / VS Code problems view integration
+* Exception stack trace jump to file
 
 ## Installation
 
-After installing the extension in VS Code you need to add a leiningen profile to enable the
-nREPL middleware and to add the tools.jar file that contains the Java Debug Interface (JDI) code to the classpath.
-You can do this by adding the following to your project.clj file or to a profiles.clj file in ~/.lein/profiles.clj file,
-For a description of profiles see the [leiningen profiles documenation](https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md).
+### Install the Extension
+From the command palette (cmd-shift-p) select Install Extension and choose Continuum.
 
-```
+### Add the Debug Middleware to Your Project
+After installing the extension in VS Code you need to add The nREPL debug middleware to your
+project. If you are using leinengen the best way to do this is trow a custom profile.
+For a description of profiles see the [leiningen profiles documenation](https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md).
+You can do this by adding the following to your project.clj file or to profiles.clj.
+
+``` clojure
 {:debug-repl {:resource-paths ["/Library/Java/JavaVirtualMachines/jdk1.8.0_45.jdk/Contents/Home/lib/tools.jar"]
               :repl-options {:nrepl-middleware [debug-middleware.core/debug-middleware]}
-              :plugins [[venantius/ultra "0.4.1"]]
               :dependencies [[org.clojure/clojure "1.8.0"]
-                             [debug-middleware "0.1.1-SNAPSHOT"]
-                             [compliment "0.2.7"]]}
-
+                             [debug-middleware "0.1.2-SNAPSHOT"]]}
 ```
+
+### Setting up a launch.json file
+
+Continuum supports launching REPLs as well as attaching to running
+REPLs. This is controlled using launch configurations in a launch.json
+file. We will demonstrate launching a REPL first and then demonstrate
+connecting to an existing REPL later. If you are unfamiliar with VS Code debuging or launch.json, it
+might be helpful to read through the [documenation](https://code.visualstudio.com/docs/editor/debugging).
+
+You can get started by opening a Clojure project in VS Code and creating
+a launch.json file by opening the Debug viewlet, clicking on the gear icon
+in the upper right corner, and selecting Clojure Debug.
+
+
+
 
 ### Known Issues
 
@@ -37,14 +67,13 @@ For a description of profiles see the [leiningen profiles documenation](https://
 * Lines in Clojure do not always compile to a line in Java bytecode on which you can set a breakpoint. If you
 attempt to set a breakpoint on a line and it gets grayed out, try moving it up or down.
 * Watch variables are not supported *yet*.
+* Arguments displayed at a breakpoing sometimes show up under local variables instead of arguments.
 
 #### Side Channel Port
 
 * The extension uses a socket for communication between the debug adapter process and the extension process.
 The port used for the socket is set in the launch.json launch configuration file. It **must** be set for
-*all* launch configurations and it must be the same value for *all* of the them. The extension starts
-up when a debug session starts, but it has no way of knowing which profile was used to start the
-debug session, so it just reads the first one every time.
+*all* launch configurations.
 
 #### Exception Breakpoints
 
@@ -65,14 +94,24 @@ bubble back up out of the call stack.
 
 The environment utilizes several libraries to enable various features.
 
-* debug-middleware provides the debug functionality
+* debug-middleware provides the debug functionality, which in turn relies on
+* cdt - the Clojure Debug Toolkit
 * compliment is used to perform autocompletion
 
 ## Extension Preferences
 
-## Suggest User Settings
+## Suggested User Settings
 
 * Set the word separators setting in your user settings to the following to make selecting Clojure code elements easier.
 ``` clojure
 "editor.wordSeparators": " ()\"':,;~@#$%^&{}[]`"
 ```
+
+### Why Continuum?
+
+I see Clojure development as being fundamentally different from development in other langauges.
+In traditional development we employ a workflow of code, compile, execute/test, repeat
+(skipping the compile step for some languages). In Clojure, we employ a REPL driven approach
+in which we are constantly evaluating code as we write it. This extension takes that a step
+farther to pull in debugging. Instead of employing discrete steps during development
+all the steps blend together into a contiuum of capabilities.

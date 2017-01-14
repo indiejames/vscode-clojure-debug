@@ -288,6 +288,7 @@
             "name": "Clojure-Debug",
             "type": "clojure",
             "request": "launch",
+            "leinPath": "/usr/local/bin/lein",
             "toolsJar": "${env.JAVA_HOME}/lib/tools.jar",
             "sideChannelPort": 3030,
             "env": {},

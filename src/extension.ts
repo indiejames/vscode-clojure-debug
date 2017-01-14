@@ -290,7 +290,7 @@ function setUpActions(context: ExtensionContext) {
 							refreshOnLaunch = true;
 						}
 						initSideChannel(context, sideChannelPort);
-
+						window.setStatusBarMessage("Starting deugger");
 						commands.executeCommand('vscode.startDebug', configName);
 					}
 				});

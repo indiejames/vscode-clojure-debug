@@ -597,6 +597,7 @@ class ClojureDebugSession extends DebugSession {
 
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
 		console.log("LAUNCH REQUEST");
+		this.pout("Launch request");
 		this._isLaunched = true;
 		const self = this;
 		this.createDebuggerProject(args.toolsJar);
@@ -652,10 +653,11 @@ class ClojureDebugSession extends DebugSession {
 		};
 
 		if (this.supportRunInTerminal && args.console == "integratedTerminal") {
-
+			this.pout("Running in terminal")
 			this.runInTerminalRequest(runArgs, 600000, runResponse => {
 				if (runResponse.success) {
 					console.log("PRIMARY REPL STARTED");
+					this.pout("PRIMARY REPL STARTED");
 					this.setUpDebugREPL(response, args);
 
 				} else {
