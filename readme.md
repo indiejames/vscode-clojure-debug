@@ -11,9 +11,7 @@ as language support and debugging.
 * Autocompletion
 * Docstring lookup on hover
 * Peek at / jump to symbol definition
-* Run all tests in a project
-* Run all tests in a file
-* Run a single test
+* Run tests
 * Set breakpoints
 * Examine stack frames / variables at breakpoint
 * Eval code at breakpoints
