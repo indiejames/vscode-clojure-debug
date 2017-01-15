@@ -109,7 +109,7 @@ This will pop up a quick pick selector that will let you choose which launch con
 ![LAUNCH](https://media.giphy.com/media/26xBAd7JoMC9WadS8/source.gif)
 
 This can take a while (minutes) depending on the size of your project. Eventually you should see a screen like the following
-(hote color change in status bar at bottom). You should see the status message 'Attached to process' at the bottom and
+(note color change in status bar at bottom). You should see the status message 'Attached to process' at the bottom and
 information in the debug console about the running REPLs and namespaces that were loaded.
 
 ![LAUNCHED](http://i.imgur.com/EV6D8i0.png)
