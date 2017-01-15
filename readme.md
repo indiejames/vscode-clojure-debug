@@ -5,8 +5,8 @@ as language support and debugging.
 
 ## Features
 
-* Integrated REPL
-* Support for attaching to an external REPL
+* Integrated REPL (nREPL)
+* Support for attaching to an external REPL (must be nREPL)
 * Code evaluation from editor
 * Autocompletion
 * Docstring lookup on hover
@@ -17,6 +17,7 @@ as language support and debugging.
 * Set breakpoints
 * Examine stack frames / variables at breakpoint
 * Eval code at breakpoints
+* Project type agnostic (leinengen, boot, etc.)
 
 ![IDE](https://media.giphy.com/media/l3q2XfegYO1Xl3tHa/source.gif)
 
