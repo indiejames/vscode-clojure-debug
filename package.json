@@ -102,8 +102,8 @@
       },
       {
         "command": "clojure.debug",
-        "title": "Clojure: Start Debug Session",
-        "description": "Start a debug session"
+        "title": "Clojure: Start REPL",
+        "description": "Start a REPL."
       },
       {
         "command": "clojure.load-file",
