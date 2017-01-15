@@ -1,4 +1,4 @@
-# Visual Studio Code Continuum
+# Visual Studio Code Continuum - PREVIEW
 
 This is a VS Code extension for developing Clojure projects. It provides a REPL as well
 as language support and debugging.
