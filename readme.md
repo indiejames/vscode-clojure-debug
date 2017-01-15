@@ -36,7 +36,7 @@ From the command palette (cmd-shift-p) select Install Extension and choose Conti
 
 ### Add the Debug Middleware to Your Project
 After installing the extension in VS Code you need to add The nREPL debug middleware to your
-project. If you are using leinengen the best way to do this is trow a custom profile.
+project. If you are using leinengen the best way to do this is through a custom profile.
 For a description of profiles see the [leiningen profiles documenation](https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md).
 You can do this by adding the following to your project.clj file or to profiles.clj.
 
@@ -51,13 +51,15 @@ You can do this by adding the following to your project.clj file or to profiles.
 
 Continuum supports launching REPLs as well as attaching to running
 REPLs. This is controlled using launch configurations in a launch.json
-file. We will demonstrate launching a REPL first and then demonstrate
+file. I will demonstrate launching a REPL first and then demonstrate
 connecting to an existing REPL later. If you are unfamiliar with VS Code debuging or launch.json, it
 might be helpful to read through the [documenation](https://code.visualstudio.com/docs/editor/debugging).
 
 You can get started by opening a Clojure project in VS Code and creating
-a launch.json file by opening the Debug viewlet, clicking on the gear icon
-in the upper right corner, and selecting Clojure Debug.
+a launch.json file. Open the Debug viewlet, click on the gear icon
+in the upper right corner, and select 'Clojure Debug'.
+
+![LAUNCH_JSON](http://i.giphy.com/l3q2QIUVVoMZax2Ny.gif)
 
 
 
