@@ -181,4 +181,4 @@ all the steps blend together into a contiuum of capabilities.
 | srcDirs | array | An array of directories relative to the project root that contain Clojure source files, e.g., src, test. | ["src", "test"]|
 | toolsJar | string | Path to the tools.jar in your Java installation. | "${env.JAVA_HOME}/lib/tools.jar"|
 
-`console`, `comandLine`, and `env` do not apply to `attach` configuaraions.
+`console`, `comandLine`, and `env` do not apply to `attach` configurations.
