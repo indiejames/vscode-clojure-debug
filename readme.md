@@ -103,6 +103,13 @@ launch the REPL invoking the command palette (shift+cmd+p (mac) /shift+ctrl+p (w
 IMPORTANT: Do not try to start the REPL using the `start debugger` icon ![START](http://i.imgur.com/ZAmkn5M.png).
 *This will not work.*
 
+This will pop up a quick pick selector that will let you choose which launch configuration you want to use
+(your launch.json file can define many).
+
+![LAUNCH](https://media.giphy.com/media/26xBAd7JoMC9WadS8/source.gif)
+
+![LAUNCHED](http://i.imgur.com/EV6D8i0.png)
+
 ### Contributed Commands
 
 | Command | Command Palette Entry | Descritpion | Key bindings |
