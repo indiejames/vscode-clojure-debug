@@ -1,7 +1,7 @@
-# VS Code Continuum
+# Visual Studio Code Continuum
 
 This is a VS Code extension for developing Clojure projects. It provides a REPL as well
-as language support and debugging functionality.
+as language support and debugging.
 
 ## Features
 
@@ -97,7 +97,7 @@ to type input into your program or if your program expects to run in a terminal 
 
 Most of the functionality of the extension is not available unless the REPL is running. Once you have set up
 your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can
-launch the REPL invoking the command palette (shift+cmd+p (mac) /shift+ctr+p (windows/linux)) and selecting
+launch the REPL invoking the command palette (shift+cmd+p (mac) /shift+ctrl+p (windows/linux)) and selecting
 `Clojure: Start REPL` (type `repl` to see this command).
 
 IMPORTANT: Do not try to start the REPL using the `start debugger` icon ![START](http://i.imgur.com/ZAmkn5M.png).
