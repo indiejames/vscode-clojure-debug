@@ -75,17 +75,17 @@ for your own environment. VS Code provides Intellisense support when editing thi
 you make valid choices. The full details of the available settings are documented at the end of this
 readme file, but for now the fields you need to change are the following:
 
-* **commandLine** - the exact comand plus arguments needed to launch your REPL. The defualt uses
+* `commandLine` - the exact comand plus arguments needed to launch your REPL. The defualt uses
 leinengen and sets the profile to `debug-repl` (the one defined in the example above). You _do not_
 need to use leinengen, but you do need to make sure the REPL uses the debug middleware. Also,
 if you do not start the REPL on port 5555 then you need to specify the port in the launch configuration
 using the `replPort` setting. This gives you maximum flexibility in choosing the way to launch your
 code. It just has to run in (or provide) nREPL running with the debug middleware.
-* **replPort** - Set this if you are not launching on port 5555.
-* **leinPath** - You must set the path to the `lein` command even if you are not using leingen to
+* `replPort` - Set this if you are not launching on port 5555.
+* `leinPath` - You must set the path to the `lein` command even if you are not using leingen to
 lauch your program. The debugger starts up an internal nREPL that it uses to make a JDI (debugging)
 connection to your program and needs leinengen for this.
-* **toolsJar** - You must set this to the path of the Java `tools.jar` file. Typically this
+* `toolsJar` - You must set this to the path of the Java `tools.jar` file. Typically this
 is in the `lib` directory under your Java instgallation. The path must end in `tools.jar`.
 
 The extension can launch the REPL in three different ways: in the internal debug console, in an internal
@@ -99,6 +99,23 @@ Most of the functionality of the extension is not available unless the REPL is r
 your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can
 launch the REPL invoking the command palette (shift+cmd+p (mac) /shift+ctr+p (windows/linux)) and selecting
 `Clojure: Start REPL` (type `repl` to see this command).
+
+IMPORTANT: Do not try to start the REPL using the `start debugger` icon ![START](http://i.imgur.com/ZAmkn5M.png).
+*This will not work.*
+
+### Contributed Commands
+
+| Command | Command Palette Entry | Descritpion | Key bindings |
+|---------|-------|-------------|--------------|
+| clojure.eval | Clojure: Evaluate selected text | Evaluate the selected text in the file's namespace | cmd+alt+e (mac) / ctrl+alt+e (win/linux) |
+| clojure.expand_selection | Clojure: Expand Selection | Expand selection to containing brackets/parentheses | shift+ctrl+m |
+| clojure.debug | Clojure: Start REPL | Start a REPL. | |
+| clojure.load-file | Clojure: Load File | Load the currently open Clojure source file. | |
+| clojure.refresh | Clojure: Refresh Code |Refresh changed code without restarting the REPL. | |
+| clojure.superRefresh | Clojure: Super Refresh Code | Refresh all code without restarting the REPL. | |
+| clojure.run-test | Clojure: Run Test Under Cursor | Run the test under the cursor, optionally refreshing code first. | |
+| clojure.run-test-file | Clojure: Run Tests in Current Namespace | Run the tests in the current namespace, optionally refreshing code first. | |
+| clojure.run-all-tests | Clojure: Run All Tests | Run all the tests in the project after refreshing the code. | |
 
 ### Known Issues
 
@@ -133,10 +150,9 @@ that prevents the update from happening automatically.
 an exception. Otherwise you will stop on every frame of the stack trace and have to hit continue repeatedly until you
 bubble back up out of the call stack.
 
+### Clojure Dependencies
 
-### Dependencies
-
-The environment utilizes several libraries to enable various features.
+The environment utilizes several clojure libraries to enable various features.
 
 * debug-middleware provides the debug functionality, which in turn relies on
 * cdt - the Clojure Debug Toolkit
