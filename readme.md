@@ -1,7 +1,9 @@
 # Visual Studio Code Continuum - PREVIEW
 
-This is a VS Code extension for developing Clojure projects. It provides a REPL as well
+Continuum is a VS Code extension/debugger for developing Clojure. It provides a REPL as well
 as language support and debugging.
+
+![IDE](https://media.giphy.com/media/l3q2XfegYO1Xl3tHa/source.gif)
 
 ## A Note about the Preview Version
 
@@ -21,8 +23,6 @@ Some of the features (mostly related to step debugging) are less reliable and sh
 * Examine stack frames / variables at breakpoint
 * Eval code at breakpoints
 * Project type agnostic (leinengen, boot, etc.)
-
-![IDE](https://media.giphy.com/media/l3q2XfegYO1Xl3tHa/source.gif)
 
 ### Planned Features
 
@@ -151,6 +151,8 @@ Currently Continuum supports two kinds of breakpoints, line breakpoints and exce
 breakpoints let you set set a breakpoint at a specific line in a given file. These are set by clicking in the
 left margin of an open editor.
 
+![BREAKPOINT](https://media.giphy.com/media/l3q2YGpocqMDRnMTS/source.gif)
+
 Breakpoints can be set for exceptions by checking the 'Exceptions' box in the 'Breakpoints' view.
 As discussed in the "Known Limitations" section below, exception breakpoints apply to both checked and
 unchecked exceptions.
@@ -160,6 +162,18 @@ In general it is advisable to leave exception breakpoints off and only turn them
 class set appropriately) when an exception is encountered, so that the code can be run again and execution
 is stopped at the exception. Also, if an exception breakpoint is hit, be sure to disable the breakpoint
 before continuing or you are likely to retrigger it.
+
+In this example, the exception occurs within the core Java code for Clojure. VS Code cannot display source
+it can't access, but we can select the invoking Clojure frame farther up the stack to see that code and
+inspect the vars.
+
+![EXCEPTION](https://media.giphy.com/media/l0EwZj06vmFxn1pFC/source.gif)
+
+If you have the source for the Java code in our source path then VS Code will display that as well.
+Java variables can be inspected and invoked from Clojure code in the debug console input just as with
+Clojure vars.
+
+![EXCEPTION_JAVA](https://media.giphy.com/media/26xBzTfV7eCV565qw/source.gif)
 
 ### Contributed Commands
 
