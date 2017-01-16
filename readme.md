@@ -3,6 +3,11 @@
 This is a VS Code extension for developing Clojure projects. It provides a REPL as well
 as language support and debugging.
 
+## A Note about the Preview Version
+
+Most of the features are operational and work well enough to provide a useful worklow at this point.
+Some of the features (mostly related to step debugging) are less reliable and should be used with care.
+
 ## Features
 
 * Integrated REPL (nREPL)
@@ -21,6 +26,7 @@ as language support and debugging.
 
 ### Planned Features
 
+* Conditional breakpoints
 * Snippets
 * Symbol search
 * Find references
@@ -45,7 +51,8 @@ From the command palette (cmd-shift-p) select `Install Extension` and choose `Co
 After installing the extension in VS Code you need to add The nREPL debug middleware to your
 project. If you are using leinengen the best way to do this is through a custom profile.
 For a description of profiles see the [leiningen profiles documenation](https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md).
-You can do this by adding the following to the profiles in your project.clj file or to profiles.clj.
+You can do this by adding the following to the profiles in your project.clj file or to profiles.clj. Modify the
+path to the tools.jar file as appropriate.
 
 ``` clojure
 {:debug-repl {:resource-paths ["/Library/Java/JavaVirtualMachines/jdk1.8.0_45.jdk/Contents/Home/lib/tools.jar"]
@@ -67,7 +74,7 @@ a launch.json file. Open the Debug viewlet by clicking on the debug icon ![DEBUG
 then click on the gear icon ![GEAR](http://i.imgur.com/8bMaP9g.png)
 in the upper right corner and select 'Clojure Debug' from the menu.
 
-![LAUNCH_JSON](http://i.giphy.com/l3q2QIUVVoMZax2Ny.gif)
+![LAUNCH_JSON](https://media.giphy.com/media/l3q30oPyeg6hkQmje/source.gif)
 
 A launch.json file will be created with a default launch configuration. You should edit this file
 for your own environment. VS Code provides Intellisense support when editing this file to help
@@ -99,7 +106,7 @@ your profile (or otherwise enabled the nREPL middleware) and created a suitable 
 launch the REPL invoking the command palette (shift+cmd+p (mac) /shift+ctrl+p (windows/linux)) and selecting
 `Clojure: Start REPL` (type `repl` to see this command).
 
-IMPORTANT: Do not try to start the REPL using the `start debugger` icon ![START](http://i.imgur.com/ZAmkn5M.png).
+**IMPORTANT:** Do not try to start the REPL using the `start debugger` icon ![START](http://i.imgur.com/ZAmkn5M.png).
 *This will not work.*
 
 This will pop up a quick pick selector that will let you choose which launch configuration you want to use
@@ -107,11 +114,52 @@ This will pop up a quick pick selector that will let you choose which launch con
 
 ![LAUNCH](https://media.giphy.com/media/26xBAd7JoMC9WadS8/source.gif)
 
-This can take a while (minutes) depending on the size of your project. Eventually you should see a screen like the following
+This can take a while (minutes for large projects). Eventually you should see a screen like the following
 (note color change in status bar at bottom). You should see the status message 'Attached to process' at the bottom and
 information in the debug console about the running REPLs and namespaces that were loaded.
 
 ![LAUNCHED](http://i.imgur.com/EV6D8i0.png)
+
+The main elements to the interface are labeled in the next screenshot. These are the debug console, where
+output from the REPL is displayed, the debug console input box, used to execute code in the `user` namespace
+and at breakpoints, the status area, which displays messages related to the current operation, and the
+call stack vew that displayes the active threads as well as frames at a breakpoint.
+
+![MAIN_ELEMENTS](http://i.imgur.com/YpY7YC4.png)
+
+### Primary Operations
+
+#### Executing Code
+
+There are two different ways to execute code in the REPL. The first way is to select code in an editor
+and execute that using the `Clojure: Evaluate selected text` command from the command palette (shift+cmd+p), or
+by using the keybinding shortcut (cmd+alt+e on mac or ctrl+alt+e on win/linux). Code evaluated in this way is
+evaluated in the namespace of the open file. Evaluating code from withiin an editor is facilitated by a helper
+(shift+ctrl+m) that expands the current selection to the next outer form. Repated invocation will continue to
+expand the selection.
+
+The second way to evaluate code is by typing it into the debug console input box as shown below. Code evaluated
+from the debug input box is normally evaluated in the context of the `user` namespace. The exception to this
+is when the program is stopped at a breakpoint, in which case the code is evaluated in the context of the current
+frame (having access to any defined vars.). All three cases are shown below:
+
+![EVAL](https://media.giphy.com/media/l0Exg8UQTazv9WO6A/source.gif)
+
+#### Setting Breakpoints
+
+Currently Continuum supports two kinds of breakpoints, line breakpoints and exceptions breakpoints. Line
+breakpoints let you set set a breakpoint at a specific line in a given file. These are set by clicking in the
+left margin of an open editor.
+
+Breakpoints can be set for exceptions by checking the 'Exceptions' box in the 'Breakpoints' view.
+As discussed in the "Known Limitations" section below, exception breakpoints apply to both checked and
+unchecked exceptions.
+In the status bar to the right of the exception class icon ![EXCEPTIONS](http://i.imgur.com/IAq3tHv.png)
+is an input box that can be used to set the type of exceptions on which to break. The deafult is `Throwable`.
+In general it is advisable to leave exception breakpoints off and only turn them on (with the exception
+class set appropriately) when an exception is encountered, so that the code can be run again and execution
+is stopped at the exception. Also, if an exception breakpoint is hit, be sure to disable the breakpoint
+before continuing or you are likely to retrigger it.
 
 ### Contributed Commands
 
@@ -127,7 +175,7 @@ information in the debug console about the running REPLs and namespaces that wer
 | clojure.run-test-file | Clojure: Run Tests in Current Namespace | Run the tests in the current namespace, optionally refreshing code first. | |
 | clojure.run-all-tests | Clojure: Run All Tests | Run all the tests in the project after refreshing the code. | |
 
-### Known Issues
+### Known Limitations
 
 #### General
 
