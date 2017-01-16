@@ -104,7 +104,7 @@ to type input into your program or if your program expects to run in a terminal 
 Most of the functionality of the extension is not available unless the REPL is running. Once you have set up
 your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can
 launch the REPL invoking the command palette (shift+cmd+p (mac) /shift+ctrl+p (windows/linux)) and selecting
-`Clojure: Start REPL` (type `repl` to see this command).
+`Clojure: Start REPL` (type 'repl' to see this command).
 
 **IMPORTANT:** Do not try to start the REPL using the `start debugger` icon ![START](http://i.imgur.com/ZAmkn5M.png).
 *This will not work.*
@@ -123,7 +123,7 @@ information in the debug console about the running REPLs and namespaces that wer
 The main elements to the interface are labeled in the next screenshot. These are the debug console, where
 output from the REPL is displayed, the debug console input box, used to execute code in the `user` namespace
 and at breakpoints, the status area, which displays messages related to the current operation, and the
-call stack vew that displayes the active threads as well as frames at a breakpoint.
+call stack vew that displayes the active threads as well as frames when a breakpoint is encountered.
 
 ![MAIN_ELEMENTS](http://i.imgur.com/YpY7YC4.png)
 
