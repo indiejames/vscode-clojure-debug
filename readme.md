@@ -201,6 +201,8 @@ exception at a time.
 * Exception breakponts apply to caught as well as uncaught exceptions. There is no way (yet) to only break on
 uncaught exceptions. This is (I think) due to the fact the NREP untimately catches all exceptions to prevent thread
 death, so there is in effect, no such thing as an uncaught exception.
+* The input for changing the exception class on which to break is not smart - you can type anything in it, so
+be sure to type a valide class name. This should get fixed in a future update.
 * After changing the exception type for exception breakpoints you need to disable then enable exception breakpoints
 to trigger an update to the exception type. This is due to a know bug in VS Code [#14615](https://github.com/Microsoft/vscode/issues/14615)
 that prevents the update from happening automatically.
