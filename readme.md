@@ -3,7 +3,7 @@
 Continuum is a VS Code extension/debugger for developing Clojure. It provides a REPL as well
 as language support and debugging.
 
-![IDE](https://media.giphy.com/media/l3q2XfegYO1Xl3tHa/source.gif)
+![IDE](https://media.giphy.com/media/l0ExfKVoLSKSNfX7a/source.gif)
 
 ## A Note about the Preview Version
 
