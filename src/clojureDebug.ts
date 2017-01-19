@@ -293,7 +293,7 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected pout(text) {
-		this.output(chalk.magenta(text), "stdout");
+		this.output(text, "stdout");
 	}
 
 	protected perr(text) {
@@ -563,8 +563,9 @@ class ClojureDebugSession extends DebugSession {
 		});
 
 		this._debuggerRepl.stderr.on('data', (data) => {
-			this.perr(data);
-			console.log(`stderr: ${data}`);
+			const output = '' + data;
+			this.perr(output);
+			console.log(`stderr: ${output}`);
 		});
 	}
 
@@ -726,8 +727,9 @@ class ClojureDebugSession extends DebugSession {
 			});
 
 			this._primaryRepl.stderr.on('data', (data) => {
-				self.perr(data);
-				console.log(`stderr: ${data}`);
+				const output = '' + data;
+				self.perr(output);
+				console.log(`stderr: ${output}`);
 			});
 
 			this._primaryRepl.on('close', (code) => {
