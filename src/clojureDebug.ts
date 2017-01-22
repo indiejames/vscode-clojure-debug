@@ -164,7 +164,7 @@ class ClojureDebugSession extends DebugSession {
 				rval = files[0];
 
 				if (rval == null) {
-					// check the temp jars directories
+					// check the tmp jars directories
 					const home = process.env["HOME"];
 					files = find.fileSync(regex, home + sep +  ".lein" + sep + "tmp-vscode-jars")
 					rval = files[0];
