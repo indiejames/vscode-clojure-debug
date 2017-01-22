@@ -33,6 +33,7 @@ var activeReplActions: Disposable[] = null;
 
 var refreshOnLaunch = true;
 var replActionsEnabled = false;
+var replRunning = false;
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
@@ -217,8 +218,8 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
 				break;
 
 			case 'exit':
-				removeReplActions(context);
-
+				// removeReplActions(context);
+				replRunning = false;
 				rconn.close((err: any, msg: any) : any => {
 					sideChannelSocket = null;
 					sideChannel.close();
@@ -336,131 +337,164 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 	////////////////////////////////////////////////////
 
 	activeReplActions.push(commands.registerCommand('clojure.eval', () => {
-		// only support evaluating selected text for now.
-		// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
-		window.setStatusBarMessage("$(pulse) Evaluating Code")
-		let editor = window.activeTextEditor;
-		let selection = editor.selection;
-		let range = new Range(selection.start, selection.end);
-		let code = editor.document.getText(range);
-		let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
-		if (ns) {
-			lastEvalNS = ns;
-			rconn.eval(code, (err: any, result: any) : void => {
-				handleEvalResponse(result);
-			}, ns);
+		if (!replRunning) {
+			window.showErrorMessage("Please launch or attach to a REPL before evaluating code.");
 		} else {
-			lastEvalNS = "";
-			rconn.eval(code, (err: any, result: any) : void => {
-				handleEvalResponse(result);
-			});
+			// only support evaluating selected text for now.
+			// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
+			window.setStatusBarMessage("$(pulse) Evaluating Code")
+			let editor = window.activeTextEditor;
+			let selection = editor.selection;
+			let range = new Range(selection.start, selection.end);
+			let code = editor.document.getText(range);
+			let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
+			if (ns) {
+				lastEvalNS = ns;
+				rconn.eval(code, (err: any, result: any) : void => {
+					handleEvalResponse(result);
+				}, ns);
+			} else {
+				lastEvalNS = "";
+				rconn.eval(code, (err: any, result: any) : void => {
+					handleEvalResponse(result);
+				});
+			}
 		}
 	}));
 
 	activeReplActions.push(commands.registerCommand('clojure.setExceptionBreakpointClass', () => {
-		const input = window.showInputBox({prompt: "Exception Class"});
-		input.then(value => {
-			exceptionBreakpointClassItem.text = "$(stop) " + value;
-			// reapply breakpoints to update exception breakpoints
-			const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
-			com.then(value => {
-				console.log(value);
-			}, rejected => {
-				console.error(rejected);
+		if (!replRunning) {
+			window.showErrorMessage("Please launch or attach to a REPL before setting breakpionts.");
+		} else {
+			const input = window.showInputBox({prompt: "Exception Class"});
+			input.then(value => {
+				exceptionBreakpointClassItem.text = "$(stop) " + value;
+				// reapply breakpoints to update exception breakpoints
+				const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
+				com.then(value => {
+					console.log(value);
+				}, rejected => {
+					console.error(rejected);
+				});
 			});
-		})}));
+		}
+	}));
 
  activeReplActions.push(commands.registerCommand('clojure.load-file', () => {
-	 const path = EditorUtils.getFilePath(activeEditor);
-	 rconn.loadFile(path, (err: any, result: any) : void => {
-			// TODO handle errors here
-			// reapply the breakpoints since they will have been invalidated on any reloaded code
-			const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
-			com.then(value => {
-				console.log(value);
-				console.log("Loaded Clojure code.");
-			}, rejected => {
-				console.error(rejected);
+	 if (!replRunning) {
+			window.showErrorMessage("Please launch or attach to a REPL before loading code.");
+		} else {
+		const path = EditorUtils.getFilePath(activeEditor);
+		rconn.loadFile(path, (err: any, result: any) : void => {
+				// TODO handle errors here
+				// reapply the breakpoints since they will have been invalidated on any reloaded code
+				const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
+				com.then(value => {
+					console.log(value);
+					console.log("Loaded Clojure code.");
+				}, rejected => {
+					console.error(rejected);
+				});
 			});
-		});
+		}
  }));
 
 	activeReplActions.push(commands.registerCommand('clojure.refresh', () => {
-		rconn.refresh((err: any, result: any) : void => {
-			// TODO handle errors here
-			// reapply the breakpoints since they will have been invalidated on any reloaded code
-			const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
-			com.then(value => {
-				console.log(value);
-				console.log("Refreshed Clojure code.");
-			}, rejected => {
-				console.error(rejected);
+		if (!replRunning) {
+			window.showErrorMessage("Please launch or attach to a REPL before refreshing code.");
+		} else {
+			rconn.refresh((err: any, result: any) : void => {
+				// TODO handle errors here
+				// reapply the breakpoints since they will have been invalidated on any reloaded code
+				const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
+				com.then(value => {
+					console.log(value);
+					console.log("Refreshed Clojure code.");
+				}, rejected => {
+					console.error(rejected);
+				});
 			});
-		});
+		}
 	}));
 
 	activeReplActions.push(commands.registerCommand('clojure.superRefresh', () => {
-		rconn.superRefresh((err: any, result: any) : void => {
-			// TODO handle errors here
-			// reapply the breakpoints since they will have been invalidated on any reloaded code
-			const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
-			com.then(value => {
-				console.log(value);
-				console.log("Refreshed Clojure code.");
-			}, rejected => {
-				console.error(rejected);
+		if (!replRunning) {
+			window.showErrorMessage("Please launch or attach to a REPL refreshing code.");
+		} else {
+			rconn.superRefresh((err: any, result: any) : void => {
+				// TODO handle errors here
+				// reapply the breakpoints since they will have been invalidated on any reloaded code
+				const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
+				com.then(value => {
+					console.log(value);
+					console.log("Refreshed Clojure code.");
+				}, rejected => {
+					console.error(rejected);
+				});
 			});
-		});
+		}
 	}));
 
 	// TODO create a test runner class and move these to it
 	activeReplActions.push(commands.registerCommand('clojure.run-all-tests', () => {
-		if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {
-			console.log("Calling refresh...")
-			rconn.refresh((err: any, result: any) : void => {
-				// TODO handle errors here
-				console.log("Refreshed Clojure code.");
+		if (!replRunning) {
+			window.showErrorMessage("Please launch or attach to a REPL before running tests.");
+		} else {
+			if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {
+				console.log("Calling refresh...")
+				rconn.refresh((err: any, result: any) : void => {
+					// TODO handle errors here
+					console.log("Refreshed Clojure code.");
+					rconn.runAllTests((err: any, result: any) : void => {
+						console.log("All tests run.");
+					});
+				});
+			} else {
 				rconn.runAllTests((err: any, result: any) : void => {
 					console.log("All tests run.");
 				});
-			});
-		} else {
-			rconn.runAllTests((err: any, result: any) : void => {
-				console.log("All tests run.");
-			});
+			}
 		}
 	}));
 
 	activeReplActions.push(commands.registerCommand('clojure.run-test-file', () => {
-		let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
-		if (cfg.get("refreshNamespacesBeforeRunnningTestNamespace") === true) {
-			rconn.refresh((err: any, result: any) => {
-				console.log("Refreshed Clojure code.");
-				rconn.runTestsInNS(ns, (err: any, result: any) => {
-					console.log("Tests for namespace " + ns + " run.");
-				});
-			});
+		if (!replRunning) {
+			window.showErrorMessage("Please launch or attach to a REPL before running tests.");
 		} else {
-			rconn.runTestsInNS(ns, (err: any, result: any) => {
-					console.log("Tests for ns " + ns + " run.");
+			let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
+			if (cfg.get("refreshNamespacesBeforeRunnningTestNamespace") === true) {
+				rconn.refresh((err: any, result: any) => {
+					console.log("Refreshed Clojure code.");
+					rconn.runTestsInNS(ns, (err: any, result: any) => {
+						console.log("Tests for namespace " + ns + " run.");
+					});
 				});
+			} else {
+				rconn.runTestsInNS(ns, (err: any, result: any) => {
+						console.log("Tests for ns " + ns + " run.");
+					});
+			}
 		}
 	}));
 
 	activeReplActions.push(commands.registerCommand('clojure.run-test', () => {
-		let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
-		let test = EditorUtils.getSymobleUnderCursor(activeEditor);
-		if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
-			rconn.refresh((err: any, result: any) => {
+		if (!replRunning) {
+			window.showErrorMessage("Please launch or attach to a REPL before running tests.");
+		} else {
+			let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
+			let test = EditorUtils.getSymobleUnderCursor(activeEditor);
+			if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
+				rconn.refresh((err: any, result: any) => {
+					rconn.runTest(ns, test, (err: any, result: any) => {
+						outputChannel.append(result);
+						console.log("Test " + test + " run.");
+					});
+				});
+			} else {
 				rconn.runTest(ns, test, (err: any, result: any) => {
-					outputChannel.append(result);
 					console.log("Test " + test + " run.");
 				});
-			});
-		} else {
-			rconn.runTest(ns, test, (err: any, result: any) => {
-				console.log("Test " + test + " run.");
-			});
+			}
 		}
 	}));
 
@@ -484,10 +518,12 @@ function connect(context: ExtensionContext, reqId: number, sock:SocketIO.Socket,
 					rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
 						outputChannel.appendLine(result);
 						console.log("Compliment namespace loaded");
-						if (!replActionsEnabled) {
-							setUpReplActions(context, rconn);
-							replActionsEnabled = true;
-						}
+						// if (!replActionsEnabled) {
+						// 	setUpReplActions(context, rconn);
+						// 	replActionsEnabled = true;
+						// }
+
+						replRunning = true;
 
 						sock.emit("connect-to-repl-complete", {id: reqId});
 
@@ -530,6 +566,7 @@ export function activate(context: ExtensionContext) {
 	rconn = new ReplConnection();
 
 	setUpActions(context);
+	setUpReplActions(context, rconn);
 
 	// The server is implemented in node
 	// let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
