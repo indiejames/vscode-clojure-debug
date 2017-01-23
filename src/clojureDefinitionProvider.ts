@@ -115,7 +115,9 @@ export class ClojureDefinitionProvider implements DefinitionProvider {
             }
           });
         } else {
-          window.showErrorMessage("Please launch or attach to a REPL to enable definitions.")
+          // The next line is commented out because it was triggering too ofter due to the
+          // many ways a definition can be asked for. Re-enable it if this changes.
+          //window.showErrorMessage("Please launch or attach to a REPL to enable definitions.")
           reject(undefined);
         }
       });
