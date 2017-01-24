@@ -177,6 +177,18 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
 			}, ns);
 		});
 
+		sock.on('reapply-breakpoints', (data) => {
+			const reqId = data["id"];
+			const com = commands.executeCommand("workbench.debug.viewlet.action.reapplyBreakpointsAction");
+				com.then(value => {
+					sock.emit('reapply-breakpionts-result', {id: reqId, result: value});
+
+				}, rejected => {
+					console.error(rejected);
+					sock.emit('reapply-breakpionts-request', {id: reqId, error: rejected});
+				});
+		})
+
 		sock.on('load-namespace', (data) => {
 			const reqId = data["id"];
 			const ns = data["ns"];

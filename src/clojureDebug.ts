@@ -112,6 +112,8 @@ class ClojureDebugSession extends DebugSession {
 	private _frames: StackFrame[];
 	// configuration
 	private configuration: any;
+	// last arguments passed in by launch or attach request
+	private baseArgs: BaseRequestArguments;
 	// debugger side channel port
 	private _sideChannelPort: number;
 	// side channel socket
@@ -396,6 +398,8 @@ class ClojureDebugSession extends DebugSession {
 
 		response.body.supportsConfigurationDoneRequest = true;
 
+		response.body.supportsRestartRequest = true;
+
 		// We want to have VS Code call evaulate when hovering over source (Not yet. if there is a way to expand to a full
 		// form then we will want to do this.)
 		response.body.supportsEvaluateForHovers = false;
@@ -539,17 +543,26 @@ class ClojureDebugSession extends DebugSession {
 					} else {
 						console.log("Debugger REPL attached to Debugged REPL");
 
-						// tell the extension to connect
-						let replHost = "127.0.0.1";
-						if (args["replHost"]) {
-							replHost = args["replHost"];
-						}
 						const reqId = self.getNextRequestId();
-						self.requestData[reqId] = {response: response};
-						self.sideChannel.emit("connect-to-repl", {id: reqId, hostPort: replHost + ":" + primaryReplPort});
+
+						if (response.command != "restart") {
+							// tell the extension to connect
+							let replHost = "127.0.0.1";
+							if (args["replHost"]) {
+								replHost = args["replHost"];
+							}
+							self.requestData[reqId] = {response: response};
+							self.sideChannel.emit("connect-to-repl", {id: reqId, hostPort: replHost + ":" + primaryReplPort});
+						} else {
+							// tell the extension to reapply breakpoints
+							self.sideChannel.emit("reapply-breakpoints", {id: reqId});
+						}
 
 						// start listening for events
 						self.handleEvent(null, null);
+
+						response.success = true;
+						self.sendResponse(response);
 
 					}
 				});
@@ -571,6 +584,7 @@ class ClojureDebugSession extends DebugSession {
 
 	private setUpDebugREPL(response: DebugProtocol.LaunchResponse, args: BaseRequestArguments){
 		const self = this;
+		this.baseArgs = args;
 
 		const env = {"HOME": process.env["HOME"]};
 
@@ -774,6 +788,21 @@ class ClojureDebugSession extends DebugSession {
 		this.sideChannel.close();
 		this.sendResponse(response);
 		this.shutdown();
+	}
+
+	// Repurposing this callback to let users reconnect the debug session if it gets messed up (as
+	// opposed to restarting the debugged process).
+	protected restartRequest(response: DebugProtocol.RestartResponse, args: DebugProtocol.RestartArguments): void {
+		// kill off the old debug REPL and reconnect
+		// exit the debugger REPL
+		this._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
+		// This is never called, apparently.
+		});
+		// close the connection to the deugger REPL
+		this._replConnection.close((err: any, result: any): void => {
+			// do nothing
+		});
+		this.setUpDebugREPL(response, this.baseArgs);
 	}
 
 	protected sourceRequest(response: DebugProtocol.SourceResponse, args: DebugProtocol.SourceArguments): void {
@@ -1119,6 +1148,7 @@ class ClojureDebugSession extends DebugSession {
 			debug.sendResponse(response);
 		});
 	}
+
 
 	private isErrorStatus(status: Array<string>): boolean {
 		return (status.indexOf("error") != -1)

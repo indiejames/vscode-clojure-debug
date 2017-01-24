@@ -86,7 +86,7 @@
     },
     "languages": [{
         "id": "clojure",
-        "extensions": [ ".clj", ".cljs"],
+        "extensions": [ ".clj"],
         "aliases": [ "Clojure"]
     }],
     "commands": [
