@@ -53,6 +53,7 @@ var outputChannel: any;
 var extensionDir: String;
 
 var lastEvalNS = "";
+var lastEvalExp = "";
 
 var evalResponse: any = {};
 
@@ -65,7 +66,6 @@ function handleEvalResponse(response: Array<any>) {
 			 evalResponse["ns"] = resp["ns"];
 		}
 
-		// TOD standardize the message handling (some are under 'eval' others are direct)
 		if (resp["status"]) {
 			if (resp["status"][0] == "done") {
 				let ns = lastEvalNS;
@@ -73,6 +73,8 @@ function handleEvalResponse(response: Array<any>) {
 					ns = evalResponse["ns"];
 				}
 				pout(ns + "=>")
+				pout(lastEvalExp);
+
 				if (evalResponse["ex"]) {
 					perr(evalResponse["ex"])
 				}
@@ -90,27 +92,19 @@ function handleEvalResponse(response: Array<any>) {
 			else if (resp["status"][0] == "eval-error") {
 				evalResponse["ex"] = resp["ex"];
 				evalResponse["root-ex"] = resp["root-ex"];
-				// perr(resp["ex"]);
-				// perr(resp["root-ex"]);
 			}
-
 		}
 
-
 		if (resp["out"]) {
-			//pout(resp["out"]);
 			if (evalResponse["out"] != null) {
 				evalResponse["out"] = evalResponse["out"] + "\n" + resp["out"];
 			} else {
 				evalResponse["out"] = resp["out"];
 			}
-			//outputChannel.append(resp["out"] + "\n");
 		}
 
 		if (resp["value"]) {
 			evalResponse["value"] = resp["value"];
-			// pout (ns + "=> " + resp["value"]);
-			//outputChannel.append(ns + "=> " + resp["value"] + "\n");
 		}
 	}
 }
@@ -197,20 +191,16 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
 		sock.on('eval', (action) => {
 			switch (action) {
 			case 'terminate-and-exit':
-				// TODO clean this up
-			  // rconn.eval(EXIT_CMD, (err: any, result: any): void => {
-				// 	// This is never called, apparently.
-				// 	console.log("debugged process killed")
-			  // });
+				replRunning = false;
 				sideChannelSocket = null;
 				sideChannel.close();
 				// terminate the process for the JVM
 				rconn.pid((err: any, result: any): void => {
 					// TODO this seems to never be reached
 					const pid = result[0]["pid"];
-					// exec("kill -9 " + pid);
+					//exec("kill -9 " + pid);
+					process.kill(pid, "SIGKILL");
 					rconn.close((err: any, msg: any) : any => {
-						// sideChannel.close();
 						console.log("Connection closed)");
 					});
 				});
@@ -218,7 +208,6 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
 				break;
 
 			case 'exit':
-				// removeReplActions(context);
 				replRunning = false;
 				rconn.close((err: any, msg: any) : any => {
 					sideChannelSocket = null;
@@ -227,10 +216,6 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
 				});
 
 				break;
-
-			// case 'get-namespace':
-			// 	sock.emit('get-namespace-result', EditorUtils.findNSForCurrentEditor(activeEditor));
-			// 	break;
 
 			case 'load-namespace':
 				let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
@@ -347,6 +332,7 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 			let selection = editor.selection;
 			let range = new Range(selection.start, selection.end);
 			let code = editor.document.getText(range);
+			lastEvalExp = code;
 			let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
 			if (ns) {
 				lastEvalNS = ns;

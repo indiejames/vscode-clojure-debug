@@ -223,6 +223,9 @@ that prevents the update from happening automatically.
 * It is advisable to temporarily disable exception breakponts before continuing after stopping on a breakpoint to due to
 an exception. Otherwise you will stop on every frame of the stack trace and have to hit continue repeatedly until you
 bubble back up out of the call stack.
+* As mentioned previously, exceptions may occur inside Java code, in which case the source for the
+frame will not be available. Look at the stack trace in the threads list and click on any of the
+Clojure frames.
 
 ### Clojure Dependencies
 

@@ -757,7 +757,7 @@ class ClojureDebugSession extends DebugSession {
 					// do nothing
 				});
 			});
-			this.sideChannel.emit("eval","terminate-and-exit");
+			// this.sideChannel.emit("eval","terminate-and-exit");
 		} else {
 			// exit the debugger REPL
 			this._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
@@ -767,9 +767,10 @@ class ClojureDebugSession extends DebugSession {
 			this._replConnection.close((err: any, result: any): void => {
 					// do nothing
 			});
-			this.sideChannel.emit("eval","exit");
+			// this.sideChannel.emit("eval","exit");
 		}
 
+		this.sideChannel.emit("eval","exit");
 		this.sideChannel.close();
 		this.sendResponse(response);
 		this.shutdown();
