@@ -99,7 +99,11 @@ export class ClojureDefinitionProvider implements DefinitionProvider {
               var def: Location[] = [];
               let res = result[0];
               if (res["message"]) {
-                window.showInformationMessage(res["message"]);
+                // hack to get around false triggers, but keep warning about protocols
+                if (res["message"].match(/^Definition lookup for protocol methods.*$/)) {
+                  window.showInformationMessage(res["message"]);
+                }
+
                 reject(undefined);
               } else {
                 let uri = Uri.file(normalizePath(res["path"]));
