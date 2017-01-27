@@ -129,6 +129,32 @@ class ClojureDebugSession extends DebugSession {
 	// cache of src paths to facillitate efficient lookup at breakpoints, etc.
 	private srcPaths: any = {};
 
+	// just use the first thread as the default thread
+	private static THREAD_ID = 0;
+
+	// the current working directory
+	private _cwd: string;
+
+	// directory where this extension is stored
+	private _extensionDir: string;
+
+	// Clojure REPL process
+	private _debuggerRepl: any;
+	private _primaryRepl: any;
+
+	private __currentLine: number;
+	private get _currentLine(): number {
+		return this.__currentLine;
+	}
+
+	private set _currentLine(line: number) {
+		this.__currentLine = line;
+		this.sendEvent(new OutputEvent(`line: ${line}\n`));	// print current line on debug console
+	}
+
+	private __threadIndex: number = 0;
+	private __threads: Thread[] = [];
+
 	// get and increment the requestId for side channel requests
 	private getNextRequestId(): number {
 		const rval = this.requestId;
@@ -136,9 +162,22 @@ class ClojureDebugSession extends DebugSession {
 		return rval;
 	}
 
+	// Get the path wrt the current working directory (cwd) for the given
+	// path. The debugger expects the source path to be under the cwd, but
+	// this is not always the case. Used for setting breakpoints.
+	protected convertClientPathToDebuggerPath(clentPath: string): string {
+		let rval = "";
+
+
+
+
+		return rval;
+	}
+
 	// Get the full path to a source file. Input paths are of the form repl_test/core.clj.
 	// The path is usually not an absolute path, e.g., repl_test/core.clj, so this is
-	// necessarily not perfect as there may be more than one match.
+	// necessarily not perfect as there may be more than one match. Used for returning
+	// paths from breakpoint events.
 	protected convertDebuggerPathToClientPath(debuggerPath: string, line: number): string {
 		let rval = "";
 		if (debuggerPath.substr(0, 1) == "/") {
@@ -183,31 +222,7 @@ class ClojureDebugSession extends DebugSession {
 		}
 	}
 
-	// just use the first thread as the default thread
-	private static THREAD_ID = 0;
 
-	// the current working directory
-	private _cwd: string;
-
-	// directory where this extension is stored
-	private _extensionDir: string;
-
-	// Clojure REPL process
-	private _debuggerRepl: any;
-	private _primaryRepl: any;
-
-	private __currentLine: number;
-	private get _currentLine(): number {
-		return this.__currentLine;
-	}
-
-	private set _currentLine(line: number) {
-		this.__currentLine = line;
-		this.sendEvent(new OutputEvent(`line: ${line}\n`));	// print current line on debug console
-	}
-
-	private __threadIndex: number = 0;
-	private __threads: Thread[] = [];
 	// update the list of Threads with the given list of thread names
 	private updateThreads(thds: string[]) {
 		// add in new threads
@@ -771,7 +786,7 @@ class ClojureDebugSession extends DebugSession {
 					// do nothing
 				});
 			});
-			// this.sideChannel.emit("eval","terminate-and-exit");
+			// this.sideChannel.emit(terminate-and-exit");
 		} else {
 			// exit the debugger REPL
 			this._replConnection.eval(EXIT_CMD, (err: any, result: any): void => {
@@ -781,10 +796,10 @@ class ClojureDebugSession extends DebugSession {
 			this._replConnection.close((err: any, result: any): void => {
 					// do nothing
 			});
-			// this.sideChannel.emit("eval","exit");
+			// this.sideChannel.emit("exit");
 		}
 
-		this.sideChannel.emit("eval","exit");
+		this.sideChannel.emit("exit");
 		this.sideChannel.close();
 		this.sendResponse(response);
 		this.shutdown();

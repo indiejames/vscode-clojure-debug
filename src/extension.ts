@@ -200,45 +200,70 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
 				});
 		});
 
-		sock.on('eval', (action) => {
-			switch (action) {
-			case 'terminate-and-exit':
-				replRunning = false;
-				sideChannelSocket = null;
-				sideChannel.close();
-				// terminate the process for the JVM
-				rconn.pid((err: any, result: any): void => {
-					// TODO this seems to never be reached
-					const pid = result[0]["pid"];
-					//exec("kill -9 " + pid);
-					process.kill(pid, "SIGKILL");
-					rconn.close((err: any, msg: any) : any => {
-						console.log("Connection closed)");
-					});
-				});
-
-				break;
-
-			case 'exit':
-				replRunning = false;
+		sock.on('terminate-and-exit', (data) => {
+			replRunning = false;
+			sideChannelSocket = null;
+			sideChannel.close();
+			// terminate the process for the JVM
+			rconn.pid((err: any, result: any): void => {
+				// TODO this seems to never be reached
+				const pid = result[0]["pid"];
+				//exec("kill -9 " + pid);
+				process.kill(pid, "SIGKILL");
 				rconn.close((err: any, msg: any) : any => {
-					sideChannelSocket = null;
-					sideChannel.close();
 					console.log("Connection closed)");
 				});
-
-				break;
-
-			case 'load-namespace':
-				let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
-				rconn.eval("(require '" + ns + ")", (err: any, result: any) => {
-					sock.emit('load-namespace-result')
-				});
-				break;
-
-			default: console.error("Unknown side channel request");
-			}
+			});
 		});
+
+		sock.on('exit', (data) => {
+			replRunning = false;
+			rconn.close((err: any, msg: any) : any => {
+				sideChannelSocket = null;
+				sideChannel.close();
+				console.log("Connection closed)");
+			});
+		});
+
+		// sock.on('eval', (action) => {
+		// 	switch (action) {
+		// 	case 'terminate-and-exit':
+		// 		replRunning = false;
+		// 		sideChannelSocket = null;
+		// 		sideChannel.close();
+		// 		// terminate the process for the JVM
+		// 		rconn.pid((err: any, result: any): void => {
+		// 			// TODO this seems to never be reached
+		// 			const pid = result[0]["pid"];
+		// 			//exec("kill -9 " + pid);
+		// 			process.kill(pid, "SIGKILL");
+		// 			rconn.close((err: any, msg: any) : any => {
+		// 				console.log("Connection closed)");
+		// 			});
+		// 		});
+
+		// 		break;
+
+		// 	case 'exit':
+		// 		replRunning = false;
+		// 		rconn.close((err: any, msg: any) : any => {
+		// 			sideChannelSocket = null;
+		// 			sideChannel.close();
+		// 			console.log("Connection closed)");
+		// 		});
+
+		// 		break;
+
+		// 	case 'load-namespace':
+		// 		let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
+		// 		rconn.eval("(require '" + ns + ")", (err: any, result: any) => {
+		// 			sock.emit('load-namespace-result')
+		// 		});
+		// 		break;
+
+		// 	default: console.error("Unknown side channel request");
+		// 	}
+		// });
 
 		sock.emit('go-eval', {});
 	});
