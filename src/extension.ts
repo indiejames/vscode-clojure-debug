@@ -200,6 +200,11 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
 				});
 		});
 
+		sock.on('get-workspace-root', (data) => {
+			const reqId = data["id"];
+			sock.emit('get-workspace-root-result', {id: reqId, result: workspace.rootPath});
+		});
+
 		sock.on('terminate-and-exit', (data) => {
 			replRunning = false;
 			sideChannelSocket = null;

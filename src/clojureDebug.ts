@@ -14,6 +14,8 @@ import {readFileSync, copySync, writeFileSync, mkdirSync, createReadStream} from
 import {basename, dirname, join, sep} from 'path';
 import {spawn} from 'child_process';
 import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
 import nrepl_client = require('jg-nrepl-client');
 import s = require('socket.io-client');
 import tmp = require('tmp');
@@ -93,6 +95,46 @@ export interface LaunchRequestArguments extends BaseRequestArguments {
 	refreshOnLaunch?: boolean;
 }
 
+// get the subdirectories in the given directory
+// (see http://stackoverflow.com/questions/18112204/get-all-directories-within-directory-nodejs)
+function getSubDirectories(dirPath) {
+  return fs.readdirSync(dirPath).filter(function(file) {
+    return fs.statSync(path.join(dirPath, file)).isDirectory();
+  });
+}
+
+// find the longest common path from the leaves up
+function longestCommonPath(dPath: string, dir: string): string {
+  let rval = null;
+
+  const splitPath = dPath.split(sep);
+  for (let i = 1; i <= splitPath.length; i++) {
+    let subPath = join.apply(null, splitPath.slice(splitPath.length - i));
+    let searchPath = join(dir, subPath)
+    if (fs.existsSync(searchPath)) {
+      rval = searchPath;
+    }
+  }
+
+  return rval;
+}
+
+
+function normalizePath(dPath: string, cwd: string): string {
+  let rval = dPath;
+
+	const subDirs = getSubDirectories(cwd);
+		for (var subDir of subDirs) {
+			const absSubDir = join(cwd, subDir);
+			let match = longestCommonPath(dPath, absSubDir);
+			if (match != null && (rval == dPath || rval.length < match.length)) {
+				rval = match;
+			}
+		}
+
+  return rval;
+}
+
 class ClojureDebugSession extends DebugSession {
 
 	private _sourceFile: string;
@@ -127,18 +169,17 @@ class ClojureDebugSession extends DebugSession {
 	// side channel request id seqeunce
 	private requestId = 0;
 	// cache of src paths to facillitate efficient lookup at breakpoints, etc.
-	private srcPaths: any = {};
-
+	private debuggerSrcPaths: any = {};
+	// cache of actual src paths to facillitate efficient lookup when setting breakpoints
+	private clientSrcPaths: any = {};
 	// just use the first thread as the default thread
 	private static THREAD_ID = 0;
-
 	// the current working directory
 	private _cwd: string;
+	// the root directory of the project workspace
+	private workspaceRoot: string;
 
-	// directory where this extension is stored
-	private _extensionDir: string;
-
-	// Clojure REPL process
+	// Clojure REPL processes
 	private _debuggerRepl: any;
 	private _primaryRepl: any;
 
@@ -162,14 +203,37 @@ class ClojureDebugSession extends DebugSession {
 		return rval;
 	}
 
+
 	// Get the path wrt the current working directory (cwd) for the given
 	// path. The debugger expects the source path to be under the cwd, but
 	// this is not always the case. Used for setting breakpoints.
-	protected convertClientPathToDebuggerPath(clentPath: string): string {
-		let rval = "";
+	protected convertClientPathToDebuggerPath(clientPath: string): string {
+		// check our cache
+		let rval = this.debuggerSrcPaths[clientPath];
 
+		if (rval == null) {
+				// brute force search the current working directory for matches and then the tmp jars directories
+				rval = normalizePath(clientPath, this._cwd);
 
+				if (rval == null) {
+					const home = process.env["HOME"];
 
+					rval = normalizePath(clientPath, home + sep +  ".lein" + sep + "tmp-vscode-jars");
+				}
+
+				// if (rval == null) {
+				// 	// check the tmp jars directories
+				// 	const home = process.env["HOME"];
+				// 	let files = find.fileSync(regex, home + sep +  ".lein" + sep + "tmp-vscode-jars")
+				// 	rval = files[0];
+				// }
+			}
+
+			if (rval == null) {
+				rval = "";
+			}
+
+		this.debuggerSrcPaths[clientPath] = rval;
 
 		return rval;
 	}
@@ -184,24 +248,25 @@ class ClojureDebugSession extends DebugSession {
 			rval = debuggerPath;
 		} else {
 
-			// check for perfect match by path and line number matching a set breakpoint
-			for (let path in this._breakPoints) {
-				const lines = this._breakPoints[path];
-				if(core.String.endsWith(path, debuggerPath) && lines.includes(line)) {
-					rval = path;
-					break;
-				}
-			}
+				// check our cache
+			if (this.clientSrcPaths[debuggerPath]) {
+				rval = this.clientSrcPaths[debuggerPath];
+			} else {
 
-			// check our cache
-			if (rval == "") {
-				rval = this.srcPaths[debuggerPath];
+				// check for perfect match by path and line number matching a set breakpoint
+				for (let path in this._breakPoints) {
+					const lines = this._breakPoints[path];
+					if(core.String.endsWith(path, debuggerPath) && lines.includes(line)) {
+						rval = path;
+						break;
+					}
+				}
 			}
 
 			if (rval == null) {
 				// brute force search the workspace for matches and then the tmp jars directories
 				let regex = new RegExp(".*?" + debuggerPath);
-				let files = find.fileSync(regex, this._cwd);
+				let files = find.fileSync(regex, this.workspaceRoot);
 				rval = files[0];
 
 				if (rval == null) {
@@ -216,7 +281,7 @@ class ClojureDebugSession extends DebugSession {
 				rval = "";
 			}
 
-			this.srcPaths[debuggerPath] = rval;
+			this.clientSrcPaths[debuggerPath] = rval;
 
 			return rval;
 		}
@@ -361,6 +426,11 @@ class ClojureDebugSession extends DebugSession {
 			self.finishBreakPointsRequest(response, args, path)
 		});
 
+		// used to set the workspace root on debugger initialization
+		this.sideChannel.on('get-workspace-root-result', (result) => {
+			self.workspaceRoot = result["result"];
+		});
+
 		// handle exception breakpoint requests
 		this.sideChannel.on('get-breakpoint-exception-class-result', (result) => {
 			const respId = result["id"];
@@ -401,6 +471,8 @@ class ClojureDebugSession extends DebugSession {
 				self.handleResult(response, res);
 			}
 		});
+
+		this.sideChannel.emit('get-workspace-root', {id: this.getNextRequestId()});
 
 	}
 
@@ -829,8 +901,10 @@ class ClojureDebugSession extends DebugSession {
 	protected finishBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments, path: string): void {
 		console.log("FINISH BREAKPOINTS REQUEST");
 		const clientLines = args.lines;
+		let cdtPath = this.convertClientPathToDebuggerPath(path);
 		// make exploded jar file paths amenable to cdt
-		const cdtPath = path.replace(".jar/", ".jar:");
+		cdtPath = cdtPath.replace(".jar/", ".jar:");
+
 
 		const debugLines = JSON.stringify(clientLines, null, 4);
 		console.log(debugLines);
