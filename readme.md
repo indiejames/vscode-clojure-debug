@@ -14,7 +14,7 @@ Some of the features (mostly related to step debugging) are less reliable and sh
 
 * Integrated REPL (nREPL)
 * Support for attaching to an external REPL (must be nREPL)
-* Code evaluation from editor
+* Code evaluation from within editor
 * Autocompletion
 * Docstring lookup on hover
 * Peek at / jump to symbol definition
@@ -45,7 +45,7 @@ project, but leinengen is used internally by the debugger.
 
 ### Install the Extension
 
-From the command palette (cmd-shift-p) select `Install Extension` and choose `Continuum`.
+From the command palette (`cmd-shift-p`) select `Install Extension` and choose `Continuum`.
 
 ### Add the Debug Middleware to Your Project
 After installing the extension in VS Code you need to add The nREPL debug middleware to your
@@ -103,7 +103,7 @@ to type input into your program or if your program expects to run in a terminal 
 
 Most of the functionality of the extension is not available unless the REPL is running. Once you have set up
 your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can
-launch the REPL invoking the command palette (shift+cmd+p (mac) /shift+ctrl+p (windows/linux)) and selecting
+launch the REPL invoking the command palette (`shift+cmd+p` (mac) / `shift+ctrl+p` (windows/linux)) and selecting
 `Clojure: Start REPL` (type 'repl' to see this command).
 
 **IMPORTANT:** Do not try to start the REPL using the `start debugger` icon ![START](http://i.imgur.com/ZAmkn5M.png).
@@ -132,10 +132,10 @@ call stack vew that displayes the active threads as well as frames when a breakp
 #### Executing Code
 
 There are two different ways to execute code in the REPL. The first way is to select code in an editor
-and execute that using the `Clojure: Evaluate selected text` command from the command palette (shift+cmd+p), or
-by using the keybinding shortcut (cmd+alt+e on mac or ctrl+alt+e on win/linux). Code evaluated in this way is
-evaluated in the namespace of the open file. Evaluating code from withiin an editor is facilitated by a helper
-(shift+ctrl+m) that expands the current selection to the next outer form. Repated invocation will continue to
+and execute that using the `Clojure: Evaluate selected text` command from the command palette (`shift+cmd+p`), or
+by using the keybinding shortcut (`cmd+alt+e` on mac or `ctrl+alt+e` on win/linux). Code evaluated in this way is
+evaluated in the namespace of the open file. Evaluating code from within an editor is facilitated by a helper
+(`shift+ctrl+m`) that expands the current selection to the next outer form. Repated invocation will continue to
 expand the selection.
 
 The second way to evaluate code is by typing it into the debug console input box as shown below. Code evaluated
@@ -179,8 +179,8 @@ Clojure vars.
 
 | Command | Command Palette Entry | Descritpion | Key bindings |
 |---------|-------|-------------|--------------|
-| clojure.eval | Clojure: Evaluate selected text | Evaluate the selected text in the file's namespace | cmd+alt+e (mac) / ctrl+alt+e (win/linux) |
-| clojure.expand_selection | Clojure: Expand Selection | Expand selection to containing brackets/parentheses | shift+ctrl+m |
+| clojure.eval | Clojure: Evaluate selected text | Evaluate the selected text in the file's namespace | `cmd+alt+e` (mac) / `ctrl+alt+e` (win/linux) |
+| clojure.expand_selection | Clojure: Expand Selection | Expand selection to containing brackets/parentheses | `shift+ctrl+m` |
 | clojure.debug | Clojure: Start REPL | Start a REPL. | |
 | clojure.load-file | Clojure: Load File | Load the currently open Clojure source file. | |
 | clojure.refresh | Clojure: Refresh Code |Refresh changed code without restarting the REPL. | |
