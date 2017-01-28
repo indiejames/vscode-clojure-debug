@@ -9,9 +9,9 @@
     "name": "James Norton"
   },
   "engines": {
-    "vscode": "^1.6.x"
+    "vscode": "^1.6.0"
   },
-  "icon": "images/Clojure-icon.png",
+  "icon": "images/continuum-icon.png",
   "categories": [
     "Debuggers"
   ],
