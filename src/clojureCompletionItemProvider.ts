@@ -1,3 +1,8 @@
+/* --------------------------------------------------------------------------------------------
+ * Copyright (c) James Norton. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for license information.
+ * ------------------------------------------------------------------------------------------ */
+
 import {CompletionItemProvider, CompletionList, CompletionItem, CompletionItemKind, CancellationToken, TextDocument, Position} from 'vscode';
 import nrepl_client = require('jg-nrepl-client');
 import edn = require('jsedn');

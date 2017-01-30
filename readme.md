@@ -1,4 +1,4 @@
-# Visual Studio Code Continuum - PREVIEW
+# Visual Studio Code Continuum (PREVIEW)
 
 Continuum is a VS Code extension/debugger for developing Clojure. It provides a REPL as well
 as language support and debugging.
@@ -7,6 +7,8 @@ as language support and debugging.
 
 ## A Note about the Preview Version
 
+Currently only known to work on Mac OS X. I can confirm that it does not work (yet) on Windows
+due to issues in the underlying CDT library. It may work fine on Linux - I have not tried it yet.
 Most of the features are operational and work well enough to provide a useful worklow at this point.
 Some of the features (mostly related to step debugging) are less reliable and should be used with care.
 

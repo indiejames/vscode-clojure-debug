@@ -1,3 +1,8 @@
+/* --------------------------------------------------------------------------------------------
+ * Copyright (c) James Norton. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for license information.
+ * ------------------------------------------------------------------------------------------ */
+
 import {window, workspace, DefinitionProvider, Definition, Location, TextDocument, Position, Uri, CancellationToken} from 'vscode';
 import nrepl_client = require('jg-nrepl-client');
 import edn = require('jsedn');

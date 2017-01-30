@@ -1,21 +1,36 @@
 {
   "name": "continuum",
-  "displayName": "Continuum",
+  "displayName": "Continuum (Preview)",
   "license": "MIT",
   "version": "0.1.0",
   "publisher": "jamesnorton",
   "description": "Clojure debugger / REPL / language support for VS Code.",
+  "preview": true,
+  "keywords": [
+    "clojure",
+    "debuggers",
+    "repl"
+  ],
   "author": {
     "name": "James Norton"
   },
   "engines": {
     "vscode": "^1.6.0"
   },
-  "icon": "images/continuum-icon.png",
-  "categories": [
-    "Debuggers"
+
+  "os": [
+    "mac"
   ],
-  "private": true,
+  "galleryBanner": {
+        "color": "#009f9F",
+        "theme": "dark"
+    },
+  "icon": "images/icon.png",
+  "categories": [
+    "Debuggers",
+    "Languages"
+  ],
+  "private": false,
   "repository": {
     "type": "git",
     "url": "https://github.com/indiejames/vscode-clojure-debug.git"
