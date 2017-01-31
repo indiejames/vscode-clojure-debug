@@ -19,10 +19,10 @@
   },
 
   "os": [
-    "mac"
+    "darwin"
   ],
   "galleryBanner": {
-        "color": "#009f9F",
+        "color": "#63B131",
         "theme": "dark"
     },
   "icon": "images/icon.png",
