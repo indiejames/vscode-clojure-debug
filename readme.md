@@ -8,7 +8,8 @@ as language support and debugging.
 ## A Note about the Preview Version
 
 Currently only known to work on Mac OS X. I can confirm that it does not work (yet) on Windows
-due to issues in the underlying CDT library. It may work fine on Linux - I have not tried it yet.
+due to issues in the underlying CDT library. I am working to get that fixed.
+It may work fine on Linux - I have not tried it yet.
 Most of the features are operational and work well enough to provide a useful worklow at this point.
 Some of the features (mostly related to step debugging) are less reliable and should be used with care.
 
@@ -116,7 +117,8 @@ This will pop up a quick pick selector that will let you choose which launch con
 
 ![LAUNCH](https://media.giphy.com/media/26xBAd7JoMC9WadS8/source.gif)
 
-This can take a while (minutes for large projects). Eventually you should see a screen like the following
+This can take a while (minutes for large projects). You should see output from the REPL as is starts up
+in the debug console or in the terminal (for temrinal launches). Eventually you should see a screen like the following
 (note color change in status bar at bottom). You should see the status message 'Attached to process' at the bottom and
 information in the debug console about the running REPLs and namespaces that were loaded.
 
@@ -128,6 +130,8 @@ and at breakpoints, the status area, which displays messages related to the curr
 call stack vew that displayes the active threads as well as frames when a breakpoint is encountered.
 
 ![MAIN_ELEMENTS](http://i.imgur.com/YpY7YC4.png)
+
+
 
 ### Primary Operations
 
@@ -199,6 +203,8 @@ Clojure vars.
 attempt to set a breakpoint on a line and it remains grayed out, try moving it up or down.
 * Watch variables are not supported *yet*.
 * Arguments displayed at a breakpoing sometimes show up under local variables instead of arguments.
+* For large projects hitting a breakpoint may be slow, particularly the first time. Also, it may take several
+seconds for variables to show up in the "Variables" pain.
 
 #### Step debugging
 
