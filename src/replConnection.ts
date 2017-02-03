@@ -178,6 +178,11 @@ export class ReplConnection {
 		this.conn.send({op: 'doc', ns: ns, var: variable, session: this.commandSession}, callback);
 	}
 
+	// reformat code
+	public reformat(code: string, callback: callbackType) {
+		this.conn.send({op: 'reformat', code: code, session: this.commandSession}, callback);
+	}
+
 	// run all the tests in the project
 	public runAllTests(callback: callbackType) {
 		this.conn.send({op: 'run-all-tests', session: this.commandSession}, callback);
