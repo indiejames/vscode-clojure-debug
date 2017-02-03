@@ -20,6 +20,7 @@ Some of the features (mostly related to step debugging) are less reliable and sh
 * Code evaluation from within editor
 * Autocompletion
 * Docstring lookup on hover
+* Code formatting
 * Peek at / jump to symbol definition
 * Run tests
 * Set breakpoints
@@ -239,11 +240,10 @@ Clojure frames.
 
 The environment utilizes several clojure libraries to enable various features.
 
-* debug-middleware provides the debug functionality, which in turn relies on
-* cdt - the Clojure Debug Toolkit
-* compliment is used to perform autocompletion
-
-## Extension Preferences
+* [debug-middleware](https://clojars.org/debug-middleware) provides the debug functionality, which in turn relies on
+* a modified [cdt](https://clojars.org/org.clojars.jnorton/cdt) - the Clojure Debug Toolkit
+* [compliment](https://github.com/alexander-yakushev/compliment) is used to perform autocompletion
+* [cljfmt](https://github.com/weavejester/cljfmt) is used to support code reformatting
 
 ## Suggested User Settings
 
