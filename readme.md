@@ -333,13 +333,14 @@ I see Clojure development as being fundamentally different from development in o
 In traditional development we employ a workflow of code, compile, execute/test, repeat
 (skipping the compile step for some languages). In Clojure, we employ a REPL driven approach
 in which we are constantly evaluating code as we write it. This extension takes that a step
-farther to pull in debugging. Instead of employing discrete steps during development
-all the steps blend together into a continuum of capabilities.
+further to include debugging as part of a continuous development process.
+Instead of employing discrete steps during development all the steps blend together into a
+continuum. That, and all the good names were taken.
 
 ## Full list of launch.json settings (from package.json)
 
 
-| Property | Type | Descripition | Default Value |
+| Property | Type | Description | Default Value |
 |----------|------|--------------|---------------|
 | commandLine | array | Command to run to launch the debugged program. | ["lein", "repl", ":start", "5555"] |
 | console | enum: [ "internalConsole", "integratedTerminal", "externalTerminal" ] | Console to to use for launched programs. Defaults to internal debug console. | "internalConsole" |
