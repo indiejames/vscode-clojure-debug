@@ -47,11 +47,11 @@ project, but leiningen is used internally by the debugger.
 * The Java SDK installed. Specifically the debugger needs to be able to find the tools.jar file
 (usually in the `lib` directory of your Java installation).
 
-### Install the Extension
+#### Install the Extension
 
 From the command palette (`cmd-shift-p`) select `Install Extension` and choose `Continuum`.
 
-### Add the Debug Middleware to Your Project
+#### Add the Debug Middleware to Your Project
 After installing the extension in VS Code you need to add The nREPL debug middleware to your
 project. If you are using leiningen the best way to do this is through a custom profile.
 For a description of profiles see the [leiningen profiles documentation](https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md).
@@ -65,7 +65,7 @@ path to the tools.jar file as appropriate.
                              [debug-middleware "0.1.2-SNAPSHOT"]]}
 ```
 
-### Setting up a launch.json file
+#### Setting up a launch.json file
 
 Continuum supports launching REPLs as well as attaching to running
 REPLs. This is controlled using launch configurations in a launch.json
@@ -103,7 +103,7 @@ command terminal, or in an external terminal. This is controlled by the **consol
 default uses the internal debug console. Running in a terminal can be useful if, for instance, you need
 to type input into your program or if your program expects to run in a terminal environment.
 
-### Starting the REPL
+## Starting the REPL
 
 Most of the functionality of the extension is not available unless the REPL is running. Once you have set up
 your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can
@@ -115,6 +115,33 @@ launch the REPL invoking the command palette (`shift+cmd+p` (mac) / `shift+ctrl+
 
 This will pop up a quick pick selector that will let you choose which launch configuration you want to use
 (your launch.json file can define many).
+
+On a mac an example launch configuration might look like this
+
+```json
+{
+	"name": "Clojure-Debug Internal Console",
+	"type": "clojure",
+	"request": "launch",
+	"leinPath": "/usr/local/bin/lein",
+  "commandLine": [
+    "/usr/local/bin/lein",
+    "with-profile",
+    "+debug-repl",
+    "repl",
+    ":headless",
+    ":port",
+    "7777"
+  ],
+  "toolsJar": "/Library/Java/JavaVirtualMachines/jdk1.8.0_74.jdk/Contents/Home/lib/tools.jar",
+  "replPort": 7777,
+  "debugReplPort": 7778,
+  "debugPort": 9999,
+  "cwd": "${workspaceRoot}",
+  "refreshOnLaunch": true,
+  "sideChannelPort": 3030
+}
+```
 
 ![LAUNCH](https://media.giphy.com/media/26xBAd7JoMC9WadS8/source.gif)
 
@@ -132,7 +159,38 @@ call stack vew that displays the active threads as well as frames when a breakpo
 
 ![MAIN_ELEMENTS](http://i.imgur.com/YpY7YC4.png)
 
+#### Attaching to a Running REPL
 
+Using a configuration like the following, it is possible to attach to a running REPL (notice `request` is
+set to "attach".
+
+```json
+{
+			"name": "Clojure-Attach Console",
+			"type": "clojure",
+			"request": "attach",
+			"leinPath": "/usr/local/bin/lein",
+			"toolsJar": "/Library/Java/JavaVirtualMachines/jdk1.8.0_74.jdk/Contents/Home/lib/tools.jar",
+			"replPort": 7777,
+			"debugReplPort": 7778,
+			"debugPort": 9999,
+			"cwd": "${workspaceRoot}",
+			"sideChannelPort": 3030
+		}
+```
+
+Note that the REPL must have been started listening on a JDI port. This is possible on mac/linux using something
+like this following:
+
+```bash
+env HOME=/Users/foo CLOJURE_DEBUG_JDWP_PORT=9999 JVM_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9999 /usr/local/bin/lein with-profile +debug-repl repl :start :port 7777
+```
+
+Once the REPL is started, you can connect using the same procedure as the one used for launching a REPL, namely,
+selecting `Clojure: Start REPL` from the command pallet and choosing your "attach" configuration. The following
+example illustrates this process.
+
+![ATTACH](http://i.imgur.com/xbfcNgI.gifv)
 
 ### Primary Operations
 
@@ -165,6 +223,7 @@ As discussed in the "Known Limitations" section below, exception breakpoints app
 unchecked exceptions.
 In the status bar to the right of the exception class icon ![EXCEPTIONS](http://i.imgur.com/IAq3tHv.png)
 is an input box that can be used to set the type of exceptions on which to break. The default is `Throwable`.
+
 In general it is advisable to leave exception breakpoints off and only turn them on (with the exception
 class set appropriately) when an exception is encountered, so that the code can be run again and execution
 is stopped at the exception. Also, if an exception breakpoint is hit, be sure to disable the breakpoint
@@ -235,6 +294,16 @@ bubble back up out of the call stack.
 * As mentioned previously, exceptions may occur inside Java code, in which case the source for the
 frame will not be available. Look at the stack trace in the threads list and click on any of the
 Clojure frames.
+
+### Restarting the debugger
+
+If the debugger seems to have stopped working (but language features like docstring lookup
+or jump to definition still work), you might need to restart the debugger. You can do
+this by clicking on the restart icon ![RESTART](http://i.imgur.com/DqzIJXf.png). This
+will not trigger the launch indicator or change the color of the status bar. You
+need to examine the REPL output to determine if things have restarted. If all else
+fails, you may need to stop the REPL by clicking the stop button ![STOP](http://i.imgur.com/iSlKrWx.png)
+and then restart.
 
 ### Clojure Dependencies
 
