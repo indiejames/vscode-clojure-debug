@@ -105,15 +105,19 @@ to type input into your program or if your program expects to run in a terminal 
 
 ## Starting the REPL
 
-Most of the functionality of the extension is not available unless the REPL is running. Once you have set up
-your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can
+Most of the functionality of the extension is not available unless a REPL is running. You need to either
+launch a REPL or attach to one. We will cover launching a REPL first.
+
+#### Launching a REPL
+
+Once you have set up your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can
 launch the REPL invoking the command palette (`shift+cmd+p` (mac) / `shift+ctrl+p` (windows/linux)) and selecting
 `Clojure: Start REPL` (type 'repl' to see this command).
 
 **IMPORTANT:** Do not try to start the REPL using the `start debugger` icon ![START](http://i.imgur.com/ZAmkn5M.png).
 *This will not work.*
 
-This will pop up a quick pick selector that will let you choose which launch configuration you want to use
+This will pop up a quick pick selector that will let you choose which configuration you want to use
 (your launch.json file can define many).
 
 On a mac an example launch configuration might look like this
@@ -190,7 +194,7 @@ Once the REPL is started, you can connect using the same procedure as the one us
 selecting `Clojure: Start REPL` from the command pallet and choosing your "attach" configuration. The following
 example illustrates this process.
 
-![ATTACH](http://i.imgur.com/xbfcNgI.gifv)
+![ATTACH](http://i.giphy.com/l3q2DGGzQJjfRo5Nu.gif)
 
 ### Primary Operations
 
