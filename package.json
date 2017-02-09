@@ -1,319 +1,350 @@
 {
-  "name": "continuum",
-  "displayName": "Continuum (Preview)",
-  "license": "MIT",
-  "version": "0.1.0",
-  "publisher": "jamesnorton",
-  "description": "Clojure debugger / REPL / language support for VS Code.",
-  "preview": true,
-  "keywords": [
-    "clojure",
-    "debuggers",
-    "repl"
-  ],
-  "author": {
-    "name": "James Norton"
-  },
-  "engines": {
-    "vscode": "^1.6.0"
-  },
-
-  "os": [
-    "darwin", "linux"
-  ],
-  "galleryBanner": {
+    "name": "continuum",
+    "displayName": "Continuum (Preview)",
+    "license": "MIT",
+    "version": "0.2.0",
+    "publisher": "jamesnorton",
+    "description": "Clojure debugger / REPL / language support for VS Code.",
+    "preview": true,
+    "keywords": [
+        "clojure",
+        "debuggers",
+        "repl"
+    ],
+    "author": {
+        "name": "James Norton"
+    },
+    "engines": {
+        "vscode": "^1.6.0"
+    },
+    "os": [
+        "darwin",
+        "linux"
+    ],
+    "galleryBanner": {
         "color": "#63B131",
         "theme": "dark"
     },
-  "icon": "images/icon.png",
-  "categories": [
-    "Debuggers",
-    "Languages"
-  ],
-  "private": false,
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/indiejames/vscode-clojure-debug.git"
-  },
-  "bugs": {
-    "url": "https://github.com/indiejames/vscode-clojure-debug/issues"
-  },
-  "dependencies": {
-    "core-js": "^2.4.1",
-    "bencode": "^0.10.0",
-    "chalk": "^1.1.1",
-    "fined": "^1.0.2",
-    "find": "^0.2.7",
-    "fs-extra": "^0.30.0",
-    "jg-nrepl-client": "0.2.3",
-    "jsedn": "0.3.5",
-    "socket.io": "^1.4.8",
-    "socket.io-client": "^1.4.8",
-    "strip-json-comments": "^2.0.1",
-    "tmp": "^0.0.28",
-    "vscode": "^0.11.18",
-    "typescript": "^2.0.2",
-    "vscode-debugadapter": "^1.13.0",
-    "vscode-debugprotocol": "^1.13.0",
-    "vscode-languageclient": "^2.6.0",
-    "vscode-languageserver": "^2.6.0"
-  },
-  "devDependencies": {
-
-    "mocha": "^2.4.5",
-    "typescript": "^2.0.2",
-    "typings": "^0.7.9"
-  },
-  "scripts": {
-    "prepublish": "node ./node_modules/typescript/bin/tsc -p ./src",
-    "compile": "node ./node_modules/typescript/bin/tsc -p ./src",
-    "watch": "node ./node_modules/typescript/bin/tsc -w -p ./src",
-    "postinstall": "node ./node_modules/vscode/bin/install",
-    "test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
-  },
-  "activationEvents": [
-    "workspaceContains:project.clj",
-    "workspaceContains:build.boot",
-    "onLanguage:clojure"
-  ],
-  "main": "./out/extension",
-  "contributes": {
-    "configuration": {
-      "type": "object",
-      "title": "Clojure configuration",
-      "properties": {
-        "clojure.refreshNamespacesBeforeRunnningAllTests": {
-          "type": "boolean",
-          "default": true,
-          "description": "Whether or not to issue a refresh command before running all the tests in the workspace."
-        },
-        "clojure.refreshNamespacesBeforeRunnningTestNamespace": {
-          "type": "boolean",
-          "default": true,
-          "description": "Whether or not to issue a refresh command before running all the tests in a namespace."
-        },
-        "clojure.refreshNamespacesBeforeRunnningTest": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether or not to issue a refresh command before running a single test."
-        }
-      }
+    "icon": "images/icon.png",
+    "categories": [
+        "Debuggers",
+        "Languages"
+    ],
+    "private": false,
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/indiejames/vscode-clojure-debug.git"
     },
-    "languages": [{
-        "id": "clojure",
-        "extensions": [ ".clj"],
-        "aliases": [ "Clojure"]
-    }],
-    "commands": [
-      {
-        "command": "clojure.eval",
-        "title": "Clojure: Evaluate selected text",
-        "description": "Evaluate the selected text in the file's namespace."
-      },
-      {
-        "command": "clojure.expand_selection",
-        "title": "Clojure: Expand Selection",
-        "description": "Expand selection to containing brackets/parentheses."
-      },
-      {
-        "command": "clojure.debug",
-        "title": "Clojure: Start REPL",
-        "description": "Start a REPL."
-      },
-      {
-        "command": "clojure.load-file",
-        "title": "Clojure: Load File",
-        "description": "Load the currently open Clojure source file."
-      },
-      {
-        "command": "clojure.refresh",
-        "title": "Clojure: Refresh Code",
-        "description": "Refresh changed code without restarting the REPL."
-      },
-      {
-        "command": "clojure.superRefresh",
-        "title": "Clojure: Super Refresh Code",
-        "description": "Refresh all code without restarting the REPL."
-      },
-      {
-        "command": "clojure.run-all-tests",
-        "title": "Clojure: Run All Tests",
-        "description": "Run all the tests in the project after refreshing the code."
-      },
-      {
-        "command": "clojure.run-test-file",
-        "title": "Clojure: Run Tests in Current Namespace",
-        "description": "Run the tests in the current namespace, optionally refreshing code first."
-      },
-      {
-        "command": "clojure.run-test",
-        "title": "Clojure: Run Test Under Cursor",
-        "description": "Run the test under the cursor, optionally refreshing code first."
-      }
+    "bugs": {
+        "url": "https://github.com/indiejames/vscode-clojure-debug/issues"
+    },
+    "dependencies": {
+        "core-js": "^2.4.1",
+        "bencode": "^0.10.0",
+        "chalk": "^1.1.1",
+        "fined": "^1.0.2",
+        "find": "^0.2.7",
+        "fs-extra": "^0.30.0",
+        "jg-nrepl-client": "0.2.3",
+        "jsedn": "0.3.5",
+        "socket.io": "^1.4.8",
+        "socket.io-client": "^1.4.8",
+        "strip-json-comments": "^2.0.1",
+        "tmp": "^0.0.28",
+        "vscode": "^0.11.18",
+        "typescript": "^2.0.2",
+        "vscode-debugadapter": "^1.13.0",
+        "vscode-debugprotocol": "^1.13.0",
+        "vscode-languageclient": "^2.6.0",
+        "vscode-languageserver": "^2.6.0"
+    },
+    "devDependencies": {
+        "mocha": "^2.4.5",
+        "typescript": "^2.0.2",
+        "typings": "^0.7.9"
+    },
+    "scripts": {
+        "prepublish": "node ./node_modules/typescript/bin/tsc -p ./src",
+        "compile": "node ./node_modules/typescript/bin/tsc -p ./src",
+        "watch": "node ./node_modules/typescript/bin/tsc -w -p ./src",
+        "postinstall": "node ./node_modules/vscode/bin/install",
+        "test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
+    },
+    "activationEvents": [
+        "workspaceContains:project.clj",
+        "workspaceContains:build.boot",
+        "onLanguage:clojure"
     ],
-    "keybindings": [
-      {
-        "command": "clojure.eval",
-        "key": "ctrl+alt+e",
-        "mac": "cmd+alt+e",
-        "when": "editorTextFocus"
-      },
-      {
-        "command": "clojure.expand_selection",
-        "key": "ctrl+shift+m",
-        "when": "editorTextFocus"
-      }
-    ],
-    "debuggers": [
-      {
-        "type": "clojure",
-        "label": "Clojure Debug",
-        "enableBreakpointsFor": {
-          "languageIds": [
-            "clojure"
-          ]
-        },
-        "program": "./out/clojureDebug.js",
-        "runtime": "node",
-        "configurationAttributes": {
-          "attach": {
-            "required": [
-              "toolsJar",
-              "sideChannelPort"
-            ],
+    "main": "./out/extension",
+    "contributes": {
+        "configuration": {
+            "type": "object",
+            "title": "Clojure configuration",
             "properties": {
-              "toolsJar": {
-                "type": "string",
-                "description": "Path to the tools.jar in your Java installation.",
-                "default": "${env.JAVA_HOME}/lib/tools.jar"
-              },
-              "cwd": {
-                "type": "string",
-                "description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
-                "default": "${workspaceRoot}"
-              },
-              "srcDirs": {
-                "type": "array",
-                "description": "An array of directories relative to the project root that contain Clojure source files, e.g., src, test.",
-                "default": ["src", "test"]
-              },
-              "leinPath": {
-                "type": "string",
-                "description": "Path the the lein executable.",
-                "default": "/usr/local/bin/lein"
-              },
-              "replHost": {
-                "type": "string",
-                "description": "Host on which the debugged REPL is running.",
-                "default": "localhost"
-              },
-              "replPort": {
-                "type": "number",
-                "description": "Port on which the debugged nREPL is listening.",
-                "default": 5555
-              },
-              "debugReplPort": {
-                "type": "number",
-                "description": "Port on which the client/debugger nREPL should listen.",
-                "default": 5556
-              },
-              "debugPort": {
-                "type": "number",
-                "description": "JDI port on which the debugger should connect to the process to be debugged.",
-                "default": 8030
-              },
-              "sideChannelPort": {
-                "type": "number",
-                "description": "Port on which the debugger should talk to the extension.",
-                "default": 3030
-              }
+                "clojure.refreshNamespacesBeforeRunnningAllTests": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether or not to issue a refresh command before running all the tests in the workspace."
+                },
+                "clojure.refreshNamespacesBeforeRunnningTestNamespace": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether or not to issue a refresh command before running all the tests in a namespace."
+                },
+                "clojure.refreshNamespacesBeforeRunnningTest": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether or not to issue a refresh command before running a single test."
+                }
             }
-          },
-          "launch": {
-            "required": [
-              "toolsJar",
-              "commandLine",
-              "sideChannelPort"
-            ],
-            "properties": {
-              "toolsJar": {
-                "type": "string",
-                "description": "Path to the tools.jar in your Java installation."
-              },
-              "srcDirs": {
-                "type": "array",
-                "description": "An arry of directories relative to the project root that contain Clojure source files, e.g., src, test.",
-                "default": ["src", "test"]
-              },
-              "commandLine": {
-                "type": "array",
-                "description": "Command to run to launch the debugged program.",
-                "default": ["lein", "repl", ":start", "5555"]
-              },
-              "console": {
-                "enum": [ "internalConsole", "integratedTerminal", "externalTerminal" ],
-								"description": "Console to to use for launched programs. Defaults to internal debug console.",
-								"default": "internalConsole"
-              },
-              "leinPath": {
-                "type": "string",
-                "description": "Path the the lein executable.",
-                "default": "/usr/local/bin/lein"
-              },
-              "replPort": {
-                "type": "number",
-                "description": "Port on which the debugged nREPL should listen.",
-                "default": 5555
-              },
-              "debugReplPort": {
-                "type": "number",
-                "description": "Port on which the client/debugger nREPL should listen.",
-                "default": 5556
-              },
-              "debugPort": {
-                "type": "number",
-                "description": "JDI port on which the debugger should connect to the process to be debugged.",
-                "default": 8030
-              },
-              "sideChannelPort": {
-                "type": "number",
-                "description": "Port on which the debugger should talk to the extension.",
-                "default": 3030
-              },
-              "env": {
-                "type": "object",
-                "description": "Environment variables passed to the program.",
-                "default": {}
-              },
-              "cwd": {
-                "type": "string",
-                "description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
-                "default": "${workspaceRoot}"
-              },
-              "refreshOnLaunch": {
-                "type": "boolean",
-                "description": "Automatically loads all namespaces on launch.",
-                "default": true
-              }
-            }
-          }
         },
-        "initialConfigurations": [
-          {
-            "commandLine": ["lein", "with-profile", "+debug-repl", "repl", ":start", ":port", "5555"],
-            "name": "Clojure-Debug",
-            "type": "clojure",
-            "request": "launch",
-            "leinPath": "/usr/local/bin/lein",
-            "toolsJar": "${env.JAVA_HOME}/lib/tools.jar",
-            "sideChannelPort": 3030,
-            "env": {},
-            "cwd": "${workspaceRoot}",
-            "refreshOnLaunch": true,
-            "srcDirs": ["src", "test"]
-          }
+        "languages": [
+            {
+                "id": "clojure",
+                "extensions": [
+                    ".clj"
+                ],
+                "aliases": [
+                    "Clojure"
+                ]
+            }
+        ],
+        "commands": [
+            {
+                "command": "clojure.eval",
+                "title": "Clojure: Evaluate selected text",
+                "description": "Evaluate the selected text in the file's namespace."
+            },
+            {
+                "command": "clojure.expand_selection",
+                "title": "Clojure: Expand Selection",
+                "description": "Expand selection to containing brackets/parentheses."
+            },
+            {
+                "command": "clojure.debug",
+                "title": "Clojure: Start REPL",
+                "description": "Start a REPL."
+            },
+            {
+                "command": "clojure.load-file",
+                "title": "Clojure: Load File",
+                "description": "Load the currently open Clojure source file."
+            },
+            {
+                "command": "clojure.refresh",
+                "title": "Clojure: Refresh Code",
+                "description": "Refresh changed code without restarting the REPL."
+            },
+            {
+                "command": "clojure.superRefresh",
+                "title": "Clojure: Super Refresh Code",
+                "description": "Refresh all code without restarting the REPL."
+            },
+            {
+                "command": "clojure.run-all-tests",
+                "title": "Clojure: Run All Tests",
+                "description": "Run all the tests in the project after refreshing the code."
+            },
+            {
+                "command": "clojure.run-test-file",
+                "title": "Clojure: Run Tests in Current Namespace",
+                "description": "Run the tests in the current namespace, optionally refreshing code first."
+            },
+            {
+                "command": "clojure.run-test",
+                "title": "Clojure: Run Test Under Cursor",
+                "description": "Run the test under the cursor, optionally refreshing code first."
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "clojure.eval",
+                "key": "ctrl+alt+e",
+                "mac": "cmd+alt+e",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "clojure.expand_selection",
+                "key": "ctrl+shift+m",
+                "when": "editorTextFocus"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "clojure",
+                "label": "Clojure Debug",
+                "enableBreakpointsFor": {
+                    "languageIds": [
+                        "clojure"
+                    ]
+                },
+                "program": "./out/clojureDebug.js",
+                "runtime": "node",
+                "configurationAttributes": {
+                    "attach": {
+                        "required": [
+                            "toolsJar",
+                            "sideChannelPort"
+                        ],
+                        "properties": {
+                            "toolsJar": {
+                                "type": "string",
+                                "description": "Path to the tools.jar in your Java installation.",
+                                "default": "${env.JAVA_HOME}/lib/tools.jar"
+                            },
+                            "cwd": {
+                                "type": "string",
+                                "description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
+                                "default": "${workspaceRoot}"
+                            },
+                            "srcDirs": {
+                                "type": "array",
+                                "description": "An array of directories relative to the project root that contain Clojure source files, e.g., src, test.",
+                                "default": [
+                                    "src",
+                                    "test"
+                                ]
+                            },
+                            "leinPath": {
+                                "type": "string",
+                                "description": "Path the the lein executable.",
+                                "default": "/usr/local/bin/lein"
+                            },
+                            "replHost": {
+                                "type": "string",
+                                "description": "Host on which the debugged REPL is running.",
+                                "default": "localhost"
+                            },
+                            "replPort": {
+                                "type": "number",
+                                "description": "Port on which the debugged nREPL is listening.",
+                                "default": 5555
+                            },
+                            "debugReplPort": {
+                                "type": "number",
+                                "description": "Port on which the client/debugger nREPL should listen.",
+                                "default": 5556
+                            },
+                            "debugPort": {
+                                "type": "number",
+                                "description": "JDI port on which the debugger should connect to the process to be debugged.",
+                                "default": 8030
+                            },
+                            "sideChannelPort": {
+                                "type": "number",
+                                "description": "Port on which the debugger should talk to the extension.",
+                                "default": 3030
+                            }
+                        }
+                    },
+                    "launch": {
+                        "required": [
+                            "toolsJar",
+                            "commandLine",
+                            "sideChannelPort"
+                        ],
+                        "properties": {
+                            "toolsJar": {
+                                "type": "string",
+                                "description": "Path to the tools.jar in your Java installation."
+                            },
+                            "srcDirs": {
+                                "type": "array",
+                                "description": "An arry of directories relative to the project root that contain Clojure source files, e.g., src, test.",
+                                "default": [
+                                    "src",
+                                    "test"
+                                ]
+                            },
+                            "commandLine": {
+                                "type": "array",
+                                "description": "Command to run to launch the debugged program.",
+                                "default": [
+                                    "lein",
+                                    "repl",
+                                    ":start",
+                                    "5555"
+                                ]
+                            },
+                            "console": {
+                                "enum": [
+                                    "internalConsole",
+                                    "integratedTerminal",
+                                    "externalTerminal"
+                                ],
+                                "description": "Console to to use for launched programs. Defaults to internal debug console.",
+                                "default": "internalConsole"
+                            },
+                            "leinPath": {
+                                "type": "string",
+                                "description": "Path the the lein executable.",
+                                "default": "/usr/local/bin/lein"
+                            },
+                            "replPort": {
+                                "type": "number",
+                                "description": "Port on which the debugged nREPL should listen.",
+                                "default": 5555
+                            },
+                            "debugReplPort": {
+                                "type": "number",
+                                "description": "Port on which the client/debugger nREPL should listen.",
+                                "default": 5556
+                            },
+                            "debugPort": {
+                                "type": "number",
+                                "description": "JDI port on which the debugger should connect to the process to be debugged.",
+                                "default": 8030
+                            },
+                            "sideChannelPort": {
+                                "type": "number",
+                                "description": "Port on which the debugger should talk to the extension.",
+                                "default": 3030
+                            },
+                            "env": {
+                                "type": "object",
+                                "description": "Environment variables passed to the program.",
+                                "default": {}
+                            },
+                            "cwd": {
+                                "type": "string",
+                                "description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
+                                "default": "${workspaceRoot}"
+                            },
+                            "refreshOnLaunch": {
+                                "type": "boolean",
+                                "description": "Automatically loads all namespaces on launch.",
+                                "default": true
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "commandLine": [
+                            "lein",
+                            "with-profile",
+                            "+debug-repl",
+                            "repl",
+                            ":start",
+                            ":port",
+                            "5555"
+                        ],
+                        "name": "Clojure-Debug",
+                        "type": "clojure",
+                        "request": "launch",
+                        "leinPath": "/usr/local/bin/lein",
+                        "toolsJar": "${env.JAVA_HOME}/lib/tools.jar",
+                        "sideChannelPort": 3030,
+                        "env": {},
+                        "cwd": "${workspaceRoot}",
+                        "refreshOnLaunch": true,
+                        "srcDirs": [
+                            "src",
+                            "test"
+                        ]
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  }
+    }
 }
