@@ -19,7 +19,7 @@
   },
 
   "os": [
-    "darwin"
+    "darwin", "linux"
   ],
   "galleryBanner": {
         "color": "#63B131",

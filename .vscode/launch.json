@@ -9,8 +9,7 @@
 			"args": [
 				"--extensionDevelopmentPath=${workspaceRoot}"
 			],
-			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/out"
+			"sourceMaps": true
 		},
 		{
 			"name": "clojure-debug server",
@@ -21,7 +20,6 @@
 			"stopOnEntry": false,
 			"args": [ "--server=4711" ],
 			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/out",
 			"cwd": "${workspaceRoot}"
 		},
 		{
