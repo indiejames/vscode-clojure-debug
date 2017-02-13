@@ -2,7 +2,7 @@
     "name": "continuum",
     "displayName": "Continuum (Preview)",
     "license": "MIT",
-    "version": "0.3.1",
+    "version": "0.3.2",
     "publisher": "jamesnorton",
     "description": "Clojure debugger / REPL / language support for VS Code.",
     "preview": true,
