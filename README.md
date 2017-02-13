@@ -40,6 +40,10 @@ Some of the features (mostly related to step debugging) are less reliable and sh
 
 ## Installation
 
+#### tl;dr
+
+Watch the [YouTube video](https://youtu.be/NtvVIgYev7I).
+
 #### Prerequisites
 * [Visual Studio Code](https://code.visualstudio.com/) 1.8.1 or higher
 * [leiningen](https://leiningen.org/) installed. Your project does not need to be a leiningen

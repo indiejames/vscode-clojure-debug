@@ -1,5 +1,9 @@
 # Changes
 
+## V0.3.1
+
+* Added link to YouTube video
+
 ## v0.3.0
 
 * Added confirmation of Linux support
