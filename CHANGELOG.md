@@ -1,5 +1,9 @@
 # Changes
 
+## V0.3.3
+
+* Re-added the YouTube video
+
 ## V0.3.2
 
 * Temporarily removed YouTube video link
