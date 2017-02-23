@@ -501,30 +501,43 @@ function connect(context: ExtensionContext, reqId: number, sock:SocketIO.Socket,
 	window.setStatusBarMessage("Attaching to debugged process");
 	let cfg = workspace.getConfiguration("clojure");
 
-	rconn.connect(host, port, (err: any, result: any) => {
-		if (refreshOnLaunch) {
-			rconn.refresh((err: any, result: any) => {
-				if (err) {
-					console.error(err);
-				} else {
-					outputChannel.appendLine(result);
-					rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
-						outputChannel.appendLine(result);
-						console.log("Compliment namespace loaded");
-						// if (!replActionsEnabled) {
-						// 	setUpReplActions(context, rconn);
-						// 	replActionsEnabled = true;
-						// }
-
-						replRunning = true;
-
-						sock.emit("connect-to-repl-complete", {id: reqId});
-
-						window.setStatusBarMessage("Attached to process");
-					});
+	rconn.connect(host, port,
+		(msg: any) => {
+			if (msg["out"]) {
+				pout(msg["out"])
+			} else {
+				if (msg["err"]) {
+					perr(msg["err"])
+				} else if (msg["value"]) {
+					// pout(msg["value"]);
 				}
-			});
-		}
+			}
+		},
+
+		(err: any, result: any) => {
+			if (refreshOnLaunch) {
+				rconn.refresh((err: any, result: any) => {
+					if (err) {
+						console.error(err);
+					} else {
+						outputChannel.appendLine(result);
+						rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
+							outputChannel.appendLine(result);
+							console.log("Compliment namespace loaded");
+							// if (!replActionsEnabled) {
+							// 	setUpReplActions(context, rconn);
+							// 	replActionsEnabled = true;
+							// }
+
+							replRunning = true;
+
+							sock.emit("connect-to-repl-complete", {id: reqId});
+
+							window.setStatusBarMessage("Attached to process");
+						});
+					}
+				});
+			}
 	});
 }
 

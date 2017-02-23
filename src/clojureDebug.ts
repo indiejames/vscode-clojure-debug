@@ -578,11 +578,20 @@ class ClojureDebugSession extends DebugSession {
       if ((output.search(/nREPL server started/) != -1)) {
 					self._debuggerState = DebuggerState.REPL_READY;
 					self.replConnection = new ReplConnection();
-					self.replConnection.connect("127.0.0.1", replPort, (err: any, result: any) => {
-						if (err) {
-							console.log(err);
-						}
-					});
+					self.replConnection.connect("127.0.0.1", replPort,
+					  (msg:any) => {
+							// we only care about values and errors, not stdout
+							if (msg["err"]) {
+								self.perr(msg["err"]);
+							} else if (msg["value"]) {
+								self.pout(msg["value"]);
+							}
+						},
+						(err: any, result: any) => {
+							if (err) {
+								console.log(err);
+							}
+						});
 
 				console.log("CONNECTED TO REPL");
 

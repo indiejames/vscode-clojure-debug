@@ -1,5 +1,9 @@
 # Changes
 
+## V0.3.4
+
+* Fixed an issue with output from threads.
+
 ## V0.3.3
 
 * Re-added the YouTube video

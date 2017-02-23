@@ -8,7 +8,7 @@ as language support and debugging.
 ## A Note about the Preview Version
 
 Most heavily tested on Mac OS X. Seems to work fine on Linux from my limited testing.
-I can confirm that it does not work (yet) on Windows
+I can confirm that debugging does not work (yet) on Windows
 due to issues in the underlying CDT library. I am working to get that fixed.
 Most of the features are operational and work well enough to provide a useful workflow at this point.
 Some of the features (mostly related to step debugging) are less reliable and should be used with care.

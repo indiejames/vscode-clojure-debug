@@ -6,6 +6,7 @@
 import {spawn} from 'child_process';
 import nrepl_client = require('jg-nrepl-client');
 
+interface msgHandlerType { (msg: any)}
 interface callbackType { (err: any, result: any): void }
 
 function escapeClojureCodeInString(code: string): string {
@@ -30,16 +31,25 @@ export class ReplConnection {
 	constructor() {
 	}
 
-	private doConnect(port: number, host: string, callback: callbackType) {
+	private doConnect(port: number, host: string, handler: msgHandlerType , callback: callbackType) {
 		let self = this;
 		console.log("Connecting to port " + port + " on host " + host + "...");
 		this.conn = nrepl_client.connect({port: port, host: host, verbose: false});
 
+		// keep trying until we connect to the REPL
 		this.conn.on('error', (error: any) => {
 			if (error.code == 'ECONNREFUSED'){
 				setTimeout(() => {
-					self.doConnect(port, host, callback);
+					self.doConnect(port, host, handler, callback);
 				}, 1000);
+			}
+		});
+
+		this.conn.messageStream.on('messageSequence', (id: string, messages: [any]) => {
+			for (var msg of messages) {
+				if (msg["session"] == self.session) {
+					handler(msg);
+				}
 			}
 		});
 
@@ -62,7 +72,7 @@ export class ReplConnection {
 	}
 
 	// set up the internal connection to a REPL
-	public connect(replHost: string, replPort: number, callback: callbackType) {
+	public connect(replHost: string, replPort: number, handler: msgHandlerType, callback: callbackType) {
 		let self = this;
 
 		if (this.conn){
@@ -75,7 +85,7 @@ export class ReplConnection {
 		}
 
 		// this.conn = nrepl_client.connect({port: replPort, host: replHost, verbose: false});
-		this.doConnect(replPort, replHost, callback);
+		this.doConnect(replPort, replHost, handler,callback);
 	}
 
 	public isConnected(){
