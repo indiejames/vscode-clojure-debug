@@ -348,6 +348,14 @@ class ClojureDebugSession extends DebugSession {
 		const outputEvent = new OutputEvent(text, category);
 		this.sendEvent(outputEvent);
 		console.log(text);
+
+		// let chalkGreen = chalk.green("GREEN!!!");
+		// const greenOutputEvent = new OutputEvent(chalkGreen, 'stdout');
+		// this.sendEvent(greenOutputEvent);
+		// const telEvent = new OutputEvent("telemetry", "telemetry");
+		// this.sendEvent(telEvent);
+		// let syntaxColorTest = highlight("(defn foo\n  \"Do something\"\n  [x]\n  (let [y 4]\n    (println y)))");
+		// console.log(syntaxColorTest);
 	}
 
 	protected pout(text) {

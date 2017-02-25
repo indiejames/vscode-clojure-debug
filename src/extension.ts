@@ -24,6 +24,7 @@ import {ClojureReferenceProvider} from './clojureReferenceProvider';
 import {EditorUtils} from './editorUtils';
 import edn = require('jsedn');
 import {} from 'languages';
+let lowlight = require("lowlight");
 
 let EXIT_CMD = "(System/exit 0)";
 var activeEditor = null;
@@ -60,8 +61,76 @@ var lastEvalExp = "";
 
 var evalResponse: any = {};
 
+// returns the ansi color coding corresponding to the css class given
+function cssToAnsi(cssClass: string): string {
+	let rval = ""
+
+	switch (cssClass) {
+		case 'hljs-name':
+			rval = "\x1b[34m";
+			break;
+
+		case 'hljs-builtin-name':
+			rval = "\x1b[35m";
+			break;
+
+		case 'hljs-string':
+			rval = "\x1b[31m";
+			break;
+
+		case 'hljs-number':
+			rval = "\x1b[36m"
+			break;
+
+		case 'hljs-comment':
+			rval = "\x1b[32m";
+			break;
+
+		default:
+			break;
+	}
+
+	return rval;
+}
+
+// recursively walk the output from lowlight to create an ansi colorized code string
+function walkCodeMap(acc: string, obj: any): string {
+	let rval = acc;
+	if (obj.type) {
+		if (obj.type == 'element') {
+			const properties = obj.properties
+			if (properties) {
+				const cssClass = properties.className[0]
+				const ansiCode = cssToAnsi(cssClass)
+				rval = rval + ansiCode
+			}
+
+			for (var child of obj.children) {
+				rval = walkCodeMap(rval, child)
+			}
+
+		} else if (obj.type == 'text') {
+			rval = rval + obj.value + "\x1b[39m"
+		}
+	} else {
+		// top level - iterate over value array
+		for (var nextObj of obj.value) {
+			rval = walkCodeMap(rval, nextObj)
+		}
+	}
+
+	return rval;
+}
+
+// add syntax highlighting using ansi color codes for the given clojure code
+function highlight(code: string): string {
+	const codeMap = lowlight.highlight('clojure', code)
+	return walkCodeMap("", codeMap)
+}
+
 function handleEvalResponse(response: Array<any>) {
 	window.setStatusBarMessage("Code Evaluated");
+	let cfg = workspace.getConfiguration("clojure");
 
 	for (var resp of response) {
 
@@ -76,7 +145,11 @@ function handleEvalResponse(response: Array<any>) {
 					ns = evalResponse["ns"];
 				}
 				pout(ns + "=>")
-				pout(lastEvalExp);
+				if (cfg.get('clojure.highlightSyntaxInRepl') == true) {
+					pout(highlight(lastEvalExp));
+				} else {
+					pout(lastEvalExp);
+				}
 
 				if (evalResponse["ex"]) {
 					perr(evalResponse["ex"])
