@@ -145,7 +145,7 @@ function handleEvalResponse(response: Array<any>) {
 					ns = evalResponse["ns"];
 				}
 				pout(ns + "=>")
-				if (cfg.get('clojure.highlightSyntaxInRepl') == true) {
+				if (cfg.get('highlightSyntaxInRepl') == true) {
 					pout(highlight(lastEvalExp));
 				} else {
 					pout(lastEvalExp);

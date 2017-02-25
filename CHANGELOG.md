@@ -1,5 +1,9 @@
 # Changes
 
+## V0.3.6
+
+* Fixed bug preventing syntax highlighting in REPL
+
 ## V0.3.5
 
 * Added syntax highlighting in REPL
