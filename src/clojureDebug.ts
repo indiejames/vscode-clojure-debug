@@ -95,6 +95,18 @@ export interface LaunchRequestArguments extends BaseRequestArguments {
 	refreshOnLaunch?: boolean;
 }
 
+// needed because Array.includes was not available on Windows or more likely I just don't know
+// what I'm doing with the different versions of TypeScript
+function includes(arry: any[number], val: number) {
+	for (var v of arry) {
+		if (v == val) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // get the subdirectories in the given directory
 // (see http://stackoverflow.com/questions/18112204/get-all-directories-within-directory-nodejs)
 function getSubDirectories(dirPath) {
@@ -233,10 +245,10 @@ class ClojureDebugSession extends DebugSession {
 			} else {
 
 				// check for perfect match by path and line number matching a set breakpoint
-				for (let path in this._breakPoints) {
-					const lines = this._breakPoints[path];
-					if(core.String.endsWith(path, debuggerPath) && lines.includes(line)) {
-						rval = path;
+				for (let srcPath in this._breakPoints) {
+					const lines = this._breakPoints[srcPath];
+					if(core.String.endsWith(srcPath, debuggerPath) && includes(lines, line)) {
+						rval = srcPath;
 						break;
 					}
 				}
@@ -405,9 +417,9 @@ class ClojureDebugSession extends DebugSession {
 			const reqData = self.requestData[respId];
 			const response = reqData["response"];
 			const args = reqData["args"];
-			const path = reqData["path"];
+			const pth = reqData["path"];
 			delete self.requestData[respId];
-			self.finishBreakPointsRequest(response, args, path)
+			self.finishBreakPointsRequest(response, args, pth)
 		});
 
 		// used to set the workspace root on debugger initialization
@@ -938,11 +950,11 @@ class ClojureDebugSession extends DebugSession {
 
 		const debugLines = JSON.stringify(clientLines, null, 4);
 		console.log(debugLines);
-		const path = args.source.path;
+		const srcPath = args.source.path;
 		// make exploded jar file paths amenable to cdt
-		const cdtPath = path.replace(".jar/", ".jar:/");
+		const cdtPath = srcPath.replace(".jar/", ".jar:/");
 		const reqId = this.getNextRequestId();
-		this.requestData[reqId] = {response: response, args: args, path: path};
+		this.requestData[reqId] = {response: response, args: args, path: srcPath};
 		const self = this;
 
 		this.replConnection.clearBreakpoints(cdtPath, (err: any, result: any) => {
@@ -950,7 +962,7 @@ class ClojureDebugSession extends DebugSession {
 				// TODO figure out what to do here
 				console.error(err);
 			} else {
-				const fileContents = readFileSync(path);
+				const fileContents = readFileSync(srcPath);
 				//const regex = /\(ns\s+?(.*?)(\s|\))/;
 				const regex = /\(ns(\s+\^\{[\s\S]*?\})?\s+([\w\.\-_\d\*\+!\?]+)/;
 				const ns = regex.exec(fileContents.toString())[2];
