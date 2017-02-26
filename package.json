@@ -19,7 +19,8 @@
     },
     "os": [
         "darwin",
-        "linux"
+        "linux",
+        "win32"
     ],
     "galleryBanner": {
         "color": "#63B131",

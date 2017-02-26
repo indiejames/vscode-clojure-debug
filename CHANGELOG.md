@@ -2,7 +2,7 @@
 
 ## V0.3.7
 
-* Added support for setting breakpoints on Windows
+* Added full Windows support
 
 ## V0.3.6
 
