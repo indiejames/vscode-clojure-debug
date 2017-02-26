@@ -1,5 +1,9 @@
 # Changes
 
+## V0.3.7
+
+* Added support for setting breakpoints on Windows
+
 ## V0.3.6
 
 * Fixed bug preventing syntax highlighting in REPL
