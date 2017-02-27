@@ -1,5 +1,14 @@
 # Changes
 
+## V0.3.9
+
+* Windows support should be working now
+* Synced version numbers for extension and debug-middleware
+
+## V0.3.8
+
+* Rolling back Windows support due to bugs
+
 ## V0.3.7
 
 * Added full Windows support
