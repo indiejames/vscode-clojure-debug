@@ -180,7 +180,7 @@ export class ReplConnection {
 
 	// find the completions for the prefix using Compliment
 	public findCompletions(ns: string, prefix: string, src: string, offset: number, callback: callbackType) {
-		this.conn.send({op: 'get-completions', ns: ns, prefix: prefix, src: src, pos: offset, session: this.commandSession}, callback);
+-		this.conn.send({op: 'get-completions', ns: ns, prefix: prefix, src: src, pos: offset, session: this.commandSession}, callback);
 	}
 
 	// get the docstring for the given var
@@ -246,6 +246,11 @@ export class ReplConnection {
 	// reload all namespaces
 	public superRefresh(callback: callbackType) {
 		this.conn.send({op: 'super-refresh', session: this.commandSession}, callback);
+	}
+
+	// fix namespace declaration
+	public fixNamespace(path: string, callback: callbackType) {
+		this.conn.send({op: 'fix-ns', path: path, session: this.commandSession}, callback);
 	}
 
 	public setIgnore(callback: callbackType) {

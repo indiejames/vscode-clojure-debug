@@ -35,25 +35,6 @@
 			"cwd": "${workspaceRoot}"
 		},
 		{
-			"name": "mock-debug server",
-			"type": "clojure",
-			"request": "launch",
-			"runtimeArgs": ["--harmony"],
-			"program": "${workspaceRoot}/src/mockDebug.ts",
-			"stopOnEntry": false,
-			"args": [ "--server=4711" ],
-			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/out",
-			"cwd": "${workspaceRoot}"
-		},
-		{
-			"name": "mock test",
-			"type": "mock",
-			"request": "launch",
-			"program": "${workspaceRoot}/README.md",
-			"stopOnEntry": true
-		},
-		{
 			"name": "Run Tests",
 			"type": "node",
 			"request": "launch",

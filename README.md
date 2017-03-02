@@ -23,6 +23,9 @@ Most heavily tested on Mac OS X. Seems to work fine on Linux and Windows from my
 * Examine stack frames / variables at breakpoint
 * Eval code at breakpoints
 * Project type agnostic (leiningen, boot, etc.)
+* New!!! **Fix namespace declaration** feature cleans up requires/imports.
+
+![fix namespace declares](http://i.imgur.com/dfcTdSX.gif)
 
 ### Planned Features
 
@@ -61,10 +64,10 @@ You can do this by adding the following to the profiles in your project.clj file
 {:debug-repl {:resource-paths ["/Library/Java/JavaVirtualMachines/jdk1.8.0_45.jdk/Contents/Home/lib/tools.jar"]
               :repl-options {:nrepl-middleware [debug-middleware.core/debug-middleware]}
               :dependencies [[org.clojure/clojure "1.8.0"]
-                             [debug-middleware "0.3.9"]]}
+                             [debug-middleware "0.3.10"]]}
 ```
 
-**IMPORTANT** When you update the Continuum extension to a newer version, be sure to update your dependency to match the extension version. The middleware version is synced to the the extension version, so if you are using extension version 1.0.0 then you should use version 1.0.0 for your debug-middleware dependency.
+**IMPORTANT** When you update the Continuum extension to a newer version, be sure to update your dependency to match the extension version. The middleware version is synced to the the extension version, so if you are using extension version x.y.z then you should use version x.y.z for your debug-middleware dependency.
 
 #### Setting up a launch.json file
 
@@ -245,6 +248,7 @@ The environment utilizes several Clojure libraries to enable various features.
 * a modified [cdt](https://clojars.org/org.clojars.jnorton/cdt) - the Clojure Debug Toolkit
 * [compliment](https://github.com/alexander-yakushev/compliment) is used to perform autocompletion
 * [cljfmt](https://github.com/weavejester/cljfmt) is used to support code reformatting
+* [slamhound](https://github.com/technomancy/slamhound) is used to clean namespace declarations
 
 ## Suggested User Settings
 

@@ -1,5 +1,9 @@
 # Changes
 
+## V0.3.10
+
+* Added support for auto-cleaning namespace declarations via slamhound
+
 ## V0.3.9
 
 * Windows support should be working now

@@ -8,7 +8,7 @@ import * as path from 'path';
 import {join} from 'path';
 import http = require('http');
 import s = require('socket.io');
-import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration, StatusBarItem, TextEditor } from 'vscode';
+import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration, StatusBarItem, TextEditor, TextEditorEdit } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
@@ -563,6 +563,30 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 			}
 		}
 	}));
+
+	activeReplActions.push(commands.registerCommand('clojure.fix-namespace-declaration', () => {
+		if(!replRunning) {
+			window.showErrorMessage("Please launch or attach to a REPL before attempting to autofix a namespace declaration.");
+		} else {
+			window.setStatusBarMessage("$(pulse) Fixing NS Declaration")
+			const path = EditorUtils.getFilePath(activeEditor);
+			rconn.fixNamespace(path, (err: any, result: any) => {
+				if (err) {
+					console.log(err);
+				} else {
+					let nsDeclaration: string = result[0]["value"];
+					nsDeclaration = nsDeclaration.replace(/\\n/g, "\n").replace(/"/g, "").replace(/\\/g, "\"");
+					// replace the declaration in the open file
+					const nsRange = EditorUtils.findNSDeclarationRange(activeEditor);
+					let editor: TextEditor = activeEditor;
+					editor.edit((editBuilder: TextEditorEdit) => {
+						editBuilder.replace(nsRange, nsDeclaration);
+						window.setStatusBarMessage("Namespace Declaration Fixed")
+					});
+				}
+			});
+		}
+	}))
 
 	context.subscriptions.concat(activeReplActions);
 

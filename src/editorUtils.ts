@@ -85,7 +85,7 @@ export namespace EditorUtils {
     var rangeStart: number;
     let text = editor.document.getText();
 
-    // iterate over all the charactrers in the document
+    // iterate over all the characters in the document
     for (var i = 0; i < text.length; i++) {
       let currentChar = text[i];
       if (inString) {
@@ -122,17 +122,16 @@ export namespace EditorUtils {
   }
 
   //Find the innermost form containing the cursor
-  export function getInnermostForm(editor: TextEditor) {
+  export function getInnermostFormRange(editor: TextEditor, position: Position) {
     if (!editor) {
       return; // No open text editor
     }
 
     let scopes = getScopes(editor);
 
-    var position = editor.selection.active;
     let offset = editor.document.offsetAt(position);
 
-    // find the form containg the offset
+    // find the form containing the offset
     let text = editor.document.getText();
     var start = -1;
     var end = -1;
@@ -177,7 +176,24 @@ export namespace EditorUtils {
     let startPos = editor.document.positionAt(start);
     let endPos = editor.document.positionAt(end);
 
-    return editor.document.getText(new Range(startPos, endPos));
+    return new Range(startPos, endPos);
+
+  }
+
+  export function getInnermostForm(editor: TextEditor) {
+    if (!editor) {
+      return; // No open text editor
+    }
+
+    var position = editor.selection.active;
+
+    const range = getInnermostFormRange(editor, position);
+
+    if (!range) {
+      return
+    }
+
+    return editor.document.getText(range);
 
   }
 
@@ -215,6 +231,7 @@ export namespace EditorUtils {
       return ns;
     }
 
+
     // Find the namespace for the currently open file
     export function findNSForCurrentEditor(editor: TextEditor): string {
       // get the contents of the current edtior
@@ -222,7 +239,7 @@ export namespace EditorUtils {
         return; // No open text editor
       }
 
-      var text = editor.document.getText();
+      const text = editor.document.getText();
 
       return findNSDeclaration(text);
     }
@@ -328,6 +345,26 @@ export namespace EditorUtils {
       }
 
       return [startPos, endPos];
+
+    }
+
+    // Finds the Range occupied by the namespace declaration
+    export function findNSDeclarationRange(editor: TextEditor): Range {
+      if (!editor) {
+        return;
+      }
+
+      const text = editor.document.getText();
+      let nsDeclare = "(ns";
+      let charPos = text.indexOf(nsDeclare);
+      if (charPos != -1) {
+        const positions = findContainingBracketPositions(text, charPos + 1);
+        const editStart = editor.document.positionAt(positions[0]);
+        const editEnd = editor.document.positionAt(positions[1]);
+        return new Range(editStart, editEnd);
+      }
+
+      return;
 
     }
 
