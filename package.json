@@ -73,9 +73,7 @@
         "test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
     },
     "activationEvents": [
-        "workspaceContains:project.clj",
-        "workspaceContains:build.boot",
-        "onLanguage:clojure"
+        "onCommand:clojure.startSession"
     ],
     "main": "./out/extension",
     "contributes": {
@@ -83,6 +81,41 @@
             "type": "object",
             "title": "Clojure configuration",
             "properties": {
+                "clojure.refreshOnLaunch": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether or not to issue a refresh command after launching the debugger."
+                },
+                "clojure.leinPath": {
+                    "type": "string",
+                    "default": null,
+                    "description": "Absolute path to the lein command"
+                },
+                "clojure.toolsJar": {
+                    "type": "string",
+                    "default": null,
+                    "description": "Absolute path to the tools.jar file (JAVA JDI jar file)"
+                },
+                "clojure.replPort": {
+                    "type": "number",
+                    "default": 5555,
+                    "description": "Default port on which debugged REPLs will be launched"
+                },
+                "clojure.debugReplPort": {
+                    "type": "number",
+                    "default": 5556,
+                    "description": "Default port on which the debugger REPL will be launched"
+                },
+                "clojure.debugPort": {
+                    "type": "number",
+                    "default": 8030,
+                    "description": "Default port on which the Java Debug Interface code will listen for attaching debuggers"
+                },
+                "clojure.sideChannelPort": {
+                    "type": "number",
+                    "default": 3030,
+                    "description": "Default port used for internal commnuication between processes making up the extension."
+                },
                 "clojure.refreshNamespacesBeforeRunnningAllTests": {
                     "type": "boolean",
                     "default": true,
@@ -126,11 +159,6 @@
                 "command": "clojure.expand_selection",
                 "title": "Clojure: Expand Selection",
                 "description": "Expand selection to containing brackets/parentheses."
-            },
-            {
-                "command": "clojure.debug",
-                "title": "Clojure: Start REPL",
-                "description": "Start a REPL."
             },
             {
                 "command": "clojure.load-file",
@@ -192,11 +220,10 @@
                 },
                 "program": "./out/clojureDebug.js",
                 "runtime": "node",
+                "startSessionCommand": "clojure.startSession",
                 "configurationAttributes": {
                     "attach": {
                         "required": [
-                            "toolsJar",
-                            "sideChannelPort"
                         ],
                         "properties": {
                             "toolsJar": {
@@ -209,14 +236,6 @@
                                 "description": "Workspace relative or absolute path to the working directory of the program being debugged. Default is the current workspace.",
                                 "default": "${workspaceRoot}"
                             },
-                            "srcDirs": {
-                                "type": "array",
-                                "description": "An array of directories relative to the project root that contain Clojure source files, e.g., src, test.",
-                                "default": [
-                                    "src",
-                                    "test"
-                                ]
-                            },
                             "leinPath": {
                                 "type": "string",
                                 "description": "Path the the lein executable.",
@@ -224,59 +243,38 @@
                             },
                             "replHost": {
                                 "type": "string",
-                                "description": "Host on which the debugged REPL is running.",
-                                "default": "localhost"
+                                "description": "Host on which the debugged REPL is running."
                             },
                             "replPort": {
                                 "type": "number",
-                                "description": "Port on which the debugged nREPL is listening.",
-                                "default": 5555
+                                "description": "Port on which the debugged nREPL is listening."
                             },
                             "debugReplPort": {
                                 "type": "number",
-                                "description": "Port on which the client/debugger nREPL should listen.",
-                                "default": 5556
+                                "description": "Port on which the client/debugger nREPL should listen."
                             },
                             "debugPort": {
                                 "type": "number",
-                                "description": "JDI port on which the debugger should connect to the process to be debugged.",
-                                "default": 8030
+                                "description": "JDI port on which the debugger should connect to the process to be debugged."
                             },
                             "sideChannelPort": {
                                 "type": "number",
-                                "description": "Port on which the debugger should talk to the extension.",
-                                "default": 3030
+                                "description": "Port on which the debugger should talk to the extension."
                             }
                         }
                     },
                     "launch": {
                         "required": [
-                            "toolsJar",
-                            "commandLine",
-                            "sideChannelPort"
+                            "commandLine"
                         ],
                         "properties": {
                             "toolsJar": {
                                 "type": "string",
                                 "description": "Path to the tools.jar in your Java installation."
                             },
-                            "srcDirs": {
-                                "type": "array",
-                                "description": "An arry of directories relative to the project root that contain Clojure source files, e.g., src, test.",
-                                "default": [
-                                    "src",
-                                    "test"
-                                ]
-                            },
                             "commandLine": {
                                 "type": "array",
-                                "description": "Command to run to launch the debugged program.",
-                                "default": [
-                                    "lein",
-                                    "repl",
-                                    ":start",
-                                    "5555"
-                                ]
+                                "description": "Command to run to launch the debugged program."
                             },
                             "console": {
                                 "enum": [
@@ -344,16 +342,7 @@
                         "name": "Clojure-Debug",
                         "type": "clojure",
                         "request": "launch",
-                        "leinPath": "/usr/local/bin/lein",
-                        "toolsJar": "${env.JAVA_HOME}/lib/tools.jar",
-                        "sideChannelPort": 3030,
-                        "env": {},
-                        "cwd": "${workspaceRoot}",
-                        "refreshOnLaunch": true,
-                        "srcDirs": [
-                            "src",
-                            "test"
-                        ]
+                        "env": {}
                     }
                 ]
             }
