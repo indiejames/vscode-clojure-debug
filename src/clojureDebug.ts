@@ -25,6 +25,7 @@ let chalk = require("chalk");
 let find = require('find');
 let core = require('core-js/library');
 
+let VS_CODE_CONTINUUM_VERSION = "0.3.10";
 let EXIT_CMD = "(System/exit 0)";
 
 let projectClj = `(defproject repl_connect "0.1.0-SNAPSHOT"
@@ -32,11 +33,10 @@ let projectClj = `(defproject repl_connect "0.1.0-SNAPSHOT"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :profiles {:dev {:dependencies [[debug-middleware "0.1.2-SNAPSHOT"]]
+  :profiles {:dev {:dependencies [[debug-middleware #=(eval (System/getenv \"VS_CODE_CONTINUUM_VERSION\"))]]
                    :repl-options {:nrepl-middleware [debug-middleware.core/debug-middleware]}}}
   :resource-paths []
-  :dependencies [[org.clojure/clojure "1.8.0"]
-                 [debug-middleware "0.1.2-SNAPSHOT"]])`;
+  :dependencies [[org.clojure/clojure "1.8.0"]])`;
 
 // Constants to represent the various states of the debugger
 class DebuggerState {
@@ -50,6 +50,7 @@ class DebuggerState {
 class DebuggerSubState {
 	public static get NOOP(): string { return "NOOP"; }
 	public static get EVENT_IN_PROGRESS(): string { return "EVENT_IN_PROGRESS"; }
+	public static get BREAKPOINT_HIT(): string { return "BREAKPOINT_HIT"; }
 }
 
 /**
@@ -521,7 +522,7 @@ class ClojureDebugSession extends DebugSession {
 
 			switch (eventType) {
 				case "breakpoint":
-
+					this._debuggerSubState = DebuggerSubState.BREAKPOINT_HIT
 					console.log("Sending breakpoint event to debugger for thread " + threadId);
 					this.sendEvent(new StoppedEvent("breakpoint", threadId));
 					break;
@@ -576,8 +577,8 @@ class ClojureDebugSession extends DebugSession {
 				this.threadIndex = this.threadIndex + 1;
 			}
 
-			// TODO - is this necessary?
 			if (event == "breakpoint") {
+				this._debuggerSubState = DebuggerSubState.BREAKPOINT_HIT;
 				const src = eventMap["src"];
 				const line = eventMap["line"];
 				this.sendEvent(new StoppedEvent("breakpoint", threadId));
@@ -673,7 +674,7 @@ class ClojureDebugSession extends DebugSession {
 		const self = this;
 		this.baseArgs = args;
 
-		const env = {"HOME": process.env["HOME"]};
+		const env = {"HOME": process.env["HOME"], "VS_CODE_CONTINUUM_VERSION": VS_CODE_CONTINUUM_VERSION};
 
 		let primaryReplPort = 5555;
 		if (args.replPort) {
@@ -770,12 +771,14 @@ class ClojureDebugSession extends DebugSession {
 			jvmOpts = jvmOpts + " " + args.env["JVM_OPTS"];
 		}
 
-		const env = {"HOME": home, "CLOJURE_DEBUG_JDWP_PORT": "" + debugPort, "JVM_OPTS": jvmOpts};
+		let env = {"HOME": home, "CLOJURE_DEBUG_JDWP_PORT": "" + debugPort, "JVM_OPTS": jvmOpts};
 		for (let attrname in args.env) {
 			if (attrname != "JVM_OPTS") {
 				env[attrname] = args.env[attrname];
 			}
 		}
+
+		env["VS_CODE_CONTINUUM_VERSION"] = VS_CODE_CONTINUUM_VERSION;
 
 		const runArgs: DebugProtocol.RunInTerminalRequestArguments = {
 			kind: 'integrated',
@@ -903,7 +906,6 @@ class ClojureDebugSession extends DebugSession {
 		// make exploded jar file paths amenable to cdt
 		cdtPath = cdtPath.replace(".jar/", ".jar:");
 
-
 		const debugLines = JSON.stringify(clientLines, null, 4);
 		console.log(debugLines);
 		const newPositions = [clientLines.length];
@@ -957,22 +959,36 @@ class ClojureDebugSession extends DebugSession {
 		this.requestData[reqId] = {response: response, args: args, path: srcPath};
 		const self = this;
 
-		this.replConnection.clearBreakpoints(cdtPath, (err: any, result: any) => {
-			if (err) {
-				// TODO figure out what to do here
-				console.error(err);
-			} else {
-				const fileContents = readFileSync(srcPath);
-				//const regex = /\(ns\s+?(.*?)(\s|\))/;
-				const regex = /\(ns(\s+\^\{[\s\S]*?\})?\s+([\w\.\-_\d\*\+!\?]+)/;
-				const ns = regex.exec(fileContents.toString())[2];
+		if (this._debuggerSubState == DebuggerSubState.BREAKPOINT_HIT) {
+			self.replConnection.clearBreakpoints(cdtPath, (err: any, result: any) => {
+				if (err) {
+					// TODO figure out what to do here
+					console.error(err);
+				} else {
+					// don't try to load the namespace first if we are already
+					// at a breakpoint
+					self.finishBreakPointsRequest(response, args, srcPath);
+				}
+			});
+		} else {
+			this.replConnection.clearBreakpoints(cdtPath, (err: any, result: any) => {
+				if (err) {
+					// TODO figure out what to do here
+					console.error(err);
+				} else {
+					const fileContents = readFileSync(srcPath);
+					//const regex = /\(ns\s+?(.*?)(\s|\))/;
+					const regex = /\(ns(\s+\^\{[\s\S]*?\})?\s+([\w\.\-_\d\*\+!\?]+)/;
+					const ns = regex.exec(fileContents.toString())[2];
 
-				// Load the associated namespace into the REPL.
-				// We have to use the extension connection to load the namespace
-				// We must wait for the response before replying with the SetBreakpointResponse.
-				self.sideChannel.emit("load-namespace", {id: reqId, ns: ns});
-			}
-		});
+					// Load the associated namespace into the REPL.
+					// We have to use the extension connection to load the namespace
+					// We must wait for the response before replying with the SetBreakpointResponse.
+					self.sideChannel.emit("load-namespace", {id: reqId, ns: ns});
+				}
+			});
+
+		}
 
 		// TODO reject breakpoint requests outside of a namespace
 
@@ -1139,6 +1155,7 @@ class ClojureDebugSession extends DebugSession {
 		const debug = this;
 		this.replConnection.continue((err: any, result: any) => {
 			// TODO handle errors here
+			debug._debuggerSubState = DebuggerSubState.NOOP;
 			debug.sendResponse(response);
 			console.log(result);
 		});

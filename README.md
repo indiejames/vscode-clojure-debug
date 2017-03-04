@@ -55,19 +55,19 @@ project, but leiningen is used internally by the debugger.
 From the command palette (`cmd-shift-p`) select `Install Extension` and choose `Continuum`.
 
 #### Add the Debug Middleware to Your Project
+
 After installing the extension in VS Code you need to add The nREPL debug middleware to your
 project. If you are using leiningen the best way to do this is through a custom profile.
 For a description of profiles see the [leiningen profiles documentation](https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md).
 You can do this by adding the following to the profiles in your project.clj file or to profiles.clj. Modify the path to the tools.jar file as appropriate.
 
 ``` clojure
-{:debug-repl {:resource-paths ["/Library/Java/JavaVirtualMachines/jdk1.8.0_45.jdk/Contents/Home/lib/tools.jar"]
+{:debug-repl {:resource-paths ["/Library/Java/JavaVirtualMachines/jdk1.8.0_74.jdk/Contents/Home/lib/tools.jar"]
               :repl-options {:nrepl-middleware [debug-middleware.core/debug-middleware]}
-              :dependencies [[org.clojure/clojure "1.8.0"]
-                             [debug-middleware "0.3.10"]]}
+              :dependencies [[debug-middleware #=(eval (System/getenv "VS_CODE_CONTINUUM_VERSION"))]]}}
 ```
 
-**IMPORTANT** When you update the Continuum extension to a newer version, be sure to update your dependency to match the extension version. The middleware version is synced to the the extension version, so if you are using extension version x.y.z then you should use version x.y.z for your debug-middleware dependency.
+**IMPORTANT** *The middleware version is now synced to the extension version. The best way to make sure you are using the proper middleware version to match your extension version is to use dynamic evaluation of the version in your dependency definition. Continuum now exports an environment variable on launch (`VS_CODE_CONTINUUM_VERSION`) that can be used in your `profiles.clj` or other means of declaring the dependency. The sample profiles.clj file above shows how to do this for leiningen projects. If you are starting the REPL yourself and attaching the debugger to it then you need to be sure you start the REPL with the correct version of the debug-middleware.*
 
 #### Setting up a launch.json file
 
