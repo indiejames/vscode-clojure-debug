@@ -1,5 +1,7 @@
 # Visual Studio Code Continuum (PREVIEW)
 
+[![Join the chat at https://gitter.im/vscode-continuum/Lobby](https://badges.gitter.im/vscode-continuum/Lobby.svg)](https://gitter.im/vscode-continuum/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Continuum is a VS Code extension/debugger for developing Clojure. It provides a REPL as well
 as language support and debugging.
 
