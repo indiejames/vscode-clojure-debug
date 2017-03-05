@@ -158,7 +158,7 @@ function handleEvalResponse(response: Array<any>) {
 					perr("Root exception: " + evalResponse["root-ex"]);
 				}
 				if (evalResponse["out"]) {
-					pout(evalResponse["out"]);
+					//pout(evalResponse["out"]);
 				}
 				if (evalResponse["value"]) {
 					pout (evalResponse["value"]);
@@ -198,7 +198,7 @@ function perr(data: any) {
 	}
 }
 
-function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
+function initSideChannel(sideChannelPort: number) {
 	// start up a side channel that the debug adapter can use to query the extension
 
 	console.log("Setting up side channel on port " + sideChannelPort);
@@ -213,7 +213,7 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
 			const hostPortString = data["hostPort"];
 			var host, port;
 			[host, port] = hostPortString.split(":");
-			connect(context, reqId, sock, host, port);
+			connect(reqId, sock, host, port);
 
 		});
 
@@ -299,9 +299,9 @@ function initSideChannel(context: ExtensionContext, sideChannelPort: number) {
 
 		sock.on('exit', (data) => {
 			replRunning = false;
+			sideChannelSocket = null;
+			sideChannel.close();
 			rconn.close((err: any, msg: any) : any => {
-				sideChannelSocket = null;
-				sideChannel.close();
 				console.log("Connection closed)");
 			});
 		});
@@ -328,42 +328,43 @@ function setUpActions(context: ExtensionContext) {
 	context.subscriptions.push(commands.registerCommand('clojure.expand_selection', () => {
 		EditorUtils.selectBrackets(activeEditor);
 	}));
-	context.subscriptions.push(commands.registerCommand('clojure.debug', () => {
-		// if launch.json exists and there are available configurations then offer a menu of choices to the user
-		let launchJson = parseLaunchJson();
-		if (launchJson) {
+	context.subscriptions.push(commands.registerCommand('clojure.startSession',config => startSession(config)))
+	// context.subscriptions.push(commands.registerCommand('clojure.debug', () => {
+	// 	// if launch.json exists and there are available configurations then offer a menu of choices to the user
+	// 	let launchJson = parseLaunchJson();
+	// 	if (launchJson) {
 
-			const configNames = launchJson["configurations"].map((config: any) => {
-				return config["name"];
-			});
+	// 		const configNames = launchJson["configurations"].map((config: any) => {
+	// 			return config["name"];
+	// 		});
 
-			if (!configNames || configNames.length < 1) {
-					window.showErrorMessage("Please add at least one configuration to launch.json before launching the debugger.");
-			} else {
-				const options = {placeHolder: "Choose a launch profile"};
-				window.showQuickPick(configNames, options).then((res)=> {
-					if (res) {
-						let configName = res;
-						let index = configNames.indexOf(configName);
-						let sideChannelPort: number = launchJson["configurations"][index]["sideChannelPort"];
+	// 		if (!configNames || configNames.length < 1) {
+	// 				window.showErrorMessage("Please add at least one configuration to launch.json before launching the debugger.");
+	// 		} else {
+	// 			const options = {placeHolder: "Choose a launch profile"};
+	// 			window.showQuickPick(configNames, options).then((res)=> {
+	// 				if (res) {
+	// 					let configName = res;
+	// 					let index = configNames.indexOf(configName);
+	// 					let sideChannelPort: number = launchJson["configurations"][index]["sideChannelPort"];
 
-						let refresh = launchJson["configurations"][index]["refreshOnLaunch"];
-						if (refresh == false) {
-							refreshOnLaunch = false;
-						} else {
-							refreshOnLaunch = true;
-						}
-						initSideChannel(context, sideChannelPort);
-						window.setStatusBarMessage("Starting deugger");
-						commands.executeCommand('vscode.startDebug', configName);
-					}
-				});
-			}
-		} else {
-			window.showErrorMessage("Please create a launch.json file and add at least one configuration before launching the debugger.");
-		}
+	// 					let refresh = launchJson["configurations"][index]["refreshOnLaunch"];
+	// 					if (refresh == false) {
+	// 						refreshOnLaunch = false;
+	// 					} else {
+	// 						refreshOnLaunch = true;
+	// 					}
+	// 					initSideChannel(sideChannelPort);
+	// 					window.setStatusBarMessage("Starting deugger");
+	// 					commands.executeCommand('vscode.startDebug', configName);
+	// 				}
+	// 			});
+	// 		}
+	// 	} else {
+	// 		window.showErrorMessage("Please create a launch.json file and add at least one configuration before launching the debugger.");
+	// 	}
 
-	}));
+	// }));
 }
 
 function removeReplActions(context: ExtensionContext) {
@@ -485,7 +486,7 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 
 	activeReplActions.push(commands.registerCommand('clojure.superRefresh', () => {
 		if (!replRunning) {
-			window.showErrorMessage("Please launch or attach to a REPL refreshing code.");
+			window.showErrorMessage("Please launch or attach to a REPL before refreshing code.");
 		} else {
 			rconn.superRefresh((err: any, result: any) : void => {
 				// TODO handle errors here
@@ -593,7 +594,7 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 }
 
 // Create a connection to the debugged process and run some init code
-function connect(context: ExtensionContext, reqId: number, sock:SocketIO.Socket, host: string, port: number) {
+function connect(reqId: number, sock:SocketIO.Socket, host: string, port: number) {
 	console.log("Attaching to debugged process");
 	window.setStatusBarMessage("Attaching to debugged process");
 	let cfg = workspace.getConfiguration("clojure");
@@ -621,10 +622,6 @@ function connect(context: ExtensionContext, reqId: number, sock:SocketIO.Socket,
 						rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
 							outputChannel.appendLine(result);
 							console.log("Compliment namespace loaded");
-							// if (!replActionsEnabled) {
-							// 	setUpReplActions(context, rconn);
-							// 	replActionsEnabled = true;
-							// }
 
 							replRunning = true;
 
@@ -636,6 +633,75 @@ function connect(context: ExtensionContext, reqId: number, sock:SocketIO.Socket,
 				});
 			}
 	});
+}
+
+function fillInConfig(config: any): any {
+	let extConfig = workspace.getConfiguration("clojure");
+	if (!config["toolsJar"]) {
+		config["toolsJar"] = extConfig["toolsJar"];
+	}
+
+	if (!config["leinPath"]) {
+		config["leinPath"] = extConfig["leinPath"];
+	}
+
+	if (config["refreshOnLaunch"] == null) {
+		config["refreshOnLaunch"] = extConfig["refreshOnLaunch"];
+	}
+
+	if (!config["replPort"]) {
+		config["replPort"] = extConfig["replPort"];
+	}
+
+	if (!config["debugReplPort"]) {
+		config["debugReplPort"] = extConfig["debugReplPort"];
+	}
+
+	if (!config["debugPort"]) {
+		config["debugPort"] = extConfig["debugPort"];
+	}
+
+	if (!config["sideChannelPort"]) {
+		config["sideChannelPort"] = extConfig["sideChannelPort"];
+	}
+
+	if (!config["cwd"]) {
+		config["cwd"] = workspace.rootPath;
+	}
+
+	return config;
+}
+
+/**
+ * The result type of the startSession command.
+ */
+class StartSessionResult {
+	status: 'ok' | 'initialConfiguration' | 'saveConfiguration';
+	content?: string;	// launch.json content for 'save'
+};
+
+function startSession(config: any): StartSessionResult {
+	let result = new StartSessionResult();
+
+	config = fillInConfig(config);
+
+	const refresh = config["refreshOnLaunch"];
+	if (refresh == false) {
+		refreshOnLaunch = false;
+	} else {
+		refreshOnLaunch = true;
+	}
+
+	result.status = 'ok';
+	result.content = config;
+	let fixConfig = Promise.resolve<any>();
+	fixConfig.then(() => {
+		window.setStatusBarMessage("Starting deugger");
+		commands.executeCommand('vscode.startDebug', config);
+	});
+	const sideChannelPort = config["sideChannelPort"];
+	initSideChannel(sideChannelPort);
+	return result;
 }
 
 export function activate(context: ExtensionContext) {

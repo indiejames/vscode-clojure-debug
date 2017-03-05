@@ -25,7 +25,7 @@ let chalk = require("chalk");
 let find = require('find');
 let core = require('core-js/library');
 
-let VS_CODE_CONTINUUM_VERSION = "0.3.10";
+let VS_CODE_CONTINUUM_VERSION = "0.4.0";
 let EXIT_CMD = "(System/exit 0)";
 
 let projectClj = `(defproject repl_connect "0.1.0-SNAPSHOT"
@@ -361,14 +361,6 @@ class ClojureDebugSession extends DebugSession {
 		const outputEvent = new OutputEvent(text, category);
 		this.sendEvent(outputEvent);
 		console.log(text);
-
-		// let chalkGreen = chalk.green("GREEN!!!");
-		// const greenOutputEvent = new OutputEvent(chalkGreen, 'stdout');
-		// this.sendEvent(greenOutputEvent);
-		// const telEvent = new OutputEvent("telemetry", "telemetry");
-		// this.sendEvent(telEvent);
-		// let syntaxColorTest = highlight("(defn foo\n  \"Do something\"\n  [x]\n  (let [y 4]\n    (println y)))");
-		// console.log(syntaxColorTest);
 	}
 
 	protected pout(text) {
@@ -815,7 +807,7 @@ class ClojureDebugSession extends DebugSession {
 
 		} else {
 			// debug console launch
-			 let cmd = args.commandLine[0];
+			let cmd = args.commandLine[0];
 
 			let cmdArgs = args.commandLine.slice(1, args.commandLine.length);
 
@@ -824,7 +816,6 @@ class ClojureDebugSession extends DebugSession {
 			this.primaryRepl.stdout.on('data', (data) => {
 				const output = '' + data;
 				self.pout(output);
-				console.log(output);
 
 				if ((output.search(/nREPL server started/) != -1)) {
 					this.setUpDebugREPL(response, args);

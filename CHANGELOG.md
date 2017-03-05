@@ -1,5 +1,11 @@
 # Changes
 
+## V0.4.0
+
+* Starting the REPL/debugger is now done using the standard VS Code debugger launch button instead of using the command palette
+* Extension now exports `VS_CODE_CONTINUUM_VERSION` as an environment variable that can be used in profiles.clj to automatically keep the debug-middleware version in sync with the extension version.
+* Fixed bug that was preventing adding or removing breakpoints when stopped at a breakpoint.
+
 ## V0.3.10
 
 * Added support for auto-cleaning namespace declarations via slamhound
