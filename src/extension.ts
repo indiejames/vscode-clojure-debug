@@ -158,7 +158,7 @@ function handleEvalResponse(response: Array<any>) {
 					perr("Root exception: " + evalResponse["root-ex"]);
 				}
 				if (evalResponse["out"]) {
-					pout(evalResponse["out"]);
+					//pout(evalResponse["out"]);
 				}
 				if (evalResponse["value"]) {
 					pout (evalResponse["value"]);

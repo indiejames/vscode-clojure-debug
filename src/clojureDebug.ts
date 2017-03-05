@@ -816,7 +816,6 @@ class ClojureDebugSession extends DebugSession {
 			this.primaryRepl.stdout.on('data', (data) => {
 				const output = '' + data;
 				self.pout(output);
-				console.log(output);
 
 				if ((output.search(/nREPL server started/) != -1)) {
 					this.setUpDebugREPL(response, args);
