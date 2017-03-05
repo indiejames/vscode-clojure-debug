@@ -25,7 +25,7 @@ let chalk = require("chalk");
 let find = require('find');
 let core = require('core-js/library');
 
-let VS_CODE_CONTINUUM_VERSION = "0.3.10";
+let VS_CODE_CONTINUUM_VERSION = "0.4.0";
 let EXIT_CMD = "(System/exit 0)";
 
 let projectClj = `(defproject repl_connect "0.1.0-SNAPSHOT"
