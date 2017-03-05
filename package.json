@@ -2,7 +2,7 @@
     "name": "continuum",
     "displayName": "Continuum (Preview)",
     "license": "MIT",
-    "version": "0.3.10",
+    "version": "0.4.0",
     "publisher": "jamesnorton",
     "description": "Clojure debugger / nREPL / language support for VS Code.",
     "preview": true,
@@ -223,8 +223,7 @@
                 "startSessionCommand": "clojure.startSession",
                 "configurationAttributes": {
                     "attach": {
-                        "required": [
-                        ],
+                        "required": [],
                         "properties": {
                             "toolsJar": {
                                 "type": "string",
