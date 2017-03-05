@@ -1,5 +1,9 @@
 # Changes
 
+## V0.4.1
+
+* Added note at top of README.md to let users know about changes to REPL startup procedure.
+
 ## V0.4.0
 
 * Starting the REPL/debugger is now done using the standard VS Code debugger launch button instead of using the command palette
