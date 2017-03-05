@@ -23,7 +23,7 @@ Most heavily tested on Mac OS X. Seems to work fine on Linux and Windows from my
 * Examine stack frames / variables at breakpoint
 * Eval code at breakpoints
 * Project type agnostic (leiningen, boot, etc.)
-* New!!! **Fix namespace declaration** feature cleans up requires/imports.
+* Fix namespace declaration - cleans up requires/imports.
 
 ![fix namespace declares](http://i.imgur.com/dfcTdSX.gif)
 
@@ -35,7 +35,7 @@ Most heavily tested on Mac OS X. Seems to work fine on Linux and Windows from my
 * Find references
 * Linter support
 * Test result / VS Code problems view integration
-* Exception stack trace jump to file
+* Exception stack traces with links to jump to file
 
 ## Installation
 
@@ -77,12 +77,10 @@ You can get started by opening a Clojure project in VS Code and creating a launc
 
 ![LAUNCH_JSON](https://media.giphy.com/media/l3q30oPyeg6hkQmje/source.gif)
 
-A launch.json file will be created with a default launch configuration. You should edit this file for your own environment. VS Code provides Intellisense support when editing this file to help you make valid choices. The full details of the available settings are documented at the end of this readme file, but for now the fields you need to change are the following:
+A launch.json file will be created with a default launch configuration. You should edit this file for your own environment. VS Code provides Intellisense support when editing this file to help you make valid choices. Also, as of version 0.4.0, you can set defaults for several of the fields in the extension preferences. These defaults will be used for any of the fields you leave blank. The full details of the available settings are documented at the end of this readme file, but for now the only field you need to change is the following:
 
-* `commandLine` - the exact command plus arguments needed to launch your REPL. The default uses leiningen and sets the profile to `debug-repl` (the one defined in the example above). You _do not_ need to use leiningen, but you do need to make sure the REPL uses the debug middleware. Also, if you do not start the REPL on port 5555 then you need to specify the port in the launch configuration using the `replPort` setting. This gives you maximum flexibility in choosing the way to launch your code. It just has to run in (or provide) nREPL running with the debug middleware.
-* `replPort` - Set this if you are not launching on port 5555.
-* `leinPath` - You must set the path to the `lein` command even if you are not using leiningen to launch your program. The debugger starts up an internal nREPL that it uses to make a JDI (debugging) connection to your program and needs leiningen for this.
-* `toolsJar` - You must set this to the path of the Java `tools.jar` file. Typically this is in the `lib` directory under your Java installation. The path must end in `tools.jar`.
+* `commandLine` - the exact command plus arguments needed to launch your REPL. The default uses leiningen and sets the profile to `debug-repl` (the one defined in the example above). You _do not_ need to use leiningen, but you do need to make sure the REPL uses the debug middleware. Also, if you do not start the REPL on the same port as in your extension preference settings then you need to specify the port in the launch configuration using the `replPort` setting. This gives you maximum flexibility in choosing the way to launch your code. It just has to run in (or provide) nREPL running with the debug middleware.
+* `replPort` - Set this if you are not launching on the default port as specified in your extension preference settings.
 
 The extension can launch the REPL in three different ways: in the internal debug console, in an internal command terminal, or in an external terminal. This is controlled by the **console** attribute. The default uses the internal debug console. Running in a terminal can be useful if, for instance, you need to type input into your program or if your program expects to run in a terminal environment.
 
@@ -92,14 +90,7 @@ Most of the functionality of the extension is not available unless a REPL is run
 
 #### Launching a REPL
 
-Once you have set up your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can
-launch the REPL invoking the command palette (`shift+cmd+p` (mac) / `shift+ctrl+p` (windows/linux)) and selecting
-`Clojure: Start REPL` (type 'repl' to see this command).
-
-**IMPORTANT:** Do not try to start the REPL using the `start debugger` icon ![START](http://i.imgur.com/ZAmkn5M.png).
-*This will not work.*
-
-This will pop up a quick pick selector that will let you choose which configuration you want to use (your launch.json file can define many).
+Once you have set up your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can launch the REPL by going to the Debug viewlet, choosing the launch configuration you want to use, then clicking the debug icon ![START](http://i.imgur.com/ZAmkn5M.png). Note that this has changed from the previous method of launching the REPL from the command palette.
 
 On a mac an example launch configuration might look like this
 
@@ -108,7 +99,6 @@ On a mac an example launch configuration might look like this
 	"name": "Clojure-Debug Internal Console",
 	"type": "clojure",
 	"request": "launch",
-	"leinPath": "/usr/local/bin/lein",
   "commandLine": [
     "/usr/local/bin/lein",
     "with-profile",
@@ -118,12 +108,9 @@ On a mac an example launch configuration might look like this
     ":port",
     "7777"
   ],
-  "toolsJar": "/Library/Java/JavaVirtualMachines/jdk1.8.0_74.jdk/Contents/Home/lib/tools.jar",
   "replPort": 7777,
   "debugReplPort": 7778,
   "debugPort": 9999,
-  "cwd": "${workspaceRoot}",
-  "refreshOnLaunch": true,
   "sideChannelPort": 3030
 }
 ```
@@ -223,7 +210,7 @@ seconds for variables to show up in the "Variables" pane.
 #### Step debugging
 
 * Step debugging in Clojure is not quite as straightforward as step debugging in Java. As mentioned previously, lines in Clojure may not correspond to a single line in Java bytecode and macros can be difficult, so sometimes taking a single step can be unpredictable.
-* Step-in is not fully working yet and should generally be avoided for now. A workaround is to set a breakpoint in in function you wanted to step into and just hit the continue button ![CONTINUE](http://i.imgur.com/9LEKabg.png).
+* Step-in is tricky in that it sometimes steps into a Java function or somewhere unexpected in the code. A workaround is to set a breakpoint in in function you wanted to step into and just hit the continue button ![CONTINUE](http://i.imgur.com/9LEKabg.png).
 * Step-over should more or less work the way you expect.
 
 #### Exception Breakpoints
@@ -281,7 +268,6 @@ That, and all the good names were taken.
 | replHost | string | Host on which the debugged REPL is running | "localhost" |
 | replPort | number | Port on which the debugged nREPL is listening. | 5555 |
 | sideChannelPort | number | Port on which the debugger should talk to the extension. | 3030 |
-| srcDirs | array | An array of directories relative to the project root that contain Clojure source files, e.g., src, test. | ["src", "test"]|
 | toolsJar | string | Path to the tools.jar in your Java installation. | "${env.JAVA_HOME}/lib/tools.jar"|
 
 `console`, `comandLine`, and `env` do not apply to `attach` configurations.
