@@ -1,5 +1,9 @@
 # Changes
 
+## V0.4.2
+
+* Fix for wrong version in exported `VS_CODE_CONTINUUM_VERSION`
+
 ## V0.4.1
 
 * Added note at top of README.md to let users know about changes to REPL startup procedure.
