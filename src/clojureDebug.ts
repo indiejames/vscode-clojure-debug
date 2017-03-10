@@ -70,6 +70,8 @@ export interface BaseRequestArguments {
 	sideChannelPort: number;
 	// Path to lein
 	leinPath: string;
+	// Extension version
+	version: string;
 	// not used - here to let this type act like a LaunchRequestArguments type
 }
 
@@ -419,12 +421,7 @@ class ClojureDebugSession extends DebugSession {
 		// used to set the workspace root on debugger initialization
 		this.sideChannel.on('get-workspace-root-result', (result) => {
 			self.workspaceRoot = result["result"];
-		});
-
-		// used to get extension version
-		this.sideChannel.on('get-version-result', (result) => {
-			self.version = result["result"];
-		});
+		});;
 
 		// handle exception breakpoint requests
 		this.sideChannel.on('get-breakpoint-exception-class-result', (result) => {
@@ -468,8 +465,6 @@ class ClojureDebugSession extends DebugSession {
 		});
 
 		this.sideChannel.emit('get-workspace-root', {id: this.getNextRequestId()});
-		this.sideChannel.emit('get-version', {id: this.getNextRequestId()});
-
 	}
 
 	protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
@@ -718,8 +713,9 @@ class ClojureDebugSession extends DebugSession {
 
 	protected attachRequest(response: DebugProtocol.AttachResponse, args: AttachRequestArguments) {
 		console.log("ATTACH REQUEST");
-		this.sideChannelPort = 3030;
 		this.cwd = args.cwd;
+		this.version = args.version;
+		this.sideChannelPort = 3030;
 		if (args.sideChannelPort) {
 			this.sideChannelPort = args.sideChannelPort;
 		}
@@ -732,6 +728,7 @@ class ClojureDebugSession extends DebugSession {
 		console.log("LAUNCH REQUEST");
 		this.pout("Launch request");
 		this.isLaunched = true;
+		this.version = args.version;
 		const self = this;
 		this.createDebuggerProject(args.toolsJar);
 

@@ -63,8 +63,8 @@ var evalResponse: any = {};
 // returns the version of this extension
 function getVersion(): string {
 	const ext = extensions.getExtension("jamesnorton.continuum")
-	const packageJSON = ext.packageJSON()
-	return packageJSON["version"];
+	const pkgJSON = ext.packageJSON;
+	return pkgJSON["version"];
 }
 
 // returns the ansi color coding corresponding to the css class given
@@ -281,11 +281,6 @@ function initSideChannel(sideChannelPort: number) {
 					sock.emit('load-namespace-result', {id: reqId});
 				});
 		});
-
-		sock.on('get-version', (data) => {
-			const reqId = data["id"];
-			sock.emit('get-version-result', {id: reqId, result: getVersion()});
-		})
 
 		sock.on('get-workspace-root', (data) => {
 			const reqId = data["id"];
@@ -679,6 +674,8 @@ function fillInConfig(config: any): any {
 	if (!config["cwd"]) {
 		config["cwd"] = workspace.rootPath;
 	}
+
+	config["version"] = getVersion();
 
 	return config;
 }

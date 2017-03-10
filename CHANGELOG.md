@@ -1,5 +1,9 @@
 # Changes
 
+## V0.4.3
+
+* Fixed bug related to version identification
+
 ## V0.4.2
 
 * Fix for wrong version in exported `VS_CODE_CONTINUUM_VERSION`
