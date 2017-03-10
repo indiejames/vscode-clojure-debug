@@ -61,7 +61,7 @@ export class DebugClient extends ProtocolClient {
 
 		if (typeof port === "number") {
 			this._socket = net.createConnection(port, '127.0.0.1', () => {
-				this.connect(this._socket, this._socket);
+				// this.connect(this._socket, this._socket);
 				done();
 			});
 		} else {

@@ -25,7 +25,6 @@ let chalk = require("chalk");
 let find = require('find');
 let core = require('core-js/library');
 
-let VS_CODE_CONTINUUM_VERSION = "0.4.2";
 let EXIT_CMD = "(System/exit 0)";
 
 let projectClj = `(defproject repl_connect "0.1.0-SNAPSHOT"
@@ -188,6 +187,8 @@ class ClojureDebugSession extends DebugSession {
 	private cwd: string;
 	// the root directory of the project workspace
 	private workspaceRoot: string;
+	// The extension version
+	private version: string;
 
 	// Clojure REPL processes
 	private debuggerRepl: any;
@@ -420,6 +421,11 @@ class ClojureDebugSession extends DebugSession {
 			self.workspaceRoot = result["result"];
 		});
 
+		// used to get extension version
+		this.sideChannel.on('get-version-result', (result) => {
+			self.version = result["result"];
+		});
+
 		// handle exception breakpoint requests
 		this.sideChannel.on('get-breakpoint-exception-class-result', (result) => {
 			const respId = result["id"];
@@ -462,6 +468,7 @@ class ClojureDebugSession extends DebugSession {
 		});
 
 		this.sideChannel.emit('get-workspace-root', {id: this.getNextRequestId()});
+		this.sideChannel.emit('get-version', {id: this.getNextRequestId()});
 
 	}
 
@@ -666,7 +673,7 @@ class ClojureDebugSession extends DebugSession {
 		const self = this;
 		this.baseArgs = args;
 
-		const env = {"HOME": process.env["HOME"], "VS_CODE_CONTINUUM_VERSION": VS_CODE_CONTINUUM_VERSION};
+		const env = {"HOME": process.env["HOME"], "VS_CODE_CONTINUUM_VERSION": self.version};
 
 		let primaryReplPort = 5555;
 		if (args.replPort) {
@@ -770,7 +777,7 @@ class ClojureDebugSession extends DebugSession {
 			}
 		}
 
-		env["VS_CODE_CONTINUUM_VERSION"] = VS_CODE_CONTINUUM_VERSION;
+		env["VS_CODE_CONTINUUM_VERSION"] = self.version;
 
 		const runArgs: DebugProtocol.RunInTerminalRequestArguments = {
 			kind: 'integrated',

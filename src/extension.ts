@@ -8,7 +8,7 @@ import * as path from 'path';
 import {join} from 'path';
 import http = require('http');
 import s = require('socket.io');
-import { window, workspace, languages, commands, OutputChannel, Range, CompletionItemProvider, Disposable, ExtensionContext, LanguageConfiguration, StatusBarItem, TextEditor, TextEditorEdit } from 'vscode';
+import { window, workspace, languages, commands, extensions, OutputChannel, Range, CompletionItemProvider, Disposable, Extension, ExtensionContext, LanguageConfiguration, StatusBarItem, TextEditor, TextEditorEdit } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
@@ -28,7 +28,6 @@ let lowlight = require("lowlight");
 
 let EXIT_CMD = "(System/exit 0)";
 var activeEditor = null;
-
 var sideChannelSocket: SocketIO.Socket = null;
 
 var exceptionBreakpointClassItem: StatusBarItem;
@@ -60,6 +59,13 @@ var lastEvalNS = "";
 var lastEvalExp = "";
 
 var evalResponse: any = {};
+
+// returns the version of this extension
+function getVersion(): string {
+	const ext = extensions.getExtension("jamesnorton.continuum")
+	const packageJSON = ext.packageJSON()
+	return packageJSON["version"];
+}
 
 // returns the ansi color coding corresponding to the css class given
 function cssToAnsi(cssClass: string): string {
@@ -275,6 +281,11 @@ function initSideChannel(sideChannelPort: number) {
 					sock.emit('load-namespace-result', {id: reqId});
 				});
 		});
+
+		sock.on('get-version', (data) => {
+			const reqId = data["id"];
+			sock.emit('get-version-result', {id: reqId, result: getVersion()});
+		})
 
 		sock.on('get-workspace-root', (data) => {
 			const reqId = data["id"];
@@ -694,7 +705,7 @@ function startSession(config: any): StartSessionResult {
 
 	result.status = 'ok';
 	result.content = config;
-	let fixConfig = Promise.resolve<any>();
+	let fixConfig = Promise.resolve();
 	fixConfig.then(() => {
 		window.setStatusBarMessage("Starting deugger");
 		commands.executeCommand('vscode.startDebug', config);
