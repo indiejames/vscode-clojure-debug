@@ -18,6 +18,7 @@ import {exec} from 'child_process';
 import {ClojureCompletionItemProvider} from './clojureCompletionItemProvider';
 import {ClojureDefinitionProvider} from './clojureDefinitionProvider';
 import {ClojureHoverProvider} from './clojureHoverProvider';
+import {ClojureSignatureProvider} from './clojureSignatureProvider';
 import {ClojureDocumentFormattingEditProvider} from './clojureDocumentFormattingEditProvider';
 import {ClojureDocumentRangeFormattingEditProvider} from './clojureDocumentRangeFormattingEditProvider';
 import {ClojureReferenceProvider} from './clojureReferenceProvider';
@@ -403,6 +404,7 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 	activeReplActions.push(languages.registerCompletionItemProvider("clojure", new ClojureCompletionItemProvider(rconn), ""));
 	activeReplActions.push(languages.registerDefinitionProvider("clojure", new ClojureDefinitionProvider(rconn)));
 	activeReplActions.push(languages.registerHoverProvider("clojure", new ClojureHoverProvider(rconn)));
+	activeReplActions.push(languages.registerSignatureHelpProvider("clojure", new ClojureSignatureProvider(rconn), ' ', '\n'));
 	activeReplActions.push(languages.registerDocumentFormattingEditProvider("clojure", new ClojureDocumentFormattingEditProvider(rconn)));
 	activeReplActions.push(languages.registerDocumentRangeFormattingEditProvider("clojure", new ClojureDocumentRangeFormattingEditProvider(rconn)))
 

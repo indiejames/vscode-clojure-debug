@@ -2,7 +2,7 @@
 
 [![Join the chat at https://gitter.im/vscode-continuum/Lobby](https://badges.gitter.im/vscode-continuum/Lobby.svg)](https://gitter.im/vscode-continuum/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-\*\***NEW** *The procedure for starting the REPL has changed. See [Starting the REPL](#starting-the-repl) below.*\*\*
+\*\***NEW** *The procedure for starting the REPL has recently changed. See [Starting the REPL](#starting-the-repl) below.*\*\*
 
 Continuum is a VS Code extension/debugger for developing Clojure. It provides a REPL as well
 as language support and debugging.
@@ -22,11 +22,12 @@ Most heavily tested on macOS. Seems to work fine on Linux and Windows from my li
 * Docstring lookup on hover
 * Code formatting
 * Peek at / jump to symbol definition
+* Fix namespace declaration - cleans up requires/imports
+* **NEW** Function signature help
 * Run tests
 * Set breakpoints
 * Examine stack frames / variables at breakpoint
 * Eval code at breakpoints
-* Fix namespace declaration - cleans up requires/imports
 * Project type agnostic (leiningen, boot, etc.)
 
 ![fix namespace declares](http://i.imgur.com/dfcTdSX.gif)
@@ -39,7 +40,7 @@ Most heavily tested on macOS. Seems to work fine on Linux and Windows from my li
 * Find references
 * Linter support
 * Test result / VS Code problems view integration
-* Exception stack traces with links to jump to file
+* Exception stack traces in REPL output with links to jump to file
 
 ## Installation
 

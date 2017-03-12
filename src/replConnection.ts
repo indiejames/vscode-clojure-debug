@@ -188,6 +188,16 @@ export class ReplConnection {
 		this.conn.send({op: 'doc', ns: ns, var: variable, session: this.commandSession}, callback);
 	}
 
+	// get the args for the given function
+	public args(ns: string, fun: string, callback: callbackType) {
+		this.conn.send({op: 'args', ns: ns, var: fun, session: this.commandSession}, callback);
+	}
+
+	// get the signatures for the given function
+	public sigs(ns: string, fun: string, callback: callbackType) {
+		this.conn.send({op: 'signatures', ns: ns, var: fun, sessin: this.commandSession}, callback);
+	}
+
 	// reformat code
 	public reformat(code: string, callback: callbackType) {
 		this.conn.send({op: 'reformat', code: code, session: this.commandSession}, callback);

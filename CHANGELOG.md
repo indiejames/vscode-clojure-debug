@@ -1,5 +1,13 @@
 # Changes
 
+## V0.4.5
+
+* Version bump
+
+## V0.4.4
+
+* Added function signature help
+
 ## V0.4.3
 
 * Fixed bug related to version identification

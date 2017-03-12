@@ -1,4 +1,4 @@
-import {TextEditor, Range, Position, Selection, window} from 'vscode';
+import {TextEditor, TextDocument, Range, Position, Selection, window} from 'vscode';
 
 // Functions based on editor utils in proto-repl https://github.com/jasongilman/proto-repl
 
@@ -23,11 +23,11 @@ export namespace EditorUtils {
    return `\"${escaped}\"`;
   }
 
-  export function getTopLevelForms(editor: TextEditor): Range[] {
+  export function getTopLevelForms(document: TextDocument): Range[] {
     var forms: Range[];
 
-    for (var i=0; i < editor.document.lineCount; i++) {
-      let line = editor.document.lineAt(i);
+    for (var i=0; i < document.lineCount; i++) {
+      let line = document.lineAt(i);
       if (!line.isEmptyOrWhitespace) {
         // look for open or close parens/brackets or ;
         var inString = false;
@@ -70,20 +70,20 @@ export namespace EditorUtils {
 //  }
 
 
-  function makeRange(editor: TextEditor, start: number, end: number) {
-    let startPos = editor.document.positionAt(start);
-    let endPos = editor.document.positionAt(end);
+  function makeRange(document: TextDocument, start: number, end: number) {
+    let startPos = document.positionAt(start);
+    let endPos = document.positionAt(end);
     return new Range(startPos, endPos);
   }
 
   // Returns the various scopes (comment, string) for a document and their ranges
-  export function getScopes(editor: TextEditor): Scope[] {
+  export function getScopes(document: TextDocument): Scope[] {
     var rval: Scope[] = new Array<Scope>();
 
     var inString = false;
     var inComment = false;
     var rangeStart: number;
-    let text = editor.document.getText();
+    let text = document.getText();
 
     // iterate over all the characters in the document
     for (var i = 0; i < text.length; i++) {
@@ -91,12 +91,12 @@ export namespace EditorUtils {
       if (inString) {
         if (currentChar == "\"") {
           inString = false;
-          rval.push(new Scope("string", makeRange(editor, rangeStart, i)));
+          rval.push(new Scope("string", makeRange(document, rangeStart, i)));
         }
       } else if (inComment) {
         if (currentChar == "\n") {
           inComment = false;
-          rval.push(new Scope("comment", makeRange(editor, rangeStart, i)));
+          rval.push(new Scope("comment", makeRange(document, rangeStart, i)));
         }
       } else if (currentChar == "\"") {
           inString = true;
@@ -122,22 +122,22 @@ export namespace EditorUtils {
   }
 
   //Find the innermost form containing the cursor
-  export function getInnermostFormRange(editor: TextEditor, position: Position) {
-    if (!editor) {
-      return; // No open text editor
+  export function getInnermostFormRange(document: TextDocument, position: Position) {
+    if (!document) {
+      return; // No open document
     }
 
-    let scopes = getScopes(editor);
+    let scopes = getScopes(document);
 
-    let offset = editor.document.offsetAt(position);
+    let offset = document.offsetAt(position);
 
     // find the form containing the offset
-    let text = editor.document.getText();
+    let text = document.getText();
     var start = -1;
     var end = -1;
     // find opening brace/paren
     for (var i = offset; i >= 0; i--) {
-      let position = editor.document.positionAt(i);
+      let position = document.positionAt(i);
       if (!scopesContainPosition(scopes, position)) {
         let currentChar = text[i];
         if (currentChar == "{") {
@@ -163,7 +163,7 @@ export namespace EditorUtils {
 
     // find ending brace/paren
     for (var i=offset; i < text.length; i++) {
-      let position = editor.document.positionAt(i);
+      let position = document.positionAt(i);
       if(!scopesContainPosition(scopes, position)) {
         let currentChar = text[i];
         if (currentChar == "}" || currentChar == "]" || currentChar == ")") {
@@ -173,28 +173,67 @@ export namespace EditorUtils {
       }
     }
 
-    let startPos = editor.document.positionAt(start);
-    let endPos = editor.document.positionAt(end);
+    let startPos = document.positionAt(start);
+    let endPos = document.positionAt(end);
 
     return new Range(startPos, endPos);
 
   }
 
-  export function getInnermostForm(editor: TextEditor) {
-    if (!editor) {
-      return; // No open text editor
+  export function getInnermostForm(document: TextDocument, position: Position) {
+    if (!document) {
+      return; // No open document
     }
 
-    var position = editor.selection.active;
-
-    const range = getInnermostFormRange(editor, position);
+    const range = getInnermostFormRange(document, position);
 
     if (!range) {
       return
     }
 
-    return editor.document.getText(range);
+    return document.getText(range);
 
+  }
+
+  // Find the argument position of the current document position and the function name
+  export function getArgumentSignature(document: TextDocument, position: Position): [string, number] {
+    let posIndex = document.offsetAt(position);
+
+    const formOffsets = findContainingBracketPositions(document.getText(), posIndex);
+    if (!formOffsets) {
+      return;
+    }
+    const startPos = document.positionAt(formOffsets[0]);
+    const endPos = document.positionAt(formOffsets[1]);
+    const formRange = new Range(startPos, endPos);
+    const form = document.getText(formRange);
+    // only return args for function forms
+    if(form && form.match(/\(.*/)) {
+      // char index in form of position
+      const posCharIndex = document.offsetAt(position) - formOffsets[0];
+      // the part of the form to the left of the position
+      const leftPart = form.substr(0, posCharIndex);
+
+      const innerElementsStr = leftPart.replace("(", "").replace("\n", " ");
+      // split the string on whitespace or comma and remove any empty strings
+      const innerElements = innerElementsStr.split(/\s|,/).filter((val) => {
+        return val.length != 0;
+      });
+
+      if (innerElements.length < 1) {
+        return;
+      }
+      const func = innerElements[0];
+
+      let argIndex = innerElements.length - 2;
+      // if the character leftmost of the position is whitespace (or a comma) then
+      // we have moved on to the next argument position
+      if (innerElementsStr.match(/^.*(\s|,)$/)) {
+        argIndex = argIndex + 1;
+      }
+
+      return [func, argIndex];
+    }
   }
 
   // Find the symbol under the cursor
