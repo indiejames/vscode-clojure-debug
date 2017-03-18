@@ -28,6 +28,7 @@ import {} from 'languages';
 let lowlight = require("lowlight");
 
 let EXIT_CMD = "(System/exit 0)";
+
 var activeEditor = null;
 var sideChannelSocket: SocketIO.Socket = null;
 
@@ -41,7 +42,7 @@ var replRunning = false;
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
-		"lineComment": ";;"
+		"lineComment": ";"
 	},
 	brackets: [
 		["{", "}"],
@@ -66,6 +67,13 @@ function getVersion(): string {
 	const ext = extensions.getExtension("jamesnorton.continuum")
 	const pkgJSON = ext.packageJSON;
 	return pkgJSON["version"];
+}
+
+// returns the required debug-middleware version
+function getMiddlewareVersion(): string {
+	const ext = extensions.getExtension("jamesnorton.continuum")
+	const pkgJSON = ext.packageJSON;
+	return pkgJSON["debugMiddlewareVersion"];
 }
 
 // returns the ansi color coding corresponding to the css class given
@@ -679,6 +687,8 @@ function fillInConfig(config: any): any {
 
 	config["version"] = getVersion();
 
+	config["middlewareVersion"] = getMiddlewareVersion();
+
 	return config;
 }
 
@@ -738,8 +748,6 @@ export function activate(context: ExtensionContext) {
 			activeEditor = e;
 		}
 	});
-
-
 
   // Create the connection object but don't connect yet
 	rconn = new ReplConnection();

@@ -2,7 +2,7 @@
 
 [![Join the chat at https://gitter.im/vscode-continuum/Lobby](https://badges.gitter.im/vscode-continuum/Lobby.svg)](https://gitter.im/vscode-continuum/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-\*\***NEW** *The procedure for starting the REPL has recently changed. See [Starting the REPL](#starting-the-repl) below.*\*\*
+\*\***NEW** *The procedure for starting the REPL has recently changed again. See [Starting the REPL](#starting-the-repl) below.*\*\*
 
 Continuum is a VS Code extension/debugger for developing Clojure. It provides a REPL as well
 as language support and debugging.
@@ -23,7 +23,7 @@ Most heavily tested on macOS. Seems to work fine on Linux and Windows from my li
 * Code formatting
 * Peek at / jump to symbol definition
 * Fix namespace declaration - cleans up requires/imports
-* **NEW** Function signature help
+* Function signature help
 * Run tests
 * Set breakpoints
 * Examine stack frames / variables at breakpoint
@@ -56,20 +56,35 @@ Most heavily tested on macOS. Seems to work fine on Linux and Windows from my li
 
 From the command palette (`cmd-shift-p`) select `Install Extensions` and search for `Continuum` in the Extensions viewlet.
 
-#### 2. Add the Debug Middleware to Your Project
+#### 2. Setup Paths Preferences
+Set up the paths by going to Code->Preferences->Settings as appropriate for your system.
 
-After installing the extension in VS Code you need to add The nREPL debug middleware to your
-project. If you are using leiningen the best way to do this is through a custom profile.
-For a description of profiles see the [leiningen profiles documentation](https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md).
-You can do this by adding the following to the profiles in your project.clj file or to profiles.clj. Modify the path to the tools.jar file as appropriate.
-
-``` clojure
-{:debug-repl {:resource-paths ["/Library/Java/JavaVirtualMachines/jdk1.8.0_74.jdk/Contents/Home/lib/tools.jar"]
-              :repl-options {:nrepl-middleware [debug-middleware.core/debug-middleware]}
-              :dependencies [[debug-middleware #=(eval (System/getenv "VS_CODE_CONTINUUM_VERSION"))]]}}
+* The path to the tools.jar file
+```typescript
+// Absolute path to the lein command
+"clojure.leinPath": "/usr/local/bin/lein",
 ```
 
-**IMPORTANT** *The middleware version is now synced to the extension version. The best way to make sure you are using the proper middleware version to match your extension version is to use dynamic evaluation of the version in your dependency definition. Continuum now exports an environment variable on launch (`VS_CODE_CONTINUUM_VERSION`) that can be used in your `profiles.clj` or other means of declaring the dependency. The sample profiles.clj file above shows how to do this for leiningen projects. If you are starting the REPL yourself and attaching the debugger to it then you need to be sure you start the REPL with the correct version of the debug-middleware.*
+* The path to the lein binary
+```typescript
+// Absolute path to the tools.jar file (JAVA JDI jar file)
+"clojure.toolsJar": "/Library/Java/JavaVirtualMachines/jdk1.8.0_74.jdk/Contents/Home/lib/tools.jar"
+```
+
+#### 3. Add the Debug Middleware to Your Project
+
+After installing the extension in VS Code and setting your paths in preferences you need to add The nREPL debug middleware to your
+project. If you are using leiningen the best way to do this is through a custom profile.
+For a description of profiles see the [leiningen profiles documentation](https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md).
+You can do this by adding the following to the profiles in your project.clj file or to profiles.clj.
+
+``` clojure
+{:debug-repl {:resource-paths [#=(eval (System/getenv "PATH_TO_TOOLS_JAR"))]
+              :repl-options {:nrepl-middleware [debug-middleware.core/debug-middleware]}
+              :dependencies [[debug-middleware #=(eval (System/getenv "DEBUG_MIDDLEWARE_VERSION"))]]}}
+```
+
+**IMPORTANT** *The best way to make sure you are using the proper middleware version to match your extension version is to use dynamic evaluation of the version in your dependency definition. Continuum now exports an environment variable on launch (`DEBUG_MIDDLEWARE_VERSION`) that can be used in your `profiles.clj` or other means of declaring the dependency. Note that this has changed from VS_CODE_CONTINUUM_VERSION. The sample profiles.clj file above shows how to do this for leiningen projects. If you are starting the REPL yourself and attaching the debugger to it then you need to be sure you start the REPL with the correct version of the debug-middleware. See the Clojure Dependencies section below for the current version.*
 
 #### 3. Set up a launch.json file
 
@@ -234,7 +249,7 @@ If the debugger seems to have stopped working (but language features like docstr
 
 The environment utilizes several Clojure libraries to enable various features.
 
-* [debug-middleware](https://clojars.org/debug-middleware) provides the debug functionality, which in turn relies on
+* [debug-middleware](https://clojars.org/debug-middleware) (current version 0.4.5) provides the debug functionality, which in turn relies on
 * a modified [cdt](https://clojars.org/org.clojars.jnorton/cdt) - the Clojure Debug Toolkit
 * [compliment](https://github.com/alexander-yakushev/compliment) is used to perform autocompletion
 * [cljfmt](https://github.com/weavejester/cljfmt) is used to support code reformatting

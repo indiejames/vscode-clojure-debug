@@ -32,7 +32,7 @@ let projectClj = `(defproject repl_connect "0.1.0-SNAPSHOT"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :profiles {:dev {:dependencies [[debug-middleware #=(eval (System/getenv \"VS_CODE_CONTINUUM_VERSION\"))]]
+  :profiles {:dev {:dependencies [[debug-middleware #=(eval (System/getenv \"DEBUG_MIDDLEWARE_VERSION\"))]]
                    :repl-options {:nrepl-middleware [debug-middleware.core/debug-middleware]}}}
   :resource-paths []
   :dependencies [[org.clojure/clojure "1.8.0"]])`;
@@ -72,6 +72,8 @@ export interface BaseRequestArguments {
 	leinPath: string;
 	// Extension version
 	version: string;
+	// Debug middleware version
+	middlewareVersion: string;
 	// not used - here to let this type act like a LaunchRequestArguments type
 }
 
@@ -189,8 +191,6 @@ class ClojureDebugSession extends DebugSession {
 	private cwd: string;
 	// the root directory of the project workspace
 	private workspaceRoot: string;
-	// The extension version
-	private version: string;
 
 	// Clojure REPL processes
 	private debuggerRepl: any;
@@ -668,7 +668,7 @@ class ClojureDebugSession extends DebugSession {
 		const self = this;
 		this.baseArgs = args;
 
-		const env = {"HOME": process.env["HOME"], "VS_CODE_CONTINUUM_VERSION": self.version};
+		const env = {"HOME": process.env["HOME"], "DEBUG_MIDDLEWARE_VERSION": args.middlewareVersion, "PATH_TO_TOOLS_JAR": args.toolsJar};
 
 		let primaryReplPort = 5555;
 		if (args.replPort) {
@@ -714,7 +714,6 @@ class ClojureDebugSession extends DebugSession {
 	protected attachRequest(response: DebugProtocol.AttachResponse, args: AttachRequestArguments) {
 		console.log("ATTACH REQUEST");
 		this.cwd = args.cwd;
-		this.version = args.version;
 		this.sideChannelPort = 3030;
 		if (args.sideChannelPort) {
 			this.sideChannelPort = args.sideChannelPort;
@@ -728,7 +727,6 @@ class ClojureDebugSession extends DebugSession {
 		console.log("LAUNCH REQUEST");
 		this.pout("Launch request");
 		this.isLaunched = true;
-		this.version = args.version;
 		const self = this;
 		this.createDebuggerProject(args.toolsJar);
 
@@ -767,14 +765,14 @@ class ClojureDebugSession extends DebugSession {
 			jvmOpts = jvmOpts + " " + args.env["JVM_OPTS"];
 		}
 
-		let env = {"HOME": home, "CLOJURE_DEBUG_JDWP_PORT": "" + debugPort, "JVM_OPTS": jvmOpts};
+		let env = {"HOME": home, "CLOJURE_DEBUG_JDWP_PORT": "" + debugPort, "JVM_OPTS": jvmOpts, "PATH_TO_TOOLS_JAR": args.toolsJar};
 		for (let attrname in args.env) {
 			if (attrname != "JVM_OPTS") {
 				env[attrname] = args.env[attrname];
 			}
 		}
 
-		env["VS_CODE_CONTINUUM_VERSION"] = self.version;
+		env["DEBUG_MIDDLEWARE_VERSION"] = args.middlewareVersion;
 
 		const runArgs: DebugProtocol.RunInTerminalRequestArguments = {
 			kind: 'integrated',

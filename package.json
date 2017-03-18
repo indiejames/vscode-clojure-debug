@@ -3,6 +3,7 @@
     "displayName": "Continuum (Preview)",
     "license": "MIT",
     "version": "0.4.5",
+    "debugMiddlewareVersion": "0.4.5",
     "publisher": "jamesnorton",
     "description": "Clojure debugger / nREPL / language support for VS Code.",
     "preview": true,
@@ -136,6 +137,11 @@
                     "default": true,
                     "description": "Whether or not to use syntax highlighting in the REPL output."
                 }
+            }
+        },
+        "configurationDefaults": {
+            "[clojure]": {
+                "editor.wordSeparators": " ()\"':,;~@#$%^&{}[]`"
             }
         },
         "languages": [
