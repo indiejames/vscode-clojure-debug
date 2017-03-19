@@ -3,6 +3,7 @@
 ## V0.4.6
 
 * Now exporting `DEBUG_MIDDLEWARE_VERSION` and `PATH_TO_TOOLS_JAR` environment variables to make it easier to set up profiles.clj.
+* Added default configuration setting for "editor.wordSeparators" for Clojure files.
 
 ## V0.4.5
 

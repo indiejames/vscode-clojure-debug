@@ -180,7 +180,7 @@ export class ReplConnection {
 
 	// find the completions for the prefix using Compliment
 	public findCompletions(ns: string, prefix: string, src: string, offset: number, callback: callbackType) {
--		this.conn.send({op: 'get-completions', ns: ns, prefix: prefix, src: src, pos: offset, session: this.commandSession}, callback);
+		this.conn.send({op: 'get-completions', ns: ns, prefix: prefix, src: src, pos: offset, session: this.commandSession}, callback);
 	}
 
 	// get the docstring for the given var
