@@ -2,16 +2,18 @@
 
 [![Join the chat at https://gitter.im/vscode-continuum/Lobby](https://badges.gitter.im/vscode-continuum/Lobby.svg)](https://gitter.im/vscode-continuum/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-\*\***NEW** *The procedure for starting the REPL has recently changed again. See [Starting the REPL](#starting-the-repl) below.*\*\*
+\*\***NEW** *Project configuration to work with Continuum has changed with the introduction of the `DEBUG_MIDDLEWARE_VERSION` and `PATH_TO_TOOLS_JAR` environment variables. See [Starting the REPL](#starting-the-repl)\*\*
 
-Continuum is a VS Code extension/debugger for developing Clojure. It provides a REPL as well
+## Introduction
+
+Continuum is a VS Code extension/debugger for developing Clojure. It provides an interactive REPL as well
 as language support and debugging.
 
 ![IDE](https://media.giphy.com/media/l0ExfKVoLSKSNfX7a/source.gif)
 
 ## A Note about the Preview Version
 
-Most heavily tested on macOS. Seems to work fine on Linux and Windows from my limited testing. Most of the features are operational and work well enough to provide a useful workflow at this point.
+Most heavily tested on macOS. Seems to work fine on Linux and Windows from my limited testing.
 
 ## Features
 
@@ -27,7 +29,7 @@ Most heavily tested on macOS. Seems to work fine on Linux and Windows from my li
 * Run tests
 * Set breakpoints
 * Examine stack frames / variables at breakpoint
-* Eval code at breakpoints
+* Evaluate code at breakpoints
 * Project type agnostic (leiningen, boot, etc.)
 
 ![fix namespace declares](http://i.imgur.com/dfcTdSX.gif)
@@ -49,23 +51,22 @@ Most heavily tested on macOS. Seems to work fine on Linux and Windows from my li
 #### Prerequisites
 * [Visual Studio Code](https://code.visualstudio.com/) 1.10.1 or higher
 * [leiningen](https://leiningen.org/) installed. Your project does not need to be a leiningen project, but leiningen is used internally by the debugger.
-* The Java SDK installed. Specifically the debugger needs to be able to find the tools.jar file
-(usually in the `lib` directory of your Java installation).
+* The Java Devleopment Toolkit (JDK) installed. Specifically the debugger needs to be able to find the tools.jar file (usually in the `lib` directory of your Java installation).
 
 #### 1. Install the Extension
 
 From the command palette (`cmd-shift-p`) select `Install Extensions` and search for `Continuum` in the Extensions viewlet.
 
 #### 2. Setup Paths Preferences
-Set up the paths by going to Code->Preferences->Settings as appropriate for your system.
+Set up the paths as appropriate for your system by going to Code->Preferences->Settings.
 
-* The path to the tools.jar file
+* The path to the lein binary
 ```typescript
 // Absolute path to the lein command
 "clojure.leinPath": "/usr/local/bin/lein",
 ```
 
-* The path to the lein binary
+* The path to the tools.jar file
 ```typescript
 // Absolute path to the tools.jar file (JAVA JDI jar file)
 "clojure.toolsJar": "/Library/Java/JavaVirtualMachines/jdk1.8.0_74.jdk/Contents/Home/lib/tools.jar"
@@ -73,9 +74,8 @@ Set up the paths by going to Code->Preferences->Settings as appropriate for your
 
 #### 3. Add the Debug Middleware to Your Project
 
-After installing the extension in VS Code and setting your paths in preferences you need to add The nREPL debug middleware to your
-project. If you are using leiningen the best way to do this is through a custom profile.
-For a description of profiles see the [leiningen profiles documentation](https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md).
+After installing the extension in VS Code and setting your paths in preferences you need to add The nREPL debug middleware to your project. If you are using leiningen the best way to do this is through a custom profile. For a description of profiles see the [leiningen profiles documentation](https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md).
+
 You can do this by adding the following to the profiles in your project.clj file or to profiles.clj.
 
 ``` clojure
@@ -84,7 +84,7 @@ You can do this by adding the following to the profiles in your project.clj file
               :dependencies [[debug-middleware #=(eval (System/getenv "DEBUG_MIDDLEWARE_VERSION"))]]}}
 ```
 
-**IMPORTANT** *The best way to make sure you are using the proper middleware version to match your extension version is to use dynamic evaluation of the version in your dependency definition. Continuum now exports an environment variable on launch (`DEBUG_MIDDLEWARE_VERSION`) that can be used in your `profiles.clj` or other means of declaring the dependency. Note that this has changed from VS_CODE_CONTINUUM_VERSION. The sample profiles.clj file above shows how to do this for leiningen projects. If you are starting the REPL yourself and attaching the debugger to it then you need to be sure you start the REPL with the correct version of the debug-middleware. See the Clojure Dependencies section below for the current version.*
+**IMPORTANT** *The best way to make sure you are using the proper middleware version to match your extension version is to use dynamic evaluation of the version in your dependency definition. Continuum now exports an environment variable on launch (`DEBUG_MIDDLEWARE_VERSION`) that can be used in your `profiles.clj` or other means of declaring the dependency. Note that this has changed from VS_CODE_CONTINUUM_VERSION. The sample profiles.clj file above shows how to do this for leiningen projects. If you are starting the REPL yourself and attaching the debugger to it then you need to be sure you start the REPL with the correct version of the debug-middleware. See the [Clojure Dependencies](#clojure-dependencies) section below for the current version.*
 
 #### 3. Set up a launch.json file
 
@@ -151,8 +151,6 @@ Using a configuration like the following, it is possible to attach to a running 
 			"name": "Clojure-Attach Console",
 			"type": "clojure",
 			"request": "attach",
-			"leinPath": "/usr/local/bin/lein",
-			"toolsJar": "/Library/Java/JavaVirtualMachines/jdk1.8.0_74.jdk/Contents/Home/lib/tools.jar",
 			"replPort": 7777,
 			"debugReplPort": 7778,
 			"debugPort": 9999,
@@ -205,8 +203,7 @@ If you have the source for the Java code in your source path then VS Code will d
 |---------|-------|-------------|--------------|
 | clojure.eval | Clojure: Evaluate selected text | Evaluate the selected text in the file's namespace | `cmd+alt+e` (mac) / `ctrl+alt+e` (win/linux) |
 | clojure.expand_selection | Clojure: Expand Selection | Expand selection to containing brackets/parentheses | `shift+ctrl+m` |
-|clojure.fix-namespace-declaration | Clojure: Fix Namespace Declaration | Update the namespace declaration and fix requires/imports. |
-| clojure.debug | Clojure: Start REPL | Start a REPL. | |
+| clojure.fix-namespace-declaration | Clojure: Fix Namespace Declaration | Update the namespace declaration and fix requires/imports. |
 | clojure.load-file | Clojure: Load File | Load the currently open Clojure source file. | |
 | clojure.refresh | Clojure: Refresh Code |Refresh changed code without restarting the REPL. | |
 | clojure.superRefresh | Clojure: Super Refresh Code | Refresh all code without restarting the REPL. | |
@@ -257,10 +254,6 @@ The environment utilizes several Clojure libraries to enable various features.
 
 ## Suggested User Settings
 
-* Set the word separators setting in your user settings to the following to make selecting Clojure code elements easier.
-``` clojure
-"editor.wordSeparators": " ()\"':,;~@#$%^&{}[]`"
-```
 * Install [parinfer](https://marketplace.visualstudio.com/items?itemName=shaunlebron.vscode-parinfer).
 The latest version by Shaun LeBron is based on the Atom plugin and is excellent.
 * Add key bindings for commonly used commands, like `clojure.refresh`.
