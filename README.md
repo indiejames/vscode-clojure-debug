@@ -113,9 +113,9 @@ On a mac an example launch configuration might look like this
 
 ```json
 {
-	"name": "Clojure-Debug Internal Console",
-	"type": "clojure",
-	"request": "launch",
+  "name": "Clojure-Debug Internal Console",
+  "type": "clojure",
+  "request": "launch",
   "commandLine": [
     "/usr/local/bin/lein",
     "with-profile",
