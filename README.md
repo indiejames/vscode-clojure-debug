@@ -2,7 +2,7 @@
 
 [![Join the chat at https://gitter.im/vscode-continuum/Lobby](https://badges.gitter.im/vscode-continuum/Lobby.svg)](https://gitter.im/vscode-continuum/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-\*\***NEW** *Project configuration to work with Continuum has changed with the introduction of the `DEBUG_MIDDLEWARE_VERSION` and `PATH_TO_TOOLS_JAR` environment variables. See [Starting the REPL](#starting-the-repl)\*\*
+\*\***NEW** *Project configuration to work with Continuum has changed with the introduction of the `DEBUG_MIDDLEWARE_VERSION` and `PATH_TO_TOOLS_JAR` environment variables. See [Starting the REPL](#starting-the-repl)*\*\*
 
 ## Introduction
 
@@ -30,6 +30,7 @@ Most heavily tested on macOS. Seems to work fine on Linux and Windows from my li
 * Set breakpoints
 * Examine stack frames / variables at breakpoint
 * Evaluate code at breakpoints
+* \*\***New** *Adds a Clojure specific setting for "editor.wordSeparators" to make selecting Clojure symbols easier*\*\*
 * Project type agnostic (leiningen, boot, etc.)
 
 ![fix namespace declares](http://i.imgur.com/dfcTdSX.gif)
