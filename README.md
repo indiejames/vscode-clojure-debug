@@ -51,7 +51,7 @@ Most heavily tested on macOS. Seems to work fine on Linux and Windows from my li
 #### Prerequisites
 * [Visual Studio Code](https://code.visualstudio.com/) 1.10.1 or higher
 * [leiningen](https://leiningen.org/) installed. Your project does not need to be a leiningen project, but leiningen is used internally by the debugger.
-* The Java Devleopment Toolkit (JDK) installed. Specifically the debugger needs to be able to find the tools.jar file (usually in the `lib` directory of your Java installation).
+* The Java Devleopment Kit (JDK) installed. Specifically the debugger needs to be able to find the tools.jar file (usually in the `lib` directory of your Java installation).
 
 #### 1. Install the Extension
 
