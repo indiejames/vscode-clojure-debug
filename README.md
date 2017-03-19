@@ -86,7 +86,7 @@ You can do this by adding the following to the profiles in your project.clj file
 
 **IMPORTANT** *The best way to make sure you are using the proper middleware version to match your extension version is to use dynamic evaluation of the version in your dependency definition. Continuum now exports an environment variable on launch (`DEBUG_MIDDLEWARE_VERSION`) that can be used in your `profiles.clj` or other means of declaring the dependency. Note that this has changed from VS_CODE_CONTINUUM_VERSION. The sample profiles.clj file above shows how to do this for leiningen projects. If you are starting the REPL yourself and attaching the debugger to it then you need to be sure you start the REPL with the correct version of the debug-middleware. See the [Clojure Dependencies](#clojure-dependencies) section below for the current version.*
 
-#### 3. Set up a launch.json file
+#### 4. Set up a launch.json file
 
 Continuum supports launching REPLs as well as attaching to running REPLs. This is controlled using launch configurations in a launch.json file. We will demonstrate launching a REPL first and then demonstrate connecting to an existing REPL later. If you are unfamiliar with VS Code debugging or launch.json, it might be helpful to read through the [documentation](https://code.visualstudio.com/docs/editor/debugging).
 
