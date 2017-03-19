@@ -166,7 +166,7 @@ Note that the REPL must have been started listening on a JDI port. This is possi
 env HOME=/Users/foo CLOJURE_DEBUG_JDWP_PORT=9999 JVM_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9999 /usr/local/bin/lein with-profile +debug-repl repl :start :port 7777
 ```
 
-Once the REPL is started, you can connect using the same procedure as the one used for launching a REPL, namely, selecting `Clojure: Start REPL` from the command pallet and choosing your "attach" configuration. The following example illustrates this process.
+Once the REPL is started, you can connect using the same procedure as the one used for launching a REPL, namely, choosing your "attach" configuration and clicking the debug icon ![START](http://i.imgur.com/ZAmkn5M.png). The following example illustrates this process.
 
 ![ATTACH](http://i.imgur.com/Z0PHrhC.gif)
 
