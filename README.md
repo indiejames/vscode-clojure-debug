@@ -2,7 +2,7 @@
 
 [![Join the chat at https://gitter.im/vscode-continuum/Lobby](https://badges.gitter.im/vscode-continuum/Lobby.svg)](https://gitter.im/vscode-continuum/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-\*\***NEW** *Continuum is no longer preview and has been renamed Clojure Code.*\*\*
+\*\***NEW** *Continuum is no longer preview and has been renamed Clojure Code!*\*\*
 
 ## Introduction
 
