@@ -1,5 +1,9 @@
 # Changes
 
+## V1.0.1
+
+* Fixed typo in README.md
+
 ## V1.0.0
 
 * Changed name from Continuum to Clojure Code.
