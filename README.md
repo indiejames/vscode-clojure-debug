@@ -11,10 +11,6 @@ as language support and debugging.
 
 ![IDE](https://media.giphy.com/media/l0ExfKVoLSKSNfX7a/source.gif)
 
-## A Note about the Preview Version
-
-Most heavily tested on macOS. Seems to work fine on Linux and Windows from my limited testing.
-
 ## Features
 
 * Integrated REPL (nREPL)
