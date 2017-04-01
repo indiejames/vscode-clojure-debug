@@ -6,7 +6,7 @@
 
 ## Introduction
 
-Clojre Code is a VS Code extension/debugger for developing Clojure. It provides an interactive REPL as well
+Clojure Code is a VS Code extension/debugger for developing Clojure. It provides an interactive REPL as well
 as language support and debugging.
 
 ![IDE](https://media.giphy.com/media/l0ExfKVoLSKSNfX7a/source.gif)
