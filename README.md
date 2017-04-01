@@ -1,12 +1,12 @@
-# Visual Studio Code Continuum (PREVIEW)
+# Clojure Code
 
 [![Join the chat at https://gitter.im/vscode-continuum/Lobby](https://badges.gitter.im/vscode-continuum/Lobby.svg)](https://gitter.im/vscode-continuum/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-\*\***NEW** *Project configuration to work with Continuum has changed with the introduction of the `DEBUG_MIDDLEWARE_VERSION` and `PATH_TO_TOOLS_JAR` environment variables. See [Starting the REPL](#starting-the-repl)*\*\*
+\*\***NEW** *Continuum is no longer preview and has been renamed Clojure Code.*\*\*
 
 ## Introduction
 
-Continuum is a VS Code extension/debugger for developing Clojure. It provides an interactive REPL as well
+Clojre Code is a VS Code extension/debugger for developing Clojure. It provides an interactive REPL as well
 as language support and debugging.
 
 ![IDE](https://media.giphy.com/media/l0ExfKVoLSKSNfX7a/source.gif)
@@ -56,7 +56,7 @@ Most heavily tested on macOS. Seems to work fine on Linux and Windows from my li
 
 #### 1. Install the Extension
 
-From the command palette (`cmd-shift-p`) select `Install Extensions` and search for `Continuum` in the Extensions viewlet.
+From the command palette (`cmd-shift-p`) select `Install Extensions` and search for `Clojure Code` in the Extensions viewlet.
 
 #### 2. Setup Paths Preferences
 Set up the paths as appropriate for your system by going to Code->Preferences->Settings.
@@ -85,11 +85,11 @@ You can do this by adding the following to the profiles in your project.clj file
               :dependencies [[debug-middleware #=(eval (System/getenv "DEBUG_MIDDLEWARE_VERSION"))]]}}
 ```
 
-**IMPORTANT** *The best way to make sure you are using the proper middleware version to match your extension version is to use dynamic evaluation of the version in your dependency definition. Continuum now exports an environment variable on launch (`DEBUG_MIDDLEWARE_VERSION`) that can be used in your `profiles.clj` or other means of declaring the dependency. Note that this has changed from VS_CODE_CONTINUUM_VERSION. The sample profiles.clj file above shows how to do this for leiningen projects. If you are starting the REPL yourself and attaching the debugger to it then you need to be sure you start the REPL with the correct version of the debug-middleware. See the [Clojure Dependencies](#clojure-dependencies) section below for the current version.*
+**IMPORTANT** *The best way to make sure you are using the proper middleware version to match your extension version is to use dynamic evaluation of the version in your dependency definition. Clojure Code now exports an environment variable on launch (`DEBUG_MIDDLEWARE_VERSION`) that can be used in your `profiles.clj` or other means of declaring the dependency. The sample profiles.clj file above shows how to do this for leiningen projects. If you are starting the REPL yourself and attaching the debugger to it then you need to be sure you start the REPL with the correct version of the debug-middleware. See the [Clojure Dependencies](#clojure-dependencies) section below for the current version.*
 
 #### 4. Set up a launch.json file
 
-Continuum supports launching REPLs as well as attaching to running REPLs. This is controlled using launch configurations in a launch.json file. We will demonstrate launching a REPL first and then demonstrate connecting to an existing REPL later. If you are unfamiliar with VS Code debugging or launch.json, it might be helpful to read through the [documentation](https://code.visualstudio.com/docs/editor/debugging).
+Clojure Code supports launching REPLs as well as attaching to running REPLs. This is controlled using launch configurations in a launch.json file. We will demonstrate launching a REPL first and then demonstrate connecting to an existing REPL later. If you are unfamiliar with VS Code debugging or launch.json, it might be helpful to read through the [documentation](https://code.visualstudio.com/docs/editor/debugging).
 
 You can get started by opening a Clojure project in VS Code and creating a launch.json file. Open the Debug viewlet by clicking on the debug icon ![DEBUG](http://i.imgur.com/8EP4T9n.png), then click on the gear icon ![GEAR](http://i.imgur.com/8bMaP9g.png) in the upper right corner and select 'Clojure Debug' from the menu.
 
@@ -182,7 +182,7 @@ The second way to evaluate code is by typing it into the debug console input box
 
 #### Setting Breakpoints
 
-Currently Continuum supports two kinds of breakpoints, line breakpoints and exceptions breakpoints. Line breakpoints let you set set a breakpoint at a specific line in a given file. These are set by clicking in the left margin of an open editor.
+Currently Clojure Code supports two kinds of breakpoints, line breakpoints and exceptions breakpoints. Line breakpoints let you set set a breakpoint at a specific line in a given file. These are set by clicking in the left margin of an open editor.
 
 ![BREAKPOINT](https://media.giphy.com/media/l3q2YGpocqMDRnMTS/source.gif)
 
@@ -259,11 +259,6 @@ The environment utilizes several Clojure libraries to enable various features.
 The latest version by Shaun LeBron is based on the Atom plugin and is excellent.
 * Add key bindings for commonly used commands, like `clojure.refresh`.
 
-## Why Continuum?
-
-I see Clojure development as being fundamentally different from development in other languages. In traditional development we employ a workflow of code, compile, execute/test, repeat (skipping the compile step for some languages). In Clojure, we employ a REPL driven approach in which we are constantly evaluating code as we write it. This extension takes that a step further to include debugging as part of a continuous development process. Instead of employing discrete steps during development all the steps blend together into a continuum.
-
-That, and all the good names were taken.
 
 ## Full list of launch.json settings (from package.json)
 
