@@ -81,7 +81,7 @@ You can do this by adding the following to the profiles in your project.clj file
               :dependencies [[debug-middleware #=(eval (System/getenv "DEBUG_MIDDLEWARE_VERSION"))]]}}
 ```
 
-**IMPORTANT** *The best way to make sure you are using the proper middleware version to match your extension version is to use dynamic evaluation of the version in your dependency definition. Clojure Code now exports an environment variable on launch (`DEBUG_MIDDLEWARE_VERSION`) that can be used in your `profiles.clj` or other means of declaring the dependency. The sample profiles.clj file above shows how to do this for leiningen projects. If you are starting the REPL yourself and attaching the debugger to it then you need to be sure you start the REPL with the correct version of the debug-middleware. See the [Clojure Dependencies](#clojure-dependencies) section below for the current version.*
+**IMPORTANT** *The best way to make sure you are using the proper middleware version to match your extension version is to use dynamic evaluation of the version in your dependency definition. Clojure Code exports an environment variable on launch (`DEBUG_MIDDLEWARE_VERSION`) that can be used in your `profiles.clj` or other means of declaring the dependency. The sample profiles.clj file above shows how to do this for leiningen projects. If you are starting the REPL yourself and attaching the debugger to it then you need to be sure you start the REPL with the correct version of the debug-middleware. See the [Clojure Dependencies](#clojure-dependencies) section below for the current version.*
 
 #### 4. Set up a launch.json file
 
