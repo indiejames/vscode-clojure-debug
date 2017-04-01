@@ -1,5 +1,9 @@
 # Changes
 
+## V1.0.2
+
+* Synched CHANGELOG.md with Marketplace
+
 ## V1.0.1
 
 * Fixed typo in README.md
