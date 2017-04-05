@@ -716,7 +716,7 @@ function startSession(config: any): StartSessionResult {
 	result.content = config;
 	let fixConfig = Promise.resolve();
 	fixConfig.then(() => {
-		window.setStatusBarMessage("Starting deugger");
+		window.setStatusBarMessage("Starting debugger");
 		commands.executeCommand('vscode.startDebug', config);
 	});
 	const sideChannelPort = config["sideChannelPort"];
