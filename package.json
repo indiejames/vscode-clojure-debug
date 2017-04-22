@@ -3,7 +3,7 @@
     "displayName": "Clojure Code",
     "license": "MIT",
     "version": "1.0.2",
-    "debugMiddlewareVersion": "0.4.5",
+    "debugMiddlewareVersion": "0.5.1",
     "publisher": "jamesnorton",
     "description": "Clojure debugger / nREPL / language support for Visual Studio Code.",
     "preview": false,
@@ -53,6 +53,7 @@
         "lowlight": "^1.6.0",
         "socket.io": "^1.4.8",
         "socket.io-client": "^1.4.8",
+        "strip-ansi": "3.0.1",
         "strip-json-comments": "^2.0.1",
         "tmp": "^0.0.28",
         "vscode-debugadapter": "^1.13.0",
@@ -329,6 +330,16 @@
                                 "type": "boolean",
                                 "description": "Automatically loads all namespaces on launch.",
                                 "default": true
+                            },
+                            "parallelTestDirs": {
+                                "type": "array",
+                                "description": "Directories with tests that can be run in parallel.",
+                                "default": ["test"]
+                            },
+                            "sequentialTestDirs": {
+                                "type": "array",
+                                "description": "Directories containing tests that should be run sequentially.",
+                                "default": []
                             }
                         }
                     }

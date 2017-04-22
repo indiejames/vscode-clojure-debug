@@ -8,7 +8,7 @@ import * as path from 'path';
 import {join} from 'path';
 import http = require('http');
 import s = require('socket.io');
-import { window, workspace, languages, commands, extensions, OutputChannel, Range, CompletionItemProvider, Disposable, Extension, ExtensionContext, LanguageConfiguration, StatusBarItem, TextEditor, TextEditorEdit } from 'vscode';
+import { window, workspace, languages, commands, extensions, OutputChannel, Position, Range, CompletionItemProvider, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable, Extension, ExtensionContext, LanguageConfiguration, StatusBarItem, TextEditor, TextEditorEdit, Uri } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
@@ -28,6 +28,11 @@ import {} from 'languages';
 let lowlight = require("lowlight");
 
 let EXIT_CMD = "(System/exit 0)";
+
+let diagnostics: DiagnosticCollection
+
+let sequentialTestDirs = []
+let parallelTestDirs = ["test"]
 
 var activeEditor = null;
 var sideChannelSocket: SocketIO.Socket = null;
@@ -203,14 +208,33 @@ function handleEvalResponse(response: Array<any>) {
 // The following two functions are used to print to the debug console.
 function pout(data: any) {
 	if (sideChannelSocket && data) {
-		sideChannelSocket.emit('pout', data);
+		sideChannelSocket.emit('pout', data + "\n");
 	}
 }
 
 function perr(data: any) {
 	if (sideChannelSocket && data) {
-		sideChannelSocket.emit('perr', data);
+		sideChannelSocket.emit('perr', data + "\n");
 	}
+}
+
+// render an ascii progress bar for tests as a string
+function progressBar(status: string): string {
+	let rval = " ["
+	const counts = status.match(/(\d+)\/(\d+)/)
+	const numFinished = parseInt(counts[1])
+	const total = parseInt(counts[2])
+	const numPluses = 20 * numFinished / total
+	const numMinuses = (20 - numPluses) * 2.2
+	for (let i = 0; i < numPluses; i++) {
+		rval = rval + "+"
+	}
+
+	for (let i = 0; i < numMinuses; i++) {
+		rval = rval + " "
+	}
+
+	return rval + "] "
 }
 
 function initSideChannel(sideChannelPort: number) {
@@ -267,6 +291,34 @@ function initSideChannel(sideChannelPort: number) {
 				}
 			}, ns);
 		});
+
+		sock.on('create-diag', (data) => {
+			const reqId = data["id"]
+			let diagMap = data["diagnostic"]
+			let uri = Uri.file(diagMap["file"])
+			let diags = diagnostics.get(uri)
+			if (diags == null) {
+				diags = []
+			}
+			let line = Number(diagMap["line"]) - 1
+			let message = diagMap["message"]
+			let dRange = new Range(line, 1, line, 100000)
+			let diag = new Diagnostic(dRange, message, DiagnosticSeverity.Error)
+			diags = diags.concat(diag)
+			diagnostics.set(uri, diags)
+
+			sock.emit('create-diag-result', {id: reqId, result: "OK"})
+		})
+
+		sock.on('set-status', (data) => {
+			const reqId = data["id"]
+			let status: string  = data["status"]
+			status = status.trim()
+			const progress = progressBar(status)
+			status = status.replace(/\[.*?\]/, progress)
+			window.setStatusBarMessage(status)
+			sock.emit('set-status-result', {id: reqId, result: "OK"})
+		})
 
 		sock.on('reapply-breakpoints', (data) => {
 			const reqId = data["id"];
@@ -425,6 +477,7 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 			// only support evaluating selected text for now.
 			// See https://github.com/indiejames/vscode-clojure-debug/issues/39.
 			window.setStatusBarMessage("$(pulse) Evaluating Code")
+
 			let editor = window.activeTextEditor;
 			let selection = editor.selection;
 			let range = new Range(selection.start, selection.end);
@@ -463,9 +516,9 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 		}
 	}));
 
- activeReplActions.push(commands.registerCommand('clojure.load-file', () => {
-	 if (!replRunning) {
-			window.showErrorMessage("Please launch or attach to a REPL before loading code.");
+	activeReplActions.push(commands.registerCommand('clojure.load-file', () => {
+		if (!replRunning) {
+				window.showErrorMessage("Please launch or attach to a REPL before loading code.");
 		} else {
 		const path = EditorUtils.getFilePath(activeEditor);
 		rconn.loadFile(path, (err: any, result: any) : void => {
@@ -479,8 +532,9 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 					console.error(rejected);
 				});
 			});
+
 		}
- }));
+	}));
 
 	activeReplActions.push(commands.registerCommand('clojure.refresh', () => {
 		if (!replRunning) {
@@ -523,17 +577,19 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 		if (!replRunning) {
 			window.showErrorMessage("Please launch or attach to a REPL before running tests.");
 		} else {
+			diagnostics = languages.createDiagnosticCollection("test results")
+
 			if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {
 				console.log("Calling refresh...")
 				rconn.refresh((err: any, result: any) : void => {
 					// TODO handle errors here
 					console.log("Refreshed Clojure code.");
-					rconn.runAllTests((err: any, result: any) : void => {
+					rconn.runAllTests(parallelTestDirs, sequentialTestDirs, (err: any, result: any) : void => {
 						console.log("All tests run.");
 					});
 				});
 			} else {
-				rconn.runAllTests((err: any, result: any) : void => {
+				rconn.runAllTests(parallelTestDirs, sequentialTestDirs, (err: any, result: any) : void => {
 					console.log("All tests run.");
 				});
 			}
@@ -544,6 +600,7 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 		if (!replRunning) {
 			window.showErrorMessage("Please launch or attach to a REPL before running tests.");
 		} else {
+			diagnostics = languages.createDiagnosticCollection("test results")
 			let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
 			if (cfg.get("refreshNamespacesBeforeRunnningTestNamespace") === true) {
 				rconn.refresh((err: any, result: any) => {
@@ -688,6 +745,15 @@ function fillInConfig(config: any): any {
 	config["version"] = getVersion();
 
 	config["middlewareVersion"] = getMiddlewareVersion();
+
+	// get the test dirs from the config
+	if (config["sequentialTestDirs"]) {
+		sequentialTestDirs = config["sequentialTestDirs"]
+	}
+
+	if (config["parallelTestDirs"]) {
+		parallelTestDirs = config["parallelTestDirs"]
+	}
 
 	return config;
 }

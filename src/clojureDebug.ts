@@ -21,6 +21,7 @@ import s = require('socket.io-client');
 import tmp = require('tmp');
 import {ReplConnection} from './replConnection';
 import {parse, toJS} from 'jsedn';
+let stripAnsi = require('strip-ansi');
 let chalk = require("chalk");
 let find = require('find');
 let core = require('core-js/library');
@@ -151,6 +152,13 @@ function normalizePath(dPath: string, cwd: string): string {
   return rval;
 }
 
+// remove comand markers from output stream
+function cleanOutput(output: string): string {
+	let rval = output.replace(/# FAIL-START [\s\S]*?#+/, "").replace(/# FAIL-END [\s\S]*?#+/, "")
+
+	return rval
+}
+
 class ClojureDebugSession extends DebugSession {
 
 	private _breakPoints: any;
@@ -191,6 +199,9 @@ class ClojureDebugSession extends DebugSession {
 	private cwd: string;
 	// the root directory of the project workspace
 	private workspaceRoot: string;
+	// string buffer used to build up output until an event is detected in the output
+	// via regex
+	private outputBuffer: string = "";
 
 	// Clojure REPL processes
 	private debuggerRepl: any;
@@ -238,7 +249,7 @@ class ClojureDebugSession extends DebugSession {
 	// necessarily not perfect as there may be more than one match. Used for returning
 	// paths from breakpoint events.
 	protected convertDebuggerPathToClientPath(debuggerPath: string, line: number): string {
-		let rval = "";
+		let rval = null;
 		if (debuggerPath.substr(0, 1) == "/") {
 			rval = debuggerPath;
 		} else {
@@ -280,6 +291,19 @@ class ClojureDebugSession extends DebugSession {
 
 			return rval;
 		}
+	}
+
+	// Get test failure data from output
+	protected getTestFailtureData(output: string): any {
+		let rval = {}
+		let match = output.match(/# FAIL-START (\d+) #############################################[\s\S]*FAIL in \(.*?\) \((.*?):(.*?)\)[\s\S]*(expected: [\s\S]*actual:[\s\S]*)# FAIL-END \1 ###############################################/)
+		if (match) {
+			rval["file"] = this.convertDebuggerPathToClientPath(match[2], Number(match[3]))
+			rval["line"] = match[3]
+			rval["message"] = match[4]
+		}
+
+		return rval
 	}
 
 
@@ -374,6 +398,44 @@ class ClojureDebugSession extends DebugSession {
 		this.output(text, "stderr");
 	}
 
+	// parse the output from the debugged process to look for events like test results
+	private parseOutput(output: string, response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
+		let totalOutput = this.outputBuffer + "\n" + output
+		// strip non-ascii chars
+		const stripped = stripAnsi(totalOutput)
+		let fMatch = stripped.match(/# FAIL-START (\d+) #############################################[\s\S]*# FAIL-END \1 ###############################################/g)
+		// let failureMatch = stripped.match(/FAIL in .*?\(.*?:\d+\)/g)
+		let progressMatch = stripped.match(/(\d+\/\d+).*?ETA.*?(..:..)/g)
+
+		if (fMatch) {
+
+			for (let m of fMatch) {
+				const reqId = this.getNextRequestId()
+				const diagMap = this.getTestFailtureData(m)
+
+				this.sideChannel.emit('create-diag', {id: reqId, diagnostic: diagMap})
+			}
+
+			this.outputBuffer = ""
+
+		}
+		if (progressMatch){
+			const reqId = this.getNextRequestId()
+			const status = progressMatch[progressMatch.length - 1]
+			this.sideChannel.emit('set-status', {id: reqId, status: status})
+			this.outputBuffer = ""
+		} else {
+			this.pout(cleanOutput(output))
+
+			if ((totalOutput.search(/nREPL server started/) != -1)) {
+				this.setUpDebugREPL(response, args);
+				this.outputBuffer = ""
+			} else {
+				this.outputBuffer = this.outputBuffer + "\n" + output
+			}
+		}
+	}
+
 	protected setUpSideChannel(){
 		const self = this;
 		this.sideChannel = s("http://localhost:" + this.sideChannelPort);
@@ -405,6 +467,16 @@ class ClojureDebugSession extends DebugSession {
 
 		this.sideChannel.on('perr', (data) => {
 			this.perr(data);
+		})
+
+		this.sideChannel.on('set-status-result', (result) => {
+			const respId = result["id"];
+			delete self.requestData[respId];
+		})
+
+		this.sideChannel.on('create-diag-result', (result) => {
+			const respId = result["id"];
+			delete self.requestData[respId];
 		})
 
 		// used by set breakpoint requests
@@ -550,7 +622,6 @@ class ClojureDebugSession extends DebugSession {
 
 	// Handle output from the REPL after launch is complete
 	protected handleReplOutput(output) {
-
 		if ((this._debuggerState == DebuggerState.REPL_STARTED) && (output.search(/Attached to process/) != -1)) {
 			this._debuggerState = DebuggerState.DEBUGGER_ATTACHED;
 			console.log("DEBUGGER_ATTACHED");
@@ -817,11 +888,8 @@ class ClojureDebugSession extends DebugSession {
 
 			this.primaryRepl.stdout.on('data', (data) => {
 				const output = '' + data;
-				self.pout(output);
 
-				if ((output.search(/nREPL server started/) != -1)) {
-					this.setUpDebugREPL(response, args);
-				}
+				self.parseOutput(output, response, args)
 			});
 
 			this.primaryRepl.stderr.on('data', (data) => {

@@ -204,8 +204,8 @@ export class ReplConnection {
 	}
 
 	// run all the tests in the project
-	public runAllTests(callback: callbackType) {
-		this.conn.send({op: 'run-all-tests', session: this.commandSession}, callback);
+	public runAllTests(parallelTestDirs: string[], sequentialTestDirs: string[], callback: callbackType) {
+		this.conn.send({op: 'run-all-tests', session: this.commandSession, 'par-dirs': parallelTestDirs, 'seq-dirs': sequentialTestDirs}, callback);
 	}
 
 	// run all the tests in a single namespace
