@@ -155,6 +155,7 @@ function normalizePath(dPath: string, cwd: string): string {
 // remove comand markers from output stream
 function cleanOutput(output: string): string {
 	let rval = output.replace(/# FAIL-START [\s\S]*?#+/, "").replace(/# FAIL-END [\s\S]*?#+/, "")
+	// rval = rval.replace(/# ERROR-START [\s\S]*?#+/, "").replace(/# ERROR-END [\s\S]*?#+/, "")
 
 	return rval
 }
@@ -306,6 +307,19 @@ class ClojureDebugSession extends DebugSession {
 		return rval
 	}
 
+	// Get test error data from output
+	protected getTestErrorData(output: string): any {
+		let rval = {}
+		let match = output.match(/# ERROR-START (\d+) #############################################[\s\S]*ERROR in \(.*?\) \((.*?):(.*?)\)[\s\S]*(expected: [\s\S]*actual:[\s\S]*)# ERROR-END \1 ###############################################/)
+		if (match) {
+			rval["file"] = this.convertDebuggerPathToClientPath(match[2], Number(match[3]))
+			rval["line"] = match[3]
+			rval["message"] = match[4]
+		}
+
+		return rval
+	}
+
 
 	// update the list of Threads with the given list of thread names
 	private updateThreads(thds: string[]) {
@@ -404,6 +418,7 @@ class ClojureDebugSession extends DebugSession {
 		// strip non-ascii chars
 		const stripped = stripAnsi(totalOutput)
 		let fMatch = stripped.match(/# FAIL-START (\d+) #############################################[\s\S]*# FAIL-END \1 ###############################################/g)
+		let eMatch = stripped.match(/# ERROR-START (\d+) #############################################[\s\S]*# ERROR-END \1 ###############################################/g)
 		// let failureMatch = stripped.match(/FAIL in .*?\(.*?:\d+\)/g)
 		let progressMatch = stripped.match(/(\d+\/\d+).*?ETA.*?(..:..)/g)
 
@@ -412,6 +427,18 @@ class ClojureDebugSession extends DebugSession {
 			for (let m of fMatch) {
 				const reqId = this.getNextRequestId()
 				const diagMap = this.getTestFailtureData(m)
+
+				this.sideChannel.emit('create-diag', {id: reqId, diagnostic: diagMap})
+			}
+
+			this.outputBuffer = ""
+
+		}
+		if (eMatch) {
+
+			for (let m of eMatch) {
+				const reqId = this.getNextRequestId()
+				const diagMap = this.getTestErrorData(m)
 
 				this.sideChannel.emit('create-diag', {id: reqId, diagnostic: diagMap})
 			}

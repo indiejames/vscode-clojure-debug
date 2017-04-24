@@ -586,6 +586,8 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 					console.log("Refreshed Clojure code.");
 					rconn.runAllTests(parallelTestDirs, sequentialTestDirs, (err: any, result: any) : void => {
 						console.log("All tests run.");
+						const report = JSON.parse(result[0]["report"])
+						const failures = report["fail"]
 					});
 				});
 			} else {
@@ -621,6 +623,7 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 		if (!replRunning) {
 			window.showErrorMessage("Please launch or attach to a REPL before running tests.");
 		} else {
+			diagnostics = languages.createDiagnosticCollection("test results")
 			let ns = EditorUtils.findNSForCurrentEditor(activeEditor);
 			let test = EditorUtils.getSymobleUnderCursor(activeEditor);
 			if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
