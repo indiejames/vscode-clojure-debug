@@ -424,26 +424,26 @@ class ClojureDebugSession extends DebugSession {
 
 		if (fMatch) {
 
-			for (let m of fMatch) {
-				const reqId = this.getNextRequestId()
-				const diagMap = this.getTestFailtureData(m)
+			// for (let m of fMatch) {
+			// 	const reqId = this.getNextRequestId()
+			// 	const diagMap = this.getTestFailtureData(m)
 
-				this.sideChannel.emit('create-diag', {id: reqId, diagnostic: diagMap})
-			}
+			// 	this.sideChannel.emit('create-diag', {id: reqId, diagnostic: diagMap})
+			// }
 
-			this.outputBuffer = ""
+			// this.outputBuffer = ""
 
 		}
 		if (eMatch) {
 
-			for (let m of eMatch) {
-				const reqId = this.getNextRequestId()
-				const diagMap = this.getTestErrorData(m)
+			// for (let m of eMatch) {
+			// 	const reqId = this.getNextRequestId()
+			// 	const diagMap = this.getTestErrorData(m)
 
-				this.sideChannel.emit('create-diag', {id: reqId, diagnostic: diagMap})
-			}
+			// 	this.sideChannel.emit('create-diag', {id: reqId, diagnostic: diagMap})
+			// }
 
-			this.outputBuffer = ""
+			// this.outputBuffer = ""
 
 		}
 		if (progressMatch){

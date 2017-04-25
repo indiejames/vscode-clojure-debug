@@ -23,8 +23,10 @@ import {ClojureDocumentFormattingEditProvider} from './clojureDocumentFormatting
 import {ClojureDocumentRangeFormattingEditProvider} from './clojureDocumentRangeFormattingEditProvider';
 import {ClojureReferenceProvider} from './clojureReferenceProvider';
 import {EditorUtils} from './editorUtils';
+import {PathResolution} from './pathResolution'
 import edn = require('jsedn');
 import {} from 'languages';
+let stripAnsi = require('strip-ansi');
 let lowlight = require("lowlight");
 
 let EXIT_CMD = "(System/exit 0)";
@@ -451,6 +453,28 @@ function removeReplActions(context: ExtensionContext) {
 	}
 }
 
+function handleTestOutput(result: any) {
+	const report = JSON.parse(result[0]["report"])
+	const failures = report["fail"]
+	for (let f of failures) {
+		const source: string = f["source"]
+		const m = source.match(/\(.*?\) \((.*?):(\d+)\)/)
+		let file = m[1]
+		const line = Number(m[2]) - 1
+		file = PathResolution.convertDebuggerPathToClientPath(file, line)
+		let uri = Uri.file(file)
+		let diags = diagnostics.get(uri)
+		if (diags == null) {
+			diags = []
+		}
+		let dRange = new Range(line, 1, line, 100000)
+		const message = stripAnsi(f["description"])
+		let diag = new Diagnostic(dRange, message, DiagnosticSeverity.Error)
+		diags = diags.concat(diag)
+		diagnostics.set(uri, diags)
+	}
+}
+
 function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 	let cfg = workspace.getConfiguration("clojure");
 
@@ -586,8 +610,9 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 					console.log("Refreshed Clojure code.");
 					rconn.runAllTests(parallelTestDirs, sequentialTestDirs, (err: any, result: any) : void => {
 						console.log("All tests run.");
-						const report = JSON.parse(result[0]["report"])
-						const failures = report["fail"]
+						if (result) {
+							handleTestOutput(result)
+						}
 					});
 				});
 			} else {
@@ -771,6 +796,8 @@ class StartSessionResult {
 
 function startSession(config: any): StartSessionResult {
 	let result = new StartSessionResult();
+
+	PathResolution.clientSrcPaths = {}
 
 	config = fillInConfig(config);
 
