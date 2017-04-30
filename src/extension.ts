@@ -455,23 +455,47 @@ function removeReplActions(context: ExtensionContext) {
 
 function handleTestOutput(result: any) {
 	const report = JSON.parse(result[0]["report"])
-	const failures = report["fail"]
+	let failures = report["fail"]
+	const errors = report["error"]
 	for (let f of failures) {
 		const source: string = f["source"]
 		const m = source.match(/\(.*?\) \((.*?):(\d+)\)/)
 		let file = m[1]
 		const line = Number(m[2]) - 1
 		file = PathResolution.convertDebuggerPathToClientPath(file, line)
-		let uri = Uri.file(file)
-		let diags = diagnostics.get(uri)
-		if (diags == null) {
-			diags = []
+		if (file) {
+			let uri = Uri.file(file)
+			let diags = diagnostics.get(uri)
+			if (diags == null) {
+				diags = []
+			}
+			let dRange = new Range(line, 1, line, 100000)
+			const message = "FAILURE:\r\n" + stripAnsi(f["description"])
+			let diag = new Diagnostic(dRange, message, DiagnosticSeverity.Error)
+			diags = diags.concat(diag)
+			diagnostics.set(uri, diags)
 		}
-		let dRange = new Range(line, 1, line, 100000)
-		const message = stripAnsi(f["description"])
-		let diag = new Diagnostic(dRange, message, DiagnosticSeverity.Error)
-		diags = diags.concat(diag)
-		diagnostics.set(uri, diags)
+
+	}
+	for (let e of errors) {
+		const source: string = e["source"]
+		const m = source.match(/\(.*?\) \((.*?):(\d+)\)/)
+		let file = m[1]
+		const line = Number(m[2]) - 1
+		file = PathResolution.convertDebuggerPathToClientPath(file, line)
+		if (file) {
+			let uri = Uri.file(file)
+			let diags = diagnostics.get(uri)
+			if (diags == null) {
+				diags = []
+			}
+			let dRange = new Range(line, 1, line, 100000)
+			const message = "ERROR:\r\n" + stripAnsi(e["description"])
+			let diag = new Diagnostic(dRange, message, DiagnosticSeverity.Error)
+			diags = diags.concat(diag)
+			diagnostics.set(uri, diags)
+		}
+
 	}
 }
 
@@ -618,6 +642,9 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 			} else {
 				rconn.runAllTests(parallelTestDirs, sequentialTestDirs, (err: any, result: any) : void => {
 					console.log("All tests run.");
+					if (result) {
+						handleTestOutput(result)
+					}
 				});
 			}
 		}
@@ -634,12 +661,18 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 					console.log("Refreshed Clojure code.");
 					rconn.runTestsInNS(ns, (err: any, result: any) => {
 						console.log("Tests for namespace " + ns + " run.");
+						if (result) {
+							handleTestOutput(result)
+						}
 					});
 				});
 			} else {
 				rconn.runTestsInNS(ns, (err: any, result: any) => {
-						console.log("Tests for ns " + ns + " run.");
-					});
+					console.log("Tests for ns " + ns + " run.");
+					if (result) {
+						handleTestOutput(result)
+					}
+				});
 			}
 		}
 	}));
@@ -654,12 +687,17 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 			if (cfg.get("refreshNamespacesBeforeRunnningTest") === true) {
 				rconn.refresh((err: any, result: any) => {
 					rconn.runTest(ns, test, (err: any, result: any) => {
-						outputChannel.append(result);
+						if (result) {
+							handleTestOutput(result)
+						}
 						console.log("Test " + test + " run.");
 					});
 				});
 			} else {
 				rconn.runTest(ns, test, (err: any, result: any) => {
+					if (result) {
+						handleTestOutput(result)
+					}
 					console.log("Test " + test + " run.");
 				});
 			}
