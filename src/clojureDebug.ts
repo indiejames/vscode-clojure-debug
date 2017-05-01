@@ -154,7 +154,7 @@ function normalizePath(dPath: string, cwd: string): string {
 
 // remove comand markers from output stream
 function cleanOutput(output: string): string {
-	let rval = output.replace(/# FAIL-START [\s\S]*?#+/, "").replace(/# FAIL-END [\s\S]*?#+/, "")
+	let rval = output.replace(/(\d+\/\d+)[\s\S]*?ETA[\s\S]*?(..:..)/g, "")
 	// rval = rval.replace(/# ERROR-START [\s\S]*?#+/, "").replace(/# ERROR-END [\s\S]*?#+/, "")
 
 	return rval
@@ -417,42 +417,14 @@ class ClojureDebugSession extends DebugSession {
 		let totalOutput = this.outputBuffer + "\n" + output
 		// strip non-ascii chars
 		const stripped = stripAnsi(totalOutput)
-		let fMatch = stripped.match(/# FAIL-START (\d+) #############################################[\s\S]*# FAIL-END \1 ###############################################/g)
-		let eMatch = stripped.match(/# ERROR-START (\d+) #############################################[\s\S]*# ERROR-END \1 ###############################################/g)
-		// let failureMatch = stripped.match(/FAIL in .*?\(.*?:\d+\)/g)
 		let progressMatch = stripped.match(/(\d+\/\d+).*?ETA.*?(..:..)/g)
 
-		if (fMatch) {
-
-			// for (let m of fMatch) {
-			// 	const reqId = this.getNextRequestId()
-			// 	const diagMap = this.getTestFailtureData(m)
-
-			// 	this.sideChannel.emit('create-diag', {id: reqId, diagnostic: diagMap})
-			// }
-
-			// this.outputBuffer = ""
-
-		}
-		if (eMatch) {
-
-			// for (let m of eMatch) {
-			// 	const reqId = this.getNextRequestId()
-			// 	const diagMap = this.getTestErrorData(m)
-
-			// 	this.sideChannel.emit('create-diag', {id: reqId, diagnostic: diagMap})
-			// }
-
-			// this.outputBuffer = ""
-
-		}
 		if (progressMatch){
 			const reqId = this.getNextRequestId()
 			const status = progressMatch[progressMatch.length - 1]
 			this.sideChannel.emit('set-status', {id: reqId, status: status})
 			this.outputBuffer = ""
 		} else {
-			this.pout(cleanOutput(output))
 
 			if ((totalOutput.search(/nREPL server started/) != -1)) {
 				this.setUpDebugREPL(response, args);
@@ -461,6 +433,8 @@ class ClojureDebugSession extends DebugSession {
 				this.outputBuffer = this.outputBuffer + "\n" + output
 			}
 		}
+
+		this.pout(cleanOutput(output))
 	}
 
 	protected setUpSideChannel(){
