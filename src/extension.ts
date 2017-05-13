@@ -453,6 +453,7 @@ function removeReplActions(context: ExtensionContext) {
 	}
 }
 
+// Add Diagnostics for tests that fail or error
 function handleTestOutput(result: any) {
 	const report = JSON.parse(result[0]["report"])
 	let failures = report["fail"]
@@ -479,9 +480,18 @@ function handleTestOutput(result: any) {
 	}
 	for (let e of errors) {
 		const source: string = e["source"]
-		const m = source.match(/\(.*?\) \((.*?):(\d+)\)/)
-		let file = m[1]
-		const line = Number(m[2]) - 1
+		let file
+		let line
+		let m = source.match(/\(.*?\) \((.*?):(\d+)\)/)
+		if (m) {
+			file = m[1]
+			line = Number(m[2]) - 1
+		} else {
+			m = source.match(/\(.*?\)/)
+			file = m[0]
+			line = 1
+		}
+
 		file = PathResolution.convertDebuggerPathToClientPath(file, line)
 		if (file) {
 			let uri = Uri.file(file)
@@ -495,7 +505,6 @@ function handleTestOutput(result: any) {
 			diags = diags.concat(diag)
 			diagnostics.set(uri, diags)
 		}
-
 	}
 }
 
