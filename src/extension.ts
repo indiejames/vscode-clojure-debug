@@ -223,6 +223,10 @@ function perr(data: any) {
 // render an ascii progress bar for tests as a string
 function progressBar(status: string): string {
 	let rval = " ["
+	// let type = status.match(/Parallel Test/)
+	// if (type[0] == null){
+	// 	type = ["Sequential Test"]
+	// }
 	const counts = status.match(/(\d+)\/(\d+)/)
 	const numFinished = parseInt(counts[1])
 	const total = parseInt(counts[2])
@@ -455,57 +459,67 @@ function removeReplActions(context: ExtensionContext) {
 
 // Add Diagnostics for tests that fail or error
 function handleTestOutput(result: any) {
-	const report = JSON.parse(result[0]["report"])
-	let failures = report["fail"]
-	const errors = report["error"]
-	for (let f of failures) {
-		const source: string = f["source"]
-		const m = source.match(/\(.*?\) \((.*?):(\d+)\)/)
-		let file = m[1]
-		const line = Number(m[2]) - 1
-		file = PathResolution.convertDebuggerPathToClientPath(file, line)
-		if (file) {
-			let uri = Uri.file(file)
-			let diags = diagnostics.get(uri)
-			if (diags == null) {
-				diags = []
+	const errMsg = result[0]["err-msg"]
+	if (errMsg){
+		//const message = "Error Running Tests\n\r" + errMsg
+		//window.showErrorMessage(message)
+		window.showErrorMessage("Error Running Tests")
+	} else {
+		const report = JSON.parse(result[0]["report"])
+		let failures = report["fail"]
+		const errors = report["error"]
+
+		for (let f of failures) {
+			const source: string = f["source"]
+			const m = source.match(/\(.*?\) \((.*?):(\d+)\)/)
+			let file = m[1]
+			const line = Number(m[2]) - 1
+			file = PathResolution.convertDebuggerPathToClientPath(file, line)
+			if (file) {
+				let uri = Uri.file(file)
+				let diags = diagnostics.get(uri)
+				if (diags == null) {
+					diags = []
+				}
+				let dRange = new Range(line, 1, line, 100000)
+				const message = "FAILURE:\r\n" + stripAnsi(f["description"])
+				let diag = new Diagnostic(dRange, message, DiagnosticSeverity.Error)
+				diags = diags.concat(diag)
+				diagnostics.set(uri, diags)
 			}
-			let dRange = new Range(line, 1, line, 100000)
-			const message = "FAILURE:\r\n" + stripAnsi(f["description"])
-			let diag = new Diagnostic(dRange, message, DiagnosticSeverity.Error)
-			diags = diags.concat(diag)
-			diagnostics.set(uri, diags)
+
 		}
 
-	}
-	for (let e of errors) {
-		const source: string = e["source"]
-		let file
-		let line
-		let m = source.match(/\(.*?\) \((.*?):(\d+)\)/)
-		if (m) {
-			file = m[1]
-			line = Number(m[2]) - 1
-		} else {
-			m = source.match(/\(.*?\)/)
-			file = m[0]
-			line = 1
-		}
-
-		file = PathResolution.convertDebuggerPathToClientPath(file, line)
-		if (file) {
-			let uri = Uri.file(file)
-			let diags = diagnostics.get(uri)
-			if (diags == null) {
-				diags = []
+		for (let e of errors) {
+			const source: string = e["source"]
+			let file
+			let line
+			let m = source.match(/\(.*?\) \((.*?):(\d+)\)/)
+			if (m) {
+				file = m[1]
+				line = Number(m[2]) - 1
+			} else {
+				m = source.match(/\(.*?\)/)
+				file = m[0]
+				line = 1
 			}
-			let dRange = new Range(line, 1, line, 100000)
-			const message = "ERROR:\r\n" + stripAnsi(e["description"])
-			let diag = new Diagnostic(dRange, message, DiagnosticSeverity.Error)
-			diags = diags.concat(diag)
-			diagnostics.set(uri, diags)
+
+			file = PathResolution.convertDebuggerPathToClientPath(file, line)
+			if (file) {
+				let uri = Uri.file(file)
+				let diags = diagnostics.get(uri)
+				if (diags == null) {
+					diags = []
+				}
+				let dRange = new Range(line, 1, line, 100000)
+				const message = "ERROR:\r\n" + stripAnsi(e["description"])
+				let diag = new Diagnostic(dRange, message, DiagnosticSeverity.Error)
+				diags = diags.concat(diag)
+				diagnostics.set(uri, diags)
+			}
 		}
 	}
+
 }
 
 function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
@@ -642,7 +656,6 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 					// TODO handle errors here
 					console.log("Refreshed Clojure code.");
 					rconn.runAllTests(parallelTestDirs, sequentialTestDirs, (err: any, result: any) : void => {
-						console.log("All tests run.");
 						if (result) {
 							handleTestOutput(result)
 						}

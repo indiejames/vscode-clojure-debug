@@ -211,6 +211,9 @@ class ClojureDebugSession extends DebugSession {
 	private threadIndex: number = 0;
 	private threads: Thread[] = [];
 
+	// which tests if any, are running (parallel or sequential)
+	private testingStatus: string = "none"
+
 	// get and increment the requestId for side channel requests
 	private getNextRequestId(): number {
 		const rval = this.requestId;
@@ -421,12 +424,19 @@ class ClojureDebugSession extends DebugSession {
 
 		if (progressMatch){
 			const reqId = this.getNextRequestId()
-			const status = progressMatch[progressMatch.length - 1]
+			const status = this.testingStatus + " Tests " + progressMatch[progressMatch.length - 1]
 			this.sideChannel.emit('set-status', {id: reqId, status: status})
 			this.outputBuffer = ""
 		} else {
-
-			if ((totalOutput.search(/nREPL server started/) != -1)) {
+			if (stripped.match(/Running parallel tests/g)) {
+				this.testingStatus = "Parallel"
+			} else if (stripped.match(/Running tests in namespace \[\s(.*?)\s\]/)) {
+				const namespace:string = stripped.match(/Running tests in namespace \[\s(.*?)\s\]/)[1]
+				const segments = namespace.split(".")
+				this.testingStatus = segments[segments.length - 1]
+			} else if (stripped.match(/Running sequential tests/g)) {
+				this.testingStatus = "Sequential"
+			} else if ((totalOutput.search(/nREPL server started/) != -1)) {
 				this.setUpDebugREPL(response, args);
 				this.outputBuffer = ""
 			} else {

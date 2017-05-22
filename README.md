@@ -3,7 +3,7 @@
 [![Visual Studio Code Version](https://img.shields.io/badge/Visual%20Studio%20Code-1.10.1-6193DF.svg)
 ![Join the chat at https://gitter.im/vscode-continuum/Lobby](https://badges.gitter.im/vscode-continuum/Lobby.svg)](https://gitter.im/vscode-continuum/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-\*\***NEW** *Continuum is no longer preview and has been renamed Clojure Code!*\*\*
+\*\***NEW** *New features for running tests with feedback*\*\*
 
 ## Introduction
 
@@ -23,11 +23,11 @@ as language support and debugging.
 * Peek at / jump to symbol definition
 * Fix namespace declaration - cleans up requires/imports
 * Function signature help
-* Run tests
+*  \*\***New** *Run tests with progress feedback in status bar and links to tests that fail or result in error in the Problems view*\*\*
 * Set breakpoints
 * Examine stack frames / variables at breakpoint
 * Evaluate code at breakpoints
-* \*\***New** *Adds a Clojure specific setting for "editor.wordSeparators" to make selecting Clojure symbols easier*\*\*
+* Adds a Clojure specific setting for "editor.wordSeparators" to make selecting Clojure symbols easier
 * Project type agnostic (leiningen, boot, etc.)
 
 ![fix namespace declares](http://i.imgur.com/dfcTdSX.gif)
@@ -276,3 +276,8 @@ The latest version by Shaun LeBron is based on the Atom plugin and is excellent.
 | toolsJar | string | Path to the tools.jar in your Java installation. | "${env.JAVA_HOME}/lib/tools.jar"|
 
 `console`, `comandLine`, and `env` do not apply to `attach` configurations.
+
+## Contributors
+
+* [indiejames](https://github.com/indiejames)
+* [cvk77](https://github.com/cvk77)
