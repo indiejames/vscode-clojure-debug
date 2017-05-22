@@ -200,7 +200,7 @@ If you have the source for the Java code in your source path then VS Code will d
 Clojure code contributes three commands to support running tests. These can can be accessed from the command palette (`cmd+shift+p` (mac) / `ctrl+shift+p` (win/linux)) and allow you to run all tests, run a single test (the one under the cursor), and run all tests in the currently opened namespace. In order to run all tests you need to tell the extension which directories contin tests that are safe to run in parallel and which ones must be run sequentially. This is done using the
 `parallelTestDirs` and `sequentialTestDirs` settings in the launch.json file.
 
-![TESTS](https://media.giphy.com/media/xUA7aKAwsiLn7E7t7O/giphy.gif)
+![TESTS](https://media.giphy.com/media/l0Iya2NoKQl2lLagw/source.gif)
 
 ### All Contributed Commands
 
@@ -256,6 +256,7 @@ The environment utilizes several Clojure libraries to enable various features.
 * [compliment](https://github.com/alexander-yakushev/compliment) is used to perform autocompletion
 * [cljfmt](https://github.com/weavejester/cljfmt) is used to support code reformatting
 * [slamhound](https://github.com/technomancy/slamhound) is used to clean namespace declarations
+* [eftest](https://github.com/weavejester/eftest) is used to run tests
 
 ## Suggested User Settings
 
