@@ -195,7 +195,14 @@ If you have the source for the Java code in your source path then VS Code will d
 
 ![EXCEPTION_JAVA](https://media.giphy.com/media/26xBzTfV7eCV565qw/source.gif)
 
-### Contributed Commands
+### Running Tests
+
+Clojure code contributes three commands to support running tests. These can can be accessed from the command palette (`cmd+shift+p` (mac) / `ctrl+shift+p` (win/linux)) and allow you to run all tests, run a single test (the one under the cursor), and run all tests in the currently opened namespace. In order to run all tests you need to tell the extension which directories contin tests that are safe to run in parallel and which ones must be run sequentially. This is done using the
+`parallelTestDirs` and `sequentialTestDirs` settings in the launch.json file.
+
+![TESTS](https://media.giphy.com/media/xUA7aKAwsiLn7E7t7O/giphy.gif)
+
+### All Contributed Commands
 
 | Command | Command Palette Entry | Description | Key bindings |
 |---------|-------|-------------|--------------|
@@ -274,6 +281,8 @@ The latest version by Shaun LeBron is based on the Atom plugin and is excellent.
 | replPort | number | Port on which the debugged nREPL is listening. | 5555 |
 | sideChannelPort | number | Port on which the debugger should talk to the extension. | 3030 |
 | toolsJar | string | Path to the tools.jar in your Java installation. | "${env.JAVA_HOME}/lib/tools.jar"|
+| parallelTestDirs | array | Directories relative the current working directory with tests that should be run in parallel, i.e., are thread-safe | ["test"] |
+| sequentialTestDirs | array | Directories relative to the current working directory with tests that cannot be run in parallel with other tests, i.e., are not thread-safe | [] |
 
 `console`, `comandLine`, and `env` do not apply to `attach` configurations.
 

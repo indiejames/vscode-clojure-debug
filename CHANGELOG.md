@@ -1,5 +1,12 @@
 # Changes
 
+## V1.1.0
+
+* Added new test run support.
+	* Progress feedback
+	* Links to tests that fail or result in error in Problems view
+	* Run tests in parallel or sequentially
+
 ## V1.0.2
 
 * Synched CHANGELOG.md with Marketplace

@@ -266,6 +266,16 @@
                             "sideChannelPort": {
                                 "type": "number",
                                 "description": "Port on which the debugger should talk to the extension."
+                            },
+                            "parallelTestDirs": {
+                                "type": "array",
+                                "description": "Directories with tests that can be run in parallel.",
+                                "default": ["test"]
+                            },
+                            "sequentialTestDirs": {
+                                "type": "array",
+                                "description": "Directories containing tests that should be run sequentially.",
+                                "default": []
                             }
                         }
                     },
