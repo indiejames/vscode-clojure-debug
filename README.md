@@ -3,7 +3,7 @@
 [![Visual Studio Code Version](https://img.shields.io/badge/Visual%20Studio%20Code-1.10.1-6193DF.svg)
 ![Join the chat at https://gitter.im/vscode-continuum/Lobby](https://badges.gitter.im/vscode-continuum/Lobby.svg)](https://gitter.im/vscode-continuum/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-\*\***NEW** *New features for running tests with feedback*\*\*
+\*\***NEW** *Debugger is now optional - can launch the REPL and access other features in non-debug mode - code runs twice as fast*\*\*
 
 ## Introduction
 
@@ -23,10 +23,11 @@ as language support and debugging.
 * Peek at / jump to symbol definition
 * Fix namespace declaration - cleans up requires/imports
 * Function signature help
-*  \*\***New** *Run tests with progress feedback in status bar and links to tests that fail or result in error in the Problems view*\*\*
-* Set breakpoints
-* Examine stack frames / variables at breakpoint
-* Evaluate code at breakpoints
+* Run tests with progress feedback in status bar and links to tests that fail or result in error in the Problems view
+* Debugger (now optional - can run interactive REPL without debugging)
+  * Set breakpoints
+  * Examine stack frames / variables at breakpoint
+  * Evaluate code at breakpoints
 * Adds a Clojure specific setting for "editor.wordSeparators" to make selecting Clojure symbols easier
 * Project type agnostic (leiningen, boot, etc.)
 
@@ -39,7 +40,6 @@ as language support and debugging.
 * Symbol search
 * Find references
 * Linter support
-* Test result / VS Code problems view integration
 * Exception stack traces in REPL output with links to jump to file
 
 ## Installation
@@ -94,7 +94,9 @@ You can get started by opening a Clojure project in VS Code and creating a launc
 
 A launch.json file will be created with a default launch configuration. You should edit this file for your own environment. VS Code provides Intellisense support when editing this file to help you make valid choices. Also, as of version 0.4.0, you can set defaults for several of the fields in the extension preferences. These defaults will be used for any of the fields you leave blank. The full details of the available settings are documented at the end of this readme file, but for now the only fields you need to change are the following:
 
-* `commandLine` - the exact command plus arguments needed to launch your REPL. The default uses leiningen and sets the profile to `debug-repl` (the one defined in the example above). You _do not_ need to use leiningen, but you do need to make sure the REPL uses the debug middleware. Also, if you do not start the REPL on the same port as in your extension preference settings then you need to specify the port in the launch configuration using the `replPort` setting. This gives you maximum flexibility in choosing the way to launch your code. It just has to run in (or provide) nREPL running with the debug middleware.
+* `commandLine` - the exact command plus arguments needed to launch your REPL. The default uses leiningen and sets the profile to `debug-repl` (the one defined in the example above). You _do not_ need to use leiningen, but you do need to make sure the REPL uses the debug middleware. If you do use leiningen you can use the `$lein_path` template variable here and the full path to the `lein` binary will be filled in from your prefrences setting.
+
+Also, if you do not start the REPL on the same port as in your extension preference settings then you need to specify the port in the launch configuration using the `replPort` setting. This gives you maximum flexibility in choosing the way to launch your code. It just has to run in (or provide) nREPL running with the debug middleware.
 * `replPort` - Set this if you are not launching on the default port as specified in your extension preference settings.
 
 The extension can launch the REPL in three different ways: in the internal debug console, in an internal command terminal, or in an external terminal. This is controlled by the **console** attribute. The default uses the internal debug console. Running in a terminal can be useful if, for example, you need to type input into your program or if your program expects to run in a terminal environment.
@@ -105,7 +107,7 @@ The functionality of the extension is not available unless a REPL is running. Yo
 
 #### Launching a REPL
 
-Once you have set up your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can launch the REPL by going to the Debug viewlet, choosing the launch configuration you want to use, then clicking the debug icon ![START](http://i.imgur.com/ZAmkn5M.png). Note that this has changed from the previous method of launching the REPL from the command palette.
+Once you have set up your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can launch the REPL by going to the Debug viewlet, choosing the launch configuration you want to use, then clicking the debug icon ![START](http://i.imgur.com/ZAmkn5M.png).
 
 On a mac an example launch configuration might look like this
 
@@ -179,6 +181,7 @@ The second way to evaluate code is by typing it into the debug console input box
 
 #### Setting Breakpoints
 
+*Note: to debug code the REPL must be started in debug mode (the default).*
 Currently Clojure Code supports two kinds of breakpoints, line breakpoints and exceptions breakpoints. Line breakpoints let you set set a breakpoint at a specific line in a given file. These are set by clicking in the left margin of an open editor.
 
 ![BREAKPOINT](https://media.giphy.com/media/l3q2YGpocqMDRnMTS/source.gif)
@@ -275,6 +278,7 @@ The latest version by Shaun LeBron is based on the Atom plugin and is excellent.
 | cwd | string | Workspace relative or absolute path to the working directory of the program being debugged. | The current workspace |
 | debugPort | number | JDI port on which the debugger should connect to the process to be debugged. | 8030 |
 | debugReplPort | number | Port on which the client/debugger nREPL should listen. | 5556 |
+| debug | boolean | If true the REPL starts in debug mode | true |
 | env | map | Environment variables passed to the program. | {} |
 | leinPath | string | Path the the lein executable. | "/usr/local/bin/lein" |
 | refreshOnLaunch | boolean | Automatically load all namespaces on launch. | true |

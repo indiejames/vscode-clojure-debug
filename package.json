@@ -3,7 +3,7 @@
     "displayName": "Clojure Code",
     "license": "MIT",
     "version": "1.1.0",
-    "debugMiddlewareVersion": "0.5.1",
+    "debugMiddlewareVersion": "0.5.2",
     "publisher": "jamesnorton",
     "description": "Clojure debugger / nREPL / language support for Visual Studio Code.",
     "preview": false,
@@ -235,7 +235,7 @@
                             "toolsJar": {
                                 "type": "string",
                                 "description": "Path to the tools.jar in your Java installation.",
-                                "default": "${env.JAVA_HOME}/lib/tools.jar"
+                                "default": "$tools_jar_path"
                             },
                             "cwd": {
                                 "type": "string",
@@ -244,8 +244,7 @@
                             },
                             "leinPath": {
                                 "type": "string",
-                                "description": "Path the the lein executable.",
-                                "default": "/usr/local/bin/lein"
+                                "description": "Path the the lein executable."
                             },
                             "replHost": {
                                 "type": "string",
@@ -262,6 +261,11 @@
                             "debugPort": {
                                 "type": "number",
                                 "description": "JDI port on which the debugger should connect to the process to be debugged."
+                            },
+                            "debug": {
+                                "type": "boolean",
+                                "description": "Whether or not to start the debugger.",
+                                "default": true
                             },
                             "sideChannelPort": {
                                 "type": "number",
@@ -305,8 +309,7 @@
                             },
                             "leinPath": {
                                 "type": "string",
-                                "description": "Path the the lein executable.",
-                                "default": "/usr/local/bin/lein"
+                                "description": "Path the the lein executable."
                             },
                             "replPort": {
                                 "type": "number",
@@ -322,6 +325,11 @@
                                 "type": "number",
                                 "description": "JDI port on which the debugger should connect to the process to be debugged.",
                                 "default": 8030
+                            },
+                            "debug": {
+                                "type": "boolean",
+                                "description": "Whether or not to start the debugger.",
+                                "default": true
                             },
                             "sideChannelPort": {
                                 "type": "number",
@@ -361,7 +369,7 @@
                 "initialConfigurations": [
                     {
                         "commandLine": [
-                            "lein",
+                            "$lein_path",
                             "with-profile",
                             "+debug-repl",
                             "repl",
