@@ -41,7 +41,9 @@ let projectClj = `(defproject repl_connect "0.1.0-SNAPSHOT"
 // Constants to represent the various states of the debugger
 class DebuggerState {
 	public static get PRE_LAUNCH(): string { return "PRE_LAUNCH"; }
+	public static get DEBUGGED_REPL_STARTED(): string { return "DEBUGGED_REPL_STARTED"}
 	public static get REPL_STARTED(): string { return "REPL_STARTED"; }
+	public static get REPL_ATTACHED(): string { return "REPL_ATTACHED"}
 	public static get DEBUGGER_ATTACHED(): string { return "DEBUGGER_ATTACHED"; }
 	public static get REPL_READY(): string { return "REPL_READY"; }
 	public static get LAUNCH_COMPLETE(): string { return "LAUNCH_COMPLETE"; }
@@ -67,6 +69,8 @@ export interface BaseRequestArguments {
 	debugReplPort: number;
 	// Port for JDWP connection
 	debugPort: number;
+	// Whether or not to start the debugger - false means start the REPL but not the debugger
+	debug: boolean;
 	// Port for side channel
 	sideChannelPort: number;
 	// Path to lein
@@ -97,7 +101,7 @@ export interface LaunchRequestArguments extends BaseRequestArguments {
 	// The environment variables that should be set when running the target.
 	env: {};
 	// Refresh namespaces on launch. Defaults to true.
-	refreshOnLaunch?: boolean;
+	refreshOnLaunch: boolean;
 }
 
 // needed because Array.includes was not available on Windows or more likely I just don't know
@@ -444,6 +448,22 @@ class ClojureDebugSession extends DebugSession {
 			}
 		}
 
+		if (this._debuggerState == DebuggerState.REPL_STARTED && stripped.search(/user=>/) != -1) {
+			// tell the extension to connect
+			const reqId = this.getNextRequestId()
+			let primaryReplPort = 5555;
+			if (args.replPort) {
+				primaryReplPort = args.replPort
+			}
+			let replHost = "127.0.0.1"
+			if (args["replHost"]) {
+				replHost = args["replHost"]
+			}
+			this.requestData[reqId] = {response: response};
+			this.sideChannel.emit("connect-to-repl", {id: reqId, hostPort: replHost + ":" + primaryReplPort})
+			this._debuggerState = DebuggerState.REPL_ATTACHED
+		}
+
 		this.pout(cleanOutput(output))
 	}
 
@@ -672,7 +692,7 @@ class ClojureDebugSession extends DebugSession {
 		this.debuggerRepl.stdout.on('data', (data) => {
 			const output = '' + data;
 
-      if ((output.search(/nREPL server started/) != -1)) {
+      		if ((output.search(/nREPL server started/) != -1)) {
 					self._debuggerState = DebuggerState.REPL_READY;
 					self.replConnection = new ReplConnection();
 					self.replConnection.connect("127.0.0.1", replPort,
@@ -747,35 +767,45 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	private setUpDebugREPL(response: DebugProtocol.LaunchResponse, args: BaseRequestArguments){
-		const self = this;
-		this.baseArgs = args;
-
-		const env = {"HOME": process.env["HOME"], "DEBUG_MIDDLEWARE_VERSION": args.middlewareVersion, "PATH_TO_TOOLS_JAR": args.toolsJar};
-
 		let primaryReplPort = 5555;
 		if (args.replPort) {
 			primaryReplPort = args.replPort;
 		}
 
-		let debugReplPort = 5556;
-		if (args.debugReplPort) {
-			debugReplPort = args.debugReplPort;
-		}
+		if (args.debug) {
 
-		let debugPort = 8030;
-		if (args.debugPort) {
-			debugPort = args.debugPort;
-		}
+			this.baseArgs = args;
 
-		let leinPath = "/usr/local/bin/lein";
-		if (args.leinPath) {
-			leinPath = args.leinPath;
-		}
+			const env = {"HOME": process.env["HOME"], "DEBUG_MIDDLEWARE_VERSION": args.middlewareVersion, "PATH_TO_TOOLS_JAR": args.toolsJar};
 
-		self.debuggerRepl = spawn(leinPath, ["repl", ":headless", ":port", "" + debugReplPort], {cwd: this.tmpProjectDir, env: env });
-		self._debuggerState = DebuggerState.REPL_STARTED;
-		console.log("DEBUGGER REPL STARTED");
-		self.connectToDebugREPL(response, args, primaryReplPort, debugReplPort, debugPort);
+
+
+			let debugReplPort = 5556;
+			if (args.debugReplPort) {
+				debugReplPort = args.debugReplPort;
+			}
+
+			let debugPort = 8030;
+			if (args.debugPort) {
+				debugPort = args.debugPort;
+			}
+
+			let leinPath = "/usr/local/bin/lein";
+			if (args.leinPath) {
+				leinPath = args.leinPath;
+			}
+
+			this.debuggerRepl = spawn(leinPath, ["repl", ":headless", ":port", "" + debugReplPort], {cwd: this.tmpProjectDir, env: env });
+			this._debuggerState = DebuggerState.REPL_STARTED;
+			console.log("DEBUGGER REPL STARTED");
+			this.connectToDebugREPL(response, args, primaryReplPort, debugReplPort, debugPort);
+
+		}
+		// else {
+
+		// 	response.success = true;
+		// 	this.sendResponse(response);
+		// }
 
 	}
 
@@ -847,7 +877,18 @@ class ClojureDebugSession extends DebugSession {
 			jvmOpts = jvmOpts + " " + args.env["JVM_OPTS"];
 		}
 
-		let env = {"HOME": home, "CLOJURE_DEBUG_JDWP_PORT": "" + debugPort, "JVM_OPTS": jvmOpts, "PATH_TO_TOOLS_JAR": args.toolsJar};
+		let env = {"HOME": home}
+		if (args.debug) {
+			env["CLOJURE_DEBUG_JDWP_PORT"] =  "" + debugPort
+			env["JVM_OPTS"] = jvmOpts
+			env["PATH_TO_TOOLS_JAR"] = args.toolsJar
+		} else {
+			if (args.env && args.env["JVM_OPTS"]) {
+				env["JVM_OPTS"] = args.env["JVM_OPTS"]
+			}
+			env["PATH_TO_TOOLS_JAR"] = args.toolsJar
+		}
+
 		for (let attrname in args.env) {
 			if (attrname != "JVM_OPTS") {
 				env[attrname] = args.env[attrname];
@@ -896,6 +937,7 @@ class ClojureDebugSession extends DebugSession {
 			let cmdArgs = args.commandLine.slice(1, args.commandLine.length);
 
 			this.primaryRepl = spawn(cmd, cmdArgs, {cwd: args.cwd, env: env});
+			this._debuggerState = DebuggerState.REPL_STARTED
 
 			this.primaryRepl.stdout.on('data', (data) => {
 				const output = '' + data;
@@ -1020,77 +1062,104 @@ class ClojureDebugSession extends DebugSession {
 	}
 
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
-		const clientLines = args.lines;
 
-		const debugLines = JSON.stringify(clientLines, null, 4);
-		console.log(debugLines);
-		const srcPath = args.source.path;
-		// make exploded jar file paths amenable to cdt
-		const cdtPath = srcPath.replace(".jar/", ".jar:/");
-		const reqId = this.getNextRequestId();
-		this.requestData[reqId] = {response: response, args: args, path: srcPath};
-		const self = this;
+		if (this.replConnection){
 
-		if (this._debuggerSubState == DebuggerSubState.BREAKPOINT_HIT) {
-			self.replConnection.clearBreakpoints(cdtPath, (err: any, result: any) => {
-				if (err) {
-					// TODO figure out what to do here
-					console.error(err);
-				} else {
-					// don't try to load the namespace first if we are already
-					// at a breakpoint
-					self.finishBreakPointsRequest(response, args, srcPath);
-				}
-			});
+			const clientLines = args.lines;
+
+			const debugLines = JSON.stringify(clientLines, null, 4);
+			console.log(debugLines);
+			const srcPath = args.source.path;
+			// make exploded jar file paths amenable to cdt
+			const cdtPath = srcPath.replace(".jar/", ".jar:/");
+			const reqId = this.getNextRequestId();
+			this.requestData[reqId] = {response: response, args: args, path: srcPath};
+			const self = this;
+
+			if (this._debuggerSubState == DebuggerSubState.BREAKPOINT_HIT) {
+				self.replConnection.clearBreakpoints(cdtPath, (err: any, result: any) => {
+					if (err) {
+						// TODO figure out what to do here
+						console.error(err);
+					} else {
+						// don't try to load the namespace first if we are already
+						// at a breakpoint
+						self.finishBreakPointsRequest(response, args, srcPath);
+					}
+				});
+			} else {
+				this.replConnection.clearBreakpoints(cdtPath, (err: any, result: any) => {
+					if (err) {
+						// TODO figure out what to do here
+						console.error(err);
+					} else {
+						const fileContents = readFileSync(srcPath);
+						//const regex = /\(ns\s+?(.*?)(\s|\))/;
+						const regex = /\(ns(\s+\^\{[\s\S]*?\})?\s+([\w\.\-_\d\*\+!\?]+)/;
+						const ns = regex.exec(fileContents.toString())[2];
+
+						// Load the associated namespace into the REPL.
+						// We have to use the extension connection to load the namespace
+						// We must wait for the response before replying with the SetBreakpointResponse.
+						self.sideChannel.emit("load-namespace", {id: reqId, ns: ns});
+					}
+				});
+
+			}
+
 		} else {
-			this.replConnection.clearBreakpoints(cdtPath, (err: any, result: any) => {
-				if (err) {
-					// TODO figure out what to do here
-					console.error(err);
-				} else {
-					const fileContents = readFileSync(srcPath);
-					//const regex = /\(ns\s+?(.*?)(\s|\))/;
-					const regex = /\(ns(\s+\^\{[\s\S]*?\})?\s+([\w\.\-_\d\*\+!\?]+)/;
-					const ns = regex.exec(fileContents.toString())[2];
-
-					// Load the associated namespace into the REPL.
-					// We have to use the extension connection to load the namespace
-					// We must wait for the response before replying with the SetBreakpointResponse.
-					self.sideChannel.emit("load-namespace", {id: reqId, ns: ns});
-				}
-			});
-
+			// Not a debug session, so just return
+			response.body = {
+				breakpoints: []
+			}
+			response.success = false
+			this.sendResponse(response)
 		}
+
 
 		// TODO reject breakpoint requests outside of a namespace
 
 	}
 
 	protected setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments): void {
-		// get the class type for the exceptions from the extension (response handler will do the rest)
-		const reqId = this.getNextRequestId();
-		this.requestData[reqId] = {response: response, args: args}
-		this.sideChannel.emit('get-breakpoint-exception-class', {id: reqId});
+		if (this.replConnection) {
+			// get the class type for the exceptions from the extension (response handler will do the rest)
+			const reqId = this.getNextRequestId();
+			this.requestData[reqId] = {response: response, args: args}
+			this.sideChannel.emit('get-breakpoint-exception-class', {id: reqId});
+		} else {
+			response.success = false;
+			this.sendResponse(response)
+		}
 	}
 
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
-		const debug = this;
-		this.replConnection.listThreads((err: any, result: any) => {
-			console.log(result);
-			debug.updateThreads(result[0]["threads"]);
+		if (this.replConnection) {
+			const debug = this;
+			this.replConnection.listThreads((err: any, result: any) => {
+				console.log(result);
+				debug.updateThreads(result[0]["threads"]);
 
-			console.log("Sending threads to debugger:\n");
-			for (let i = 0; i < debug.threads.length; i++) {
-				let th = debug.threads[i];
-				console.log("id: " + th.id + " name: " + th.name);
-			}
+				console.log("Sending threads to debugger:\n");
+				for (let i = 0; i < debug.threads.length; i++) {
+					let th = debug.threads[i];
+					console.log("id: " + th.id + " name: " + th.name);
+				}
 
+				response.body = {
+					threads: debug.threads
+				};
+
+				debug.sendResponse(response);
+			});
+		} else {
 			response.body = {
-				threads: debug.threads
-			};
+				threads: []
+			}
+			response.success = false
+			this.sendResponse(response)
+		}
 
-			debug.sendResponse(response);
-		});
 
 	}
 
@@ -1225,12 +1294,17 @@ class ClojureDebugSession extends DebugSession {
 
 	protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
 		const debug = this;
-		this.replConnection.continue((err: any, result: any) => {
-			// TODO handle errors here
+		if (this.replConnection) {
+			this.replConnection.continue((err: any, result: any) => {
+				// TODO handle errors here
+				debug._debuggerSubState = DebuggerSubState.NOOP;
+				debug.sendResponse(response);
+				console.log(result);
+			});
+		} else {
 			debug._debuggerSubState = DebuggerSubState.NOOP;
 			debug.sendResponse(response);
-			console.log(result);
-		});
+		}
 	}
 
 	protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {

@@ -459,6 +459,10 @@ function removeReplActions(context: ExtensionContext) {
 
 // Add Diagnostics for tests that fail or error
 function handleTestOutput(result: any) {
+	if (diagnostics) {
+		diagnostics.clear()
+	}
+
 	const errMsg = result[0]["err-msg"]
 	if (errMsg){
 		//const message = "Error Running Tests\n\r" + errMsg
@@ -494,7 +498,7 @@ function handleTestOutput(result: any) {
 			const source: string = e["source"]
 			let file
 			let line
-			let m = source.match(/\(.*?\) \((.*?):(\d+)\)/)
+			let m = source.match(/.*? \((.*?):(\d+)\)/)
 			if (m) {
 				file = m[1]
 				line = Number(m[2]) - 1
@@ -648,7 +652,6 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 		if (!replRunning) {
 			window.showErrorMessage("Please launch or attach to a REPL before running tests.");
 		} else {
-			diagnostics = languages.createDiagnosticCollection("test results")
 
 			if (cfg.get("refreshNamespacesBeforeRunnningAllTests") === true) {
 				console.log("Calling refresh...")
@@ -779,9 +782,7 @@ function connect(reqId: number, sock:SocketIO.Socket, host: string, port: number
 					if (err) {
 						console.error(err);
 					} else {
-						outputChannel.appendLine(result);
 						rconn.eval("(use 'compliment.core)", (err: any, result: any) => {
-							outputChannel.appendLine(result);
 							console.log("Compliment namespace loaded");
 
 							replRunning = true;
@@ -796,6 +797,7 @@ function connect(reqId: number, sock:SocketIO.Socket, host: string, port: number
 	});
 }
 
+// fill in the launch.json config that was chosen to start the REPL
 function fillInConfig(config: any): any {
 	let extConfig = workspace.getConfiguration("clojure");
 	if (!config["toolsJar"]) {
@@ -804,6 +806,12 @@ function fillInConfig(config: any): any {
 
 	if (!config["leinPath"]) {
 		config["leinPath"] = extConfig["leinPath"];
+	}
+
+	if (config["commandLine"]) {
+		config["commandLine"] = config["commandLine"].map( (entry: string): string => {
+			return entry.replace("$lein_path", extConfig["leinPath"])
+		} )
 	}
 
 	if (config["refreshOnLaunch"] == null) {
@@ -820,6 +828,10 @@ function fillInConfig(config: any): any {
 
 	if (!config["debugPort"]) {
 		config["debugPort"] = extConfig["debugPort"];
+	}
+
+	if (config["debug"] == null) {
+		config["debug"] = true
 	}
 
 	if (!config["sideChannelPort"]) {
@@ -872,7 +884,12 @@ function startSession(config: any): StartSessionResult {
 	result.content = config;
 	let fixConfig = Promise.resolve();
 	fixConfig.then(() => {
-		window.setStatusBarMessage("Starting debugger");
+		if (config["debug"]) {
+			window.setStatusBarMessage("Starting debugger")
+		} else {
+			window.setStatusBarMessage("Starting REPL")
+		}
+
 		commands.executeCommand('vscode.startDebug', config);
 	});
 	const sideChannelPort = config["sideChannelPort"];
@@ -887,7 +904,7 @@ export function activate(context: ExtensionContext) {
 
 	languages.setLanguageConfiguration("clojure", languageConfiguration);
 
-	outputChannel = window.createOutputChannel("Clojure");
+	diagnostics = languages.createDiagnosticCollection("test results")
 
 	// Keep track of the active file editor so we can execute code in the namespace currently
 	// being edited. This is necessary because as of VS Code 1.5 the input to the debugger
