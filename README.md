@@ -44,7 +44,9 @@ as language support and debugging.
 
 ## Installation
 
-**tl;dr** The quickest way to get started is to clone the github [demo project](https://github.com/indiejames/clojure-code-demo) and follow the (brief) instructions in the README.md file. If you want to get started with your own project right away then read on.
+### tl;dr
+
+The quickest way to get started is to clone the github [demo project](https://github.com/indiejames/clojure-code-demo) and follow the (brief) instructions in the README.md file. If you want to get started with your own project right away then read on.
 
 #### Prerequisites
 * [Visual Studio Code](https://code.visualstudio.com/) 1.10.1 or higher
