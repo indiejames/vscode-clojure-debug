@@ -7,7 +7,7 @@
 * Fixed some bugs with test run support
 	* Error handing
 	* Clearing old errors/failures before each test run
-* Added `$lein` template var for launch.json to fill in lein path from preferences
+* Added `$lein_path` template var for launch.json to fill in lein path from preferences
 
 ## V1.1.0
 

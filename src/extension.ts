@@ -889,7 +889,6 @@ function startSession(config: any): StartSessionResult {
 		} else {
 			window.setStatusBarMessage("Starting REPL")
 		}
-		console.log("DEBUG REPL: " + config.debug)
 
 		commands.executeCommand('vscode.startDebug', config);
 	});

@@ -3,7 +3,7 @@
 [![Visual Studio Code Version](https://img.shields.io/badge/Visual%20Studio%20Code-1.10.1-6193DF.svg)
 ![Join the chat at https://gitter.im/vscode-continuum/Lobby](https://badges.gitter.im/vscode-continuum/Lobby.svg)](https://gitter.im/vscode-continuum/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-\*\***NEW** *Debugger is now optional - can launch the REPL and access other features in non-debug mode - code runs twice as fast*\*\*
+\*\***NEW** *Running the debugger is now optional - you can launch the REPL and access other features in non-debug mode - code runs twice as fast*\*\*
 
 ## Introduction
 
@@ -44,7 +44,7 @@ as language support and debugging.
 
 ## Installation
 
-**tl;dr** watch the [YouTube video](https://youtu.be/73PnuVBkXxU); otherwise, follow the instructions here. Note that the video has not been updated yet to reflect the change in way [the REPL is launched](#launching-a-repl).
+**tl;dr** The quickest way to get started is to clone the github [demo project](https://github.com/indiejames/clojure-code-demo) and follow the (brief) instructions in the README.md file. If you want to get started with your own project right away then read on.
 
 #### Prerequisites
 * [Visual Studio Code](https://code.visualstudio.com/) 1.10.1 or higher
@@ -99,16 +99,6 @@ A launch.json file will be created with a default launch configuration. You shou
 Also, if you do not start the REPL on the same port as in your extension preference settings then you need to specify the port in the launch configuration using the `replPort` setting. This gives you maximum flexibility in choosing the way to launch your code. It just has to run in (or provide) nREPL running with the debug middleware.
 * `replPort` - Set this if you are not launching on the default port as specified in your extension preference settings.
 
-The extension can launch the REPL in three different ways: in the internal debug console, in an internal command terminal, or in an external terminal. This is controlled by the **console** attribute. The default uses the internal debug console. Running in a terminal can be useful if, for example, you need to type input into your program or if your program expects to run in a terminal environment.
-
-## Starting the REPL
-
-The functionality of the extension is not available unless a REPL is running. You need to either launch a REPL or attach to one. We will cover launching a REPL first.
-
-#### Launching a REPL
-
-Once you have set up your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can launch the REPL by going to the Debug viewlet, choosing the launch configuration you want to use, then clicking the debug icon ![START](http://i.imgur.com/ZAmkn5M.png).
-
 On a mac an example launch configuration might look like this
 
 ```json
@@ -117,7 +107,7 @@ On a mac an example launch configuration might look like this
   "type": "clojure",
   "request": "launch",
   "commandLine": [
-    "/usr/local/bin/lein",
+    "$lein_path",
     "with-profile",
     "+debug-repl",
     "repl",
@@ -131,6 +121,20 @@ On a mac an example launch configuration might look like this
   "sideChannelPort": 3030
 }
 ```
+
+The extension can launch the REPL in three different ways: in the internal debug console, in an internal command terminal, or in an external terminal. This is controlled by the **console** attribute. The default uses the internal debug console. Running in a terminal can be useful if, for example, you need to type input into your program or if your program expects to run in a terminal environment.
+
+\*\***NEW** *Running the debugger is now optional when starting the REPL.*\*\*
+
+You can launch the REPL and access all the other features in non-debug mode. Code runs twice as fast when not in debug mode - really useful if you are going to run many tests. In order to run without the debuger just add `"debug": false` to your `launch.json` file.
+
+## Starting the REPL
+
+The functionality of the extension is not available unless a REPL is running. You need to either launch a REPL or attach to one. We will cover launching a REPL first.
+
+#### Launching a REPL
+
+Once you have set up your profile (or otherwise enabled the nREPL middleware) and created a suitable launch.json file you can launch the REPL by going to the Debug viewlet, choosing the launch configuration you want to use, then clicking the debug icon ![START](http://i.imgur.com/ZAmkn5M.png).
 
 ![LAUNCH](http://i.imgur.com/dJDFgNA.gif)
 
@@ -200,8 +204,10 @@ If you have the source for the Java code in your source path then VS Code will d
 
 ### Running Tests
 
-Clojure code contributes three commands to support running tests. These can can be accessed from the command palette (`cmd+shift+p` (mac) / `ctrl+shift+p` (win/linux)) and allow you to run all tests, run a single test (the one under the cursor), and run all tests in the currently opened namespace. In order to run all tests you need to tell the extension which directories contin tests that are safe to run in parallel and which ones must be run sequentially. This is done using the
+Clojure code contributes three commands to support running tests. These can can be accessed from the command palette (`cmd+shift+p` (mac) / `ctrl+shift+p` (win/linux)) and allow you to run all tests, run a single test (the one under the cursor), and run all tests in the currently opened namespace. In order to run all tests you need to tell the extension which directories contain tests that are safe to run in parallel and which ones must be run sequentially. This is done using the
 `parallelTestDirs` and `sequentialTestDirs` settings in the launch.json file.
+
+While the tests are running a progress bar is shown in the status bar. After the tests complete the `PROBLEM` panel provides a list of tests that failed or ran into errors while running. Clicking on these will jump to the location with the test file. Hovering over the red squiggly lines under the failed/errored tests pops up a summary of the problem.
 
 ![TESTS](https://media.giphy.com/media/l0Iya2NoKQl2lLagw/source.gif)
 
