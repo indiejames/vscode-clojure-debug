@@ -2,7 +2,7 @@
     "name": "continuum",
     "displayName": "Clojure Code",
     "license": "MIT",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "debugMiddlewareVersion": "0.5.2",
     "publisher": "jamesnorton",
     "description": "Clojure debugger / nREPL / language support for Visual Studio Code.",
