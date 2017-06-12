@@ -24,6 +24,7 @@ import {ClojureDocumentRangeFormattingEditProvider} from './clojureDocumentRange
 import {ClojureReferenceProvider} from './clojureReferenceProvider';
 import {EditorUtils} from './editorUtils';
 import {PathResolution} from './pathResolution'
+import {parseTrace} from './clojureTraceParser'
 import edn = require('jsedn');
 import {} from 'languages';
 let stripAnsi = require('strip-ansi');
@@ -899,6 +900,9 @@ function startSession(config: any): StartSessionResult {
 
 export function activate(context: ExtensionContext) {
 	console.log("Starting Clojure extension...");
+
+	parseTrace("TRACE t19407: (repl-test.core/two {:a \"A\", :y {:x 7, :z [1 2 #repl_test.core.TestRecord{:x 1, :y 2, :z 3}]}})")
+
 	let cfg = workspace.getConfiguration("clojure");
 	window.setStatusBarMessage("Activating Extension");
 

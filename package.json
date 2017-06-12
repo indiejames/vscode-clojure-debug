@@ -2,8 +2,8 @@
     "name": "continuum",
     "displayName": "Clojure Code",
     "license": "MIT",
-    "version": "1.2.0",
-    "debugMiddlewareVersion": "0.5.2",
+    "version": "1.3.0",
+    "debugMiddlewareVersion": "0.5.3",
     "publisher": "jamesnorton",
     "description": "Clojure debugger / nREPL / language support for Visual Studio Code.",
     "preview": false,
@@ -16,7 +16,7 @@
         "name": "James Norton"
     },
     "engines": {
-        "vscode": "^1.10.1"
+        "vscode": "^1.13.0"
     },
     "os": [
         "darwin",
@@ -216,6 +216,18 @@
                 "when": "editorTextFocus"
             }
         ],
+        "views": {
+            "explorer": [
+                {
+                    "id": "clojureCallTrace",
+                    "name": "Clojure Call Trace"
+                },
+                {
+                    "id": "clojureNamespaces",
+                    "name": "Clojure Name Spaces"
+                }
+            ]
+        },
         "debuggers": [
             {
                 "type": "clojure",
