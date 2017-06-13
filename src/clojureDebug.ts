@@ -657,6 +657,11 @@ class ClojureDebugSession extends DebugSession {
 			this._debuggerState = DebuggerState.DEBUGGER_ATTACHED;
 			console.log("DEBUGGER_ATTACHED");
 		}
+		if (output.search(/TRACE t\d+:/)) {
+			// Output from tracing calls
+			const reqId = this.getNextRequestId();
+			this.sideChannel.emit("handle-trace-output", {id: reqId, output})
+		}
 
 		if (this._debuggerSubState == DebuggerSubState.EVENT_IN_PROGRESS) {
 			this._debuggerSubState = DebuggerSubState.NOOP;

@@ -48,5 +48,5 @@ export function parseTrace(trace: string): {} {
 	return rval
 }
 
-parseTrace("TRACE t19407: (repl-test.core/two {:a \"A\", :y {:x 7, :z [1 2 #repl_test.core.TestRecord{:x 1, :y 2, :z 3}]}})")
-parseExpression("#TestRecord{:x 1, :y 2, :z 3}")
+// parseTrace("TRACE t19407: (repl-test.core/two {:a \"A\", :y {:x 7, :z [1 2 #repl_test.core.TestRecord{:x 1, :y 2, :z 3}]}})")
+// parseExpression("#TestRecord{:x 1, :y 2, :z 3}")
