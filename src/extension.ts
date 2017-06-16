@@ -25,6 +25,7 @@ import {ClojureReferenceProvider} from './clojureReferenceProvider';
 import {EditorUtils} from './editorUtils';
 import {PathResolution} from './pathResolution'
 import {parseTrace} from './clojureTraceParser'
+import {CallTraceTreeProvider} from './callTraceTreeProvider'
 import edn = require('jsedn');
 import {} from 'languages';
 let stripAnsi = require('strip-ansi');
@@ -47,6 +48,8 @@ var activeReplActions: Disposable[] = null;
 var refreshOnLaunch = true;
 var replActionsEnabled = false;
 var replRunning = false;
+
+const callTreeProvider = new CallTraceTreeProvider()
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
@@ -730,6 +733,22 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 		}
 	}));
 
+	activeReplActions.push(commands.registerCommand('clojure.start-trace', () => {
+		if (!replRunning) {
+			window.showErrorMessage("Please launch a REPL before attemping to trace code.")
+		} {
+			callTreeProvider.startTracing()
+		}
+	}))
+
+	activeReplActions.push(commands.registerCommand('clojure.refresh-call-trace', () => {
+		if (!replRunning) {
+			window.showErrorMessage("Please launch a REPL before attemping to trace code.")
+		} {
+			callTreeProvider.refresh()
+		}
+	}))
+
 	activeReplActions.push(commands.registerCommand('clojure.fix-namespace-declaration', () => {
 		if(!replRunning) {
 			window.showErrorMessage("Please launch or attach to a REPL before attempting to autofix a namespace declaration.");
@@ -758,6 +777,13 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 
 }
 
+function filterCallTraces(output: string) {
+	if (output.match(/TRACE t\d+:/)) {
+		// Output from tracing calls
+		callTreeProvider.addTrace(output)
+	}
+}
+
 // Create a connection to the debugged process and run some init code
 function connect(reqId: number, sock:SocketIO.Socket, host: string, port: number) {
 	console.log("Attaching to debugged process");
@@ -767,6 +793,7 @@ function connect(reqId: number, sock:SocketIO.Socket, host: string, port: number
 	rconn.connect(host, port,
 		(msg: any) => {
 			if (msg["out"]) {
+				filterCallTraces(msg["out"])
 				pout(msg["out"])
 			} else {
 				if (msg["err"]) {
@@ -925,6 +952,8 @@ export function activate(context: ExtensionContext) {
 			activeEditor = e;
 		}
 	});
+
+	window.registerTreeDataProvider('clojureCallTrace', callTreeProvider)
 
   // Create the connection object but don't connect yet
 	rconn = new ReplConnection();

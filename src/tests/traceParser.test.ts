@@ -17,12 +17,12 @@ suite('Trace Parser', () => {
 	test('depth 1', done => {
 		assert.deepEqual({depth: 1,
 									funcName: 'repl-test.core/two',
-									exp: {":a": "A",
-									      ":y": {":x": 7,
-											         ":z": [1, 2, {"tag": "repl_test.core.TestRecord",
-               					 						 			   "value": { ":x": 1,
-																												":y": 2,
-																												":z": 3 }}]}},
+									args: [{":a": "A",
+									       ":y": {":x": 7,
+											          ":z": [1, 2, {"tag": "repl_test.core.TestRecord",
+               					 	 					 			    "value": { ":x": 1,
+													 										 					 ":y": 2,
+													 															 ":z": 3 }}]}}],
 								  traceId: "19430"},
 								 parseTrace(callTraceDepth1))
 
@@ -35,10 +35,10 @@ suite('Trace Parser', () => {
 	const callTraceDepth2 = "TRACE t19404: | | (repl-test.core/one {:x 7, :z [1 2 #repl_test.core.TestRecord{:x 1, :y 2, :z 3}]})"
 	const returnTraceDepth2 = "TRACE t19404: | | => 49"
 
-	test('dapth 2', done => {
+	test('depth 2', done => {
 		assert.deepEqual({
         depth: 2,
-        exp: {
+        args: [{
           ":x": 7,
           ":z": [
             1,
@@ -52,7 +52,7 @@ suite('Trace Parser', () => {
               }
             }
           ]
-        },
+        }],
         funcName: "repl-test.core/one",
         traceId: "19404"
       },
@@ -65,5 +65,18 @@ suite('Trace Parser', () => {
 
 	})
 
+	const callTraceMultiArg = "TRACE t19394: | (repl-test.core/foo 4 7)"
 
+	test('multiple arguments', done => {
+		assert.deepEqual({
+			depth: 1,
+			args: [4, 7],
+			funcName: "repl-test.core/foo",
+			traceId: "19394"
+		},
+		parseTrace(callTraceMultiArg))
+
+	 done()
+
+	})
 });
