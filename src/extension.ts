@@ -49,7 +49,7 @@ var refreshOnLaunch = true;
 var replActionsEnabled = false;
 var replRunning = false;
 
-const callTreeProvider = new CallTraceTreeProvider()
+let callTreeProvider
 
 const languageConfiguration: LanguageConfiguration = {
 	comments: {
@@ -733,19 +733,19 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 		}
 	}));
 
-	activeReplActions.push(commands.registerCommand('clojure.start-trace', () => {
+	activeReplActions.push(commands.registerCommand('clojureCallTrace.start-trace', () => {
 		if (!replRunning) {
 			window.showErrorMessage("Please launch a REPL before attemping to trace code.")
-		} {
+		} else {
 			callTreeProvider.startTracing()
 		}
 	}))
 
-	activeReplActions.push(commands.registerCommand('clojure.refresh-call-trace', () => {
+	activeReplActions.push(commands.registerCommand('clojureCallTrace.configure-trace', () => {
 		if (!replRunning) {
 			window.showErrorMessage("Please launch a REPL before attemping to trace code.")
-		} {
-			callTreeProvider.refresh()
+		} else {
+			callTreeProvider.configure()
 		}
 	}))
 
@@ -953,10 +953,13 @@ export function activate(context: ExtensionContext) {
 		}
 	});
 
-	window.registerTreeDataProvider('clojureCallTrace', callTreeProvider)
-
-  // Create the connection object but don't connect yet
+	// Create the connection object but don't connect yet
 	rconn = new ReplConnection();
+
+	callTreeProvider = new CallTraceTreeProvider()
+	callTreeProvider.setReplConnection(rconn)
+
+	window.registerTreeDataProvider('clojureCallTrace', callTreeProvider)
 
 	setUpActions(context);
 	setUpReplActions(context, rconn);

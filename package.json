@@ -3,7 +3,7 @@
     "displayName": "Clojure Code",
     "license": "MIT",
     "version": "1.3.0",
-    "debugMiddlewareVersion": "0.5.2",
+    "debugMiddlewareVersion": "0.5.3",
     "publisher": "jamesnorton",
     "description": "Clojure debugger / nREPL / language support for Visual Studio Code.",
     "preview": false,
@@ -157,6 +157,14 @@
                 ]
             }
         ],
+        "views": {
+            "explorer": [
+                {
+                    "id": "clojureCallTrace",
+                    "name": "Clojure Call Trace"
+                }
+            ]
+        },
         "commands": [
             {
                 "command": "clojure.eval",
@@ -199,14 +207,20 @@
                 "description": "Run the test under the cursor, optionally refreshing code first."
             },
             {
-                "command": "clojure.start-trace",
-                "title": "Clojure: Trace Code",
-                "description": "Start tracing code."
+                "command": "clojureCallTrace.start-trace",
+                "title": "Start/Stop Trace",
+                "icon": {
+					"light": "resources/light/power-button-off.svg",
+					"dark": "resources/dark/power-button-off.svg"
+				}
             },
             {
-                "command": "clojure.refresh-call-trace",
-                "title": "Clojure: Refresh Call Tree",
-                "description": "Refresh the call trace tree."
+                "command": "clojureCallTrace.configure-trace",
+                "title": "Configure Trace",
+                "icon": {
+					"light": "resources/light/sliders.svg",
+					"dark": "resources/dark/sliders.svg"
+				}
             },
             {
                 "command": "clojure.fix-namespace-declaration",
@@ -214,6 +228,20 @@
                 "description": "Update the namespace declaration and fix requires/imports."
             }
         ],
+        "menus": {
+			"view/title": [
+                {
+					"command": "clojureCallTrace.start-trace",
+					"when": "view == clojureCallTrace",
+					"group": "navigation"
+				},
+                {
+					"command": "clojureCallTrace.configure-trace",
+					"when": "view == clojureCallTrace",
+					"group": "navigation"
+				}
+            ]
+        },
         "keybindings": [
             {
                 "command": "clojure.eval",
@@ -227,18 +255,6 @@
                 "when": "editorTextFocus"
             }
         ],
-        "views": {
-            "explorer": [
-                {
-                    "id": "clojureCallTrace",
-                    "name": "Clojure Call Trace"
-                },
-                {
-                    "id": "clojureNamespaces",
-                    "name": "Clojure Name Spaces"
-                }
-            ]
-        },
         "debuggers": [
             {
                 "type": "clojure",

@@ -165,7 +165,7 @@ export class ReplConnection {
 	// set a breakpoint for exceptions. type is one of 'all', 'uncaught', or 'none', indicating that exception breakpoints
 	// should be cleared. exClass is the class of exception you want to catch, e.g., 'Throwable', 'ClassCastException', etc.
 	public setExceptionBreakpoint(type: string, exClass: string, callback: callbackType) {
-		this.conn.send({op: 'set-exception-breakpoint', type: type, class: exClass}, callback);
+		this.conn.send({op: 'set-exception-breakpoint', type: type, class: exClass, session: this.commandSession}, callback);
 	}
 
 	// clear all breakpoints for the given file
@@ -195,7 +195,17 @@ export class ReplConnection {
 
 	// get the signatures for the given function
 	public sigs(ns: string, fun: string, callback: callbackType) {
-		this.conn.send({op: 'signatures', ns: ns, var: fun, sessin: this.commandSession}, callback);
+		this.conn.send({op: 'signatures', ns: ns, var: fun, session: this.commandSession}, callback);
+	}
+
+	// tell the REPL to trace namespaces
+	public trace(regex: string, callback: callbackType) {
+		this.conn.send({op: 'trace', regex: regex, session: this.commandSession}, callback)
+	}
+
+	// tell the REPL to stop tracing namespaces
+	public stopTrace(callback: callbackType) {
+		this.conn.send({op: 'stop-trace', session: this.commandSession}, callback)
 	}
 
 	// reformat code
@@ -225,17 +235,17 @@ export class ReplConnection {
 
 	// step over code after a breakpoint
 	public stepOver(threadName: string, callback: callbackType) {
-		this.conn.send({op: 'step-over', 'thread-name': threadName}, callback);
+		this.conn.send({op: 'step-over', 'thread-name': threadName, session: this.commandSession}, callback);
 	}
 
 		// step into code after a breakpoint
 	public stepInto(threadName: string, callback: callbackType) {
-		this.conn.send({op: 'step-into', 'thread-name': threadName}, callback);
+		this.conn.send({op: 'step-into', 'thread-name': threadName, session: this.commandSession}, callback);
 	}
 
 		// step out of code after a breakpoint
 	public stepOut(threadName: string, callback: callbackType) {
-		this.conn.send({op: 'step-out', 'thread-name': threadName}, callback);
+		this.conn.send({op: 'step-out', 'thread-name': threadName, session: this.commandSession}, callback);
 	}
 
 	// get and process a single event using the given callback

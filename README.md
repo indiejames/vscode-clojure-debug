@@ -303,3 +303,7 @@ The latest version by Shaun LeBron is based on the Atom plugin and is excellent.
 
 * [indiejames](https://github.com/indiejames)
 * [cvk77](https://github.com/cvk77)
+
+## Credits
+
+* Call tracing start and config icons made by Freepik from www.flaticon.com

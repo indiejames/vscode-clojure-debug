@@ -1,7 +1,9 @@
-import {Event, EventEmitter, ProviderResult, TreeDataProvider, TreeItem, TreeItemCollapsibleState, Uri} from 'vscode'
+import {Event, EventEmitter, ProviderResult, TreeDataProvider, TreeItem, TreeItemCollapsibleState,
+	    Uri, window} from 'vscode'
 import * as path from 'path'
 import * as walk from 'tree-walk'
 import {parseTrace} from './clojureTraceParser'
+import {ReplConnection} from './replConnection'
 
 export class CallNode extends TreeItem {
 	private children: CallNode[]
@@ -112,6 +114,13 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 	private root: FunctionCallNode = null
 	private head: FunctionCallNode = null
 	private nodeMap: Map<any, CallNode>
+	private isTracing: boolean = false
+	private namespaceRegex: string
+	private replConnection: ReplConnection
+
+	public setReplConnection(conn: ReplConnection) {
+		this.replConnection = conn
+	}
 
 	public getTreeItem(element: CallNode): TreeItem {
 		return element
@@ -134,6 +143,56 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 		this.root.depth = -1
 		this.head = this.root
 		this.nodeMap = new Map<any, CallNode>()
+
+		if (this.isTracing) {
+			// tell Clojure to stop tracing
+			this.replConnection.stopTrace((err: any, result: any) => {
+				if (err) {
+					window.showErrorMessage("Error stopping trace on REPL")
+				} else {
+					window.setStatusBarMessage("Tracing Deactivated")
+					this.isTracing = false
+				}
+			})
+
+		} else {
+			if (this.namespaceRegex) {
+				this.refresh()
+				this.isTracing = true
+				// tell Clojure to begin tracing
+				this.setREPLNamespaces()
+			} else {
+				window.showErrorMessage("Please set the namespace pattern before attempting to trace code")
+			}
+
+		}
+
+
+	}
+
+	public configure() {
+		let options = {prompt: "Namespace patterns, e.g., my-project.data.*|my-project.services.*|..."}
+		if (this.namespaceRegex) {
+			options["value"] = this.namespaceRegex
+		}
+		const input = window.showInputBox(options);
+		input.then(value => {
+			this.namespaceRegex = value.replace(".*", "\..*")
+			this.setREPLNamespaces()
+		});
+	}
+
+	// tell the REPL to start tracing matching namespaces
+	private setREPLNamespaces() {
+		if (this.isTracing) {
+			this.replConnection.trace(this.namespaceRegex, (err: any, result: any) => {
+				if (err) {
+					window.showErrorMessage("Error setting trace on REPL")
+				} else {
+					window.setStatusBarMessage("Tracing Activated")
+				}
+			})
+		}
 	}
 
 	public refresh() {
@@ -194,6 +253,8 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 			const rvalNode = node.getChildren()[1]
 			this.addValueNodeSubTree(rvalNode, rval)
 		}
+
+		this.refresh()
 	}
 
 	// Add a function call and its arguments
