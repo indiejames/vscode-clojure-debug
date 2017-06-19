@@ -8,8 +8,12 @@ import * as path from 'path';
 import {join} from 'path';
 import http = require('http');
 import s = require('socket.io');
-import { window, workspace, languages, commands, extensions, OutputChannel, Position, Range, CompletionItemProvider, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable, Extension, ExtensionContext, LanguageConfiguration, StatusBarItem, TextEditor, TextEditorEdit, Uri } from 'vscode';
-import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
+import { window, workspace, languages, commands, extensions, OutputChannel, Position, Range,
+	     CompletionItemProvider, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable,
+		 Extension, ExtensionContext, LanguageConfiguration, Selection, StatusBarItem, TextEditor,
+		 TextEditorEdit, TextDocument, Uri } from 'vscode';
+import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions,
+	     TransportKind } from 'vscode-languageclient';
 import nrepl_client = require('jg-nrepl-client');
 import {ReplConnection} from './replConnection';
 import {readFileSync, existsSync} from 'fs-extra';
@@ -406,42 +410,18 @@ function setUpActions(context: ExtensionContext) {
 		EditorUtils.selectBrackets(activeEditor);
 	}));
 	context.subscriptions.push(commands.registerCommand('clojure.startSession',config => startSession(config)))
-	// context.subscriptions.push(commands.registerCommand('clojure.debug', () => {
-	// 	// if launch.json exists and there are available configurations then offer a menu of choices to the user
-	// 	let launchJson = parseLaunchJson();
-	// 	if (launchJson) {
-
-	// 		const configNames = launchJson["configurations"].map((config: any) => {
-	// 			return config["name"];
-	// 		});
-
-	// 		if (!configNames || configNames.length < 1) {
-	// 				window.showErrorMessage("Please add at least one configuration to launch.json before launching the debugger.");
-	// 		} else {
-	// 			const options = {placeHolder: "Choose a launch profile"};
-	// 			window.showQuickPick(configNames, options).then((res)=> {
-	// 				if (res) {
-	// 					let configName = res;
-	// 					let index = configNames.indexOf(configName);
-	// 					let sideChannelPort: number = launchJson["configurations"][index]["sideChannelPort"];
-
-	// 					let refresh = launchJson["configurations"][index]["refreshOnLaunch"];
-	// 					if (refresh == false) {
-	// 						refreshOnLaunch = false;
-	// 					} else {
-	// 						refreshOnLaunch = true;
-	// 					}
-	// 					initSideChannel(sideChannelPort);
-	// 					window.setStatusBarMessage("Starting deugger");
-	// 					commands.executeCommand('vscode.startDebug', configName);
-	// 				}
-	// 			});
-	// 		}
-	// 	} else {
-	// 		window.showErrorMessage("Please create a launch.json file and add at least one configuration before launching the debugger.");
-	// 	}
-
-	// }));
+	context.subscriptions.push(commands.registerCommand('clojure.openFile', (file, line) => {
+		workspace.openTextDocument(file).then((value: TextDocument) => {
+			window.showTextDocument(value).then((editor: TextEditor) => {
+				let position = editor.selection.active
+				var newPosition = position.with(line, 0)
+				const newSelection = new Selection(newPosition, newPosition);
+				editor.selection = newSelection
+				const range = new Range(newPosition, newPosition)
+				editor.revealRange(range)
+			})
+		})
+	}))
 }
 
 function removeReplActions(context: ExtensionContext) {

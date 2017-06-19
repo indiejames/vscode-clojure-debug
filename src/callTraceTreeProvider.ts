@@ -1,9 +1,10 @@
-import {Event, EventEmitter, ExtensionContext, ProviderResult, TreeDataProvider, TreeItem,
+import {commands, Event, EventEmitter, ExtensionContext, ProviderResult, TreeDataProvider, TreeItem,
 	    TreeItemCollapsibleState, Uri, window} from 'vscode'
 import * as path from 'path'
 import * as walk from 'tree-walk'
 import {parseTrace} from './clojureTraceParser'
 import {ReplConnection} from './replConnection'
+import {normalizePath} from './clojureDefinitionProvider'
 
 export class CallNode extends TreeItem {
 	private children: CallNode[]
@@ -86,13 +87,15 @@ function getValString(value: any): string {
 // are functions called by this function.
 export class FunctionCallNode extends CallNode {
 	// the file and line number for this function
-	private resource: Uri
 	public depth
 	private context: ExtensionContext
+	public file: string
+	public line: number
 
 	constructor(label: string, public parent: CallNode, context: ExtensionContext) {
 		super(label, parent)
 		this.context = context
+
 		// these get added to this nodes children automatically in their constructors
 		const argsNode = new CallNode("Args", this)
 		argsNode.collapsibleState = TreeItemCollapsibleState.Collapsed
@@ -104,6 +107,14 @@ export class FunctionCallNode extends CallNode {
 			light: this.context.asAbsolutePath(path.join('resources', 'light', 'function-mathematical-symbol.svg')),
 			dark: this.context.asAbsolutePath(path.join('resources', 'dark', 'function-mathematical-symbol.svg'))
 		}
+	}
+
+	// needed to allow the node's command to be updated after the file and line are obtained
+	// asynchronously
+	public updateCommand(){
+		this.command = {command: "clojure.openFile",
+	                    arguments: [this.file, this.line],
+						title: "Open File"}
 	}
 }
 
@@ -175,10 +186,7 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 			} else {
 				window.showErrorMessage("Please set the namespace pattern before attempting to trace code")
 			}
-
 		}
-
-
 	}
 
 	public configure() {
@@ -275,9 +283,31 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 			this.addStartTrace(head.parent as FunctionCallNode, trace)
 		} else {
 			const traceId = trace["traceId"]
+			const nsFuncStr: string = trace["funcName"]
+			const nsFunc = nsFuncStr.split("/")
+
+			const newNode = new FunctionCallNode(nsFuncStr, head, this.context)
+
+			this.replConnection.findDefinition(nsFunc[0], nsFunc[1], (err: any, result: any) => {
+				if(err) {
+					window.showErrorMessage("Can't find file for " + nsFuncStr)
+				} else {
+					let res = result[0];
+					if (res["message"]) {
+						// hack to get around false triggers, but keep warning about protocols
+						if (result["message"].match(/^Definition lookup for protocol methods.*$/)) {
+							window.showInformationMessage(res["message"]);
+						}
+
+					} else {
+						newNode.file = normalizePath(res["path"]);
+						newNode.line = res["line"] - 1;
+						newNode.updateCommand()
+					}
+				}
+			})
 			const depth = trace["depth"]
 			const args = trace["args"]
-			const newNode = new FunctionCallNode(trace["funcName"], head, this.context)
 			newNode.depth = depth
 			const argsNode = newNode.getChildren()[0]
 			this.addValueNodeSubTree(argsNode, args)

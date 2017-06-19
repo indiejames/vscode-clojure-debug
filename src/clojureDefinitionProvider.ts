@@ -45,7 +45,7 @@ function longestCommonPath(dmPath: string, dir: string): string {
 // path for symlinks instead of the link path. This was interfering with setting breakpoints
 // in subprojects linked under the main project.
 // path is expected to be absolute.
-function normalizePath(dmPath: string): string {
+export function normalizePath(dmPath: string): string {
   let rval = dmPath;
   const projectPath = workspace.asRelativePath(dmPath);
   if (projectPath == dmPath) {
