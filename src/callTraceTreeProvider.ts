@@ -1,5 +1,5 @@
-import {Event, EventEmitter, ProviderResult, TreeDataProvider, TreeItem, TreeItemCollapsibleState,
-	    Uri, window} from 'vscode'
+import {Event, EventEmitter, ExtensionContext, ProviderResult, TreeDataProvider, TreeItem,
+	    TreeItemCollapsibleState, Uri, window} from 'vscode'
 import * as path from 'path'
 import * as walk from 'tree-walk'
 import {parseTrace} from './clojureTraceParser'
@@ -88,9 +88,11 @@ export class FunctionCallNode extends CallNode {
 	// the file and line number for this function
 	private resource: Uri
 	public depth
+	private context: ExtensionContext
 
-	constructor(label: string, public parent: CallNode) {
+	constructor(label: string, public parent: CallNode, context: ExtensionContext) {
 		super(label, parent)
+		this.context = context
 		// these get added to this nodes children automatically in their constructors
 		const argsNode = new CallNode("Args", this)
 		argsNode.collapsibleState = TreeItemCollapsibleState.Collapsed
@@ -98,6 +100,10 @@ export class FunctionCallNode extends CallNode {
 		rvalNode.collapsibleState = TreeItemCollapsibleState.Collapsed
 
 		this.collapsibleState = TreeItemCollapsibleState.Expanded
+		this.iconPath = {
+			light: this.context.asAbsolutePath(path.join('resources', 'light', 'function-mathematical-symbol.svg')),
+			dark: this.context.asAbsolutePath(path.join('resources', 'dark', 'function-mathematical-symbol.svg'))
+		}
 	}
 }
 
@@ -117,6 +123,11 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 	private isTracing: boolean = false
 	private namespaceRegex: string
 	private replConnection: ReplConnection
+	private context: ExtensionContext;
+
+	 constructor(context: ExtensionContext) {
+        this.context = context;
+	 }
 
 	public setReplConnection(conn: ReplConnection) {
 		this.replConnection = conn
@@ -139,7 +150,7 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 	}
 
 	public startTracing() {
-		this.root = new FunctionCallNode("root", null)
+		this.root = new FunctionCallNode("root", null, this.context)
 		this.root.depth = -1
 		this.head = this.root
 		this.nodeMap = new Map<any, CallNode>()
@@ -266,7 +277,7 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 			const traceId = trace["traceId"]
 			const depth = trace["depth"]
 			const args = trace["args"]
-			const newNode = new FunctionCallNode(trace["funcName"], head)
+			const newNode = new FunctionCallNode(trace["funcName"], head, this.context)
 			newNode.depth = depth
 			const argsNode = newNode.getChildren()[0]
 			this.addValueNodeSubTree(argsNode, args)

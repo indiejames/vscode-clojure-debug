@@ -956,7 +956,7 @@ export function activate(context: ExtensionContext) {
 	// Create the connection object but don't connect yet
 	rconn = new ReplConnection();
 
-	callTreeProvider = new CallTraceTreeProvider()
+	callTreeProvider = new CallTraceTreeProvider(context)
 	callTreeProvider.setReplConnection(rconn)
 
 	window.registerTreeDataProvider('clojureCallTrace', callTreeProvider)
