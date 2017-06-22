@@ -426,6 +426,10 @@ class ClojureDebugSession extends DebugSession {
 		const stripped = stripAnsi(totalOutput)
 		let progressMatch = stripped.match(/(\d+\/\d+).*?ETA.*?(..:..)/g)
 
+		if (output.match(/TRACE t\d+:/)) {
+			console.log("TRACE")
+		}
+
 		if (progressMatch){
 			const reqId = this.getNextRequestId()
 			const status = this.testingStatus + " Tests " + progressMatch[progressMatch.length - 1]

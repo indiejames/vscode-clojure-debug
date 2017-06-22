@@ -196,15 +196,18 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 		}
 		const input = window.showInputBox(options);
 		input.then(value => {
-			this.namespaceRegex = value.replace(".*", "\..*")
-			this.setREPLNamespaces()
+			if (value != null) {
+				this.namespaceRegex = value
+				this.setREPLNamespaces()
+			}
 		});
 	}
 
 	// tell the REPL to start tracing matching namespaces
 	private setREPLNamespaces() {
 		if (this.isTracing) {
-			this.replConnection.trace(this.namespaceRegex, (err: any, result: any) => {
+			const regex = this.namespaceRegex.replace(".*", "\..*")
+			this.replConnection.trace(regex, (err: any, result: any) => {
 				if (err) {
 					window.showErrorMessage("Error setting trace on REPL")
 				} else {
