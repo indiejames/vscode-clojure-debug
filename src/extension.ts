@@ -288,6 +288,10 @@ function initSideChannel(sideChannelPort: number) {
 		// 	});
 		// });
 
+		sock.on('trace', (data) => {
+			callTreeProvider.addTrace(data)
+		})
+
 		sock.on('eval-code', (data) => {
 			console.log("Evaluating code");
 			window.setStatusBarMessage("$(pulse) Evaluating Code $(pulse)")

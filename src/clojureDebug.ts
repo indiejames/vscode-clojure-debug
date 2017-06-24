@@ -421,54 +421,56 @@ class ClojureDebugSession extends DebugSession {
 
 	// parse the output from the debugged process to look for events like test results
 	private parseOutput(output: string, response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
-		let totalOutput = this.outputBuffer + "\n" + output
-		// strip non-ascii chars
-		const stripped = stripAnsi(totalOutput)
-		let progressMatch = stripped.match(/(\d+\/\d+).*?ETA.*?(..:..)/g)
-
 		if (output.match(/TRACE t\d+:/)) {
-			console.log("TRACE")
-		}
-
-		if (progressMatch){
-			const reqId = this.getNextRequestId()
-			const status = this.testingStatus + " Tests " + progressMatch[progressMatch.length - 1]
-			this.sideChannel.emit('set-status', {id: reqId, status: status})
-			this.outputBuffer = ""
+			this.sideChannel.emit('trace', output)
+			this.pout("TRACING:::" + output + ":::TRACING")
 		} else {
-			if (stripped.match(/Running parallel tests/g)) {
-				this.testingStatus = "Parallel"
-			} else if (stripped.match(/Running tests in namespace \[\s(.*?)\s\]/)) {
-				const namespace:string = stripped.match(/Running tests in namespace \[\s(.*?)\s\]/)[1]
-				const segments = namespace.split(".")
-				this.testingStatus = segments[segments.length - 1]
-			} else if (stripped.match(/Running sequential tests/g)) {
-				this.testingStatus = "Sequential"
-			} else if ((totalOutput.search(/nREPL server started/) != -1)) {
-				this.setUpDebugREPL(response, args);
+			let totalOutput = this.outputBuffer + "\n" + output
+			// strip non-ascii chars
+			const stripped = stripAnsi(totalOutput)
+			let progressMatch = stripped.match(/(\d+\/\d+).*?ETA.*?(..:..)/g)
+
+			if (progressMatch){
+				const reqId = this.getNextRequestId()
+				const status = this.testingStatus + " Tests " + progressMatch[progressMatch.length - 1]
+				this.sideChannel.emit('set-status', {id: reqId, status: status})
 				this.outputBuffer = ""
 			} else {
-				this.outputBuffer = this.outputBuffer + "\n" + output
+				if (stripped.match(/Running parallel tests/g)) {
+					this.testingStatus = "Parallel"
+				} else if (stripped.match(/Running tests in namespace \[\s(.*?)\s\]/)) {
+					const namespace:string = stripped.match(/Running tests in namespace \[\s(.*?)\s\]/)[1]
+					const segments = namespace.split(".")
+					this.testingStatus = segments[segments.length - 1]
+				} else if (stripped.match(/Running sequential tests/g)) {
+					this.testingStatus = "Sequential"
+				} else if ((totalOutput.search(/nREPL server started/) != -1)) {
+					this.setUpDebugREPL(response, args);
+					this.outputBuffer = ""
+				} else {
+					this.outputBuffer = this.outputBuffer + "\n" + output
+				}
 			}
-		}
 
-		if (this._debuggerState == DebuggerState.REPL_STARTED && stripped.search(/user=>/) != -1) {
-			// tell the extension to connect
-			const reqId = this.getNextRequestId()
-			let primaryReplPort = 5555;
-			if (args.replPort) {
-				primaryReplPort = args.replPort
+			if (this._debuggerState == DebuggerState.REPL_STARTED && stripped.search(/user=>/) != -1) {
+				// tell the extension to connect
+				const reqId = this.getNextRequestId()
+				let primaryReplPort = 5555;
+				if (args.replPort) {
+					primaryReplPort = args.replPort
+				}
+				let replHost = "127.0.0.1"
+				if (args["replHost"]) {
+					replHost = args["replHost"]
+				}
+				this.requestData[reqId] = {response: response};
+				this.sideChannel.emit("connect-to-repl", {id: reqId, hostPort: replHost + ":" + primaryReplPort})
+				this._debuggerState = DebuggerState.REPL_ATTACHED
 			}
-			let replHost = "127.0.0.1"
-			if (args["replHost"]) {
-				replHost = args["replHost"]
-			}
-			this.requestData[reqId] = {response: response};
-			this.sideChannel.emit("connect-to-repl", {id: reqId, hostPort: replHost + ":" + primaryReplPort})
-			this._debuggerState = DebuggerState.REPL_ATTACHED
-		}
 
-		this.pout(cleanOutput(output))
+			this.pout(cleanOutput(output))
+
+		}
 	}
 
 	protected setUpSideChannel(){
