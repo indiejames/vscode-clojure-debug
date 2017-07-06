@@ -421,11 +421,10 @@ class ClojureDebugSession extends DebugSession {
 
 	// parse the output from the debugged process to look for events like test results
 	private parseOutput(output: string, response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
-		if (output.match(/TRACE t\d+:/)) {
+		if (output.match(/<TRACE: t(\d+?)>.*?<\/TRACE: t\1>/)) {
 			this.sideChannel.emit('trace', output)
-			this.pout("TRACING:::" + output + ":::TRACING")
 		} else {
-			let totalOutput = this.outputBuffer + "\n" + output
+			let totalOutput = this.outputBuffer + output
 			// strip non-ascii chars
 			const stripped = stripAnsi(totalOutput)
 			let progressMatch = stripped.match(/(\d+\/\d+).*?ETA.*?(..:..)/g)
@@ -448,7 +447,7 @@ class ClojureDebugSession extends DebugSession {
 					this.setUpDebugREPL(response, args);
 					this.outputBuffer = ""
 				} else {
-					this.outputBuffer = this.outputBuffer + "\n" + output
+					this.outputBuffer = this.outputBuffer + output
 				}
 			}
 

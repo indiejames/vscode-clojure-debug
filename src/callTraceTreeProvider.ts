@@ -320,11 +320,13 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 	}
 
 	public addTrace(trace: string) {
-		const pTrace = parseTrace(trace)
-		if (pTrace["result"]) {
-			this.finalizeTrace(pTrace)
-		} else {
-			this.addStartTrace(this.head, pTrace)
+		const pTraces = parseTrace(trace)
+		for (let pTrace of pTraces) {
+			if (pTrace["result"] != null) {
+				this.finalizeTrace(pTrace)
+			} else {
+				this.addStartTrace(this.head, pTrace)
+			}
 		}
 	}
 }

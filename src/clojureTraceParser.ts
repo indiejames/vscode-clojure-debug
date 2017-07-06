@@ -26,29 +26,43 @@ function parseArgsExpression(exp: string): string {
 	}
 }
 
-export function parseTrace(trace: string): {} {
-	let rval = {}
-	let match
+// Returns an array of maps of trace information obtained from parsing the given string.
+// Traces have the form of 'TRACE t1234: | (some clojure code)' or
+// 'TRACE t1234: => some clojure expression'. There may be more than one trace in the input.
+export function parseTrace(trace: string): any[] {
+	let rval = []
+	let matches = trace.match(/<TRACE: t(\d+?)>.*?<\/TRACE: t\1>/g) || []
 
-	if (match = trace.match(/TRACE t(\d+):((\s\|)*) \((\S*?)( (.*)|)\)/)) {
-		rval["traceId"] = match[1]
-		const depthMarker = match[2]
-		const depth = depthMarker.length / 2
-		rval["depth"]= depth
-		rval["funcName"] = match[4]
-		// Add square brackets to treat arguments as a vector
-		let args = match[6] ? match[6] : ""
-		const exp = "[" + args + "]"
-		rval["args"] = parseArgsExpression(exp)
+	for (let line of matches) {
+		let match
 
-	} else if (match = trace.match(/TRACE t(\d+):((\s\|)*) => (.*)/)) {
-		rval["traceId"] = match[1]
-		const depthMarker = match[2]
-		const depth = depthMarker.length / 2
-		rval["depth"] = depth
-		const result = match[4]
-		rval["result"] = parseArgsExpression(result)
+		if (match = line.match(/<TRACE: t(\d+?)>((\| )*)\((\S*?)( (.*)|)\)<\/TRACE: t\1>/)) {
+			const traceMap = {}
+			traceMap["traceId"] = match[1]
+			const depthMarker = match[2]
+			const depth = depthMarker.length / 2
+			traceMap["depth"]= depth
+			traceMap["funcName"] = match[4]
+			// Add square brackets to treat arguments as a vector
+			let args = match[6] ? match[6] : ""
+			const exp = "[" + args + "]"
+			traceMap["args"] = parseArgsExpression(exp)
+
+			rval.push(traceMap)
+
+		} else if (match = line.match(/<TRACE: t(\d+?)>((\| )*)=> (.*?)<\/TRACE: t\1>/)) {
+			const traceMap = {}
+			traceMap["traceId"] = match[1]
+			const depthMarker = match[2]
+			const depth = depthMarker.length / 2
+			traceMap["depth"] = depth
+			const result = match[4]
+			traceMap["result"] = parseArgsExpression(result)
+
+			rval.push(traceMap)
+		}
 	}
+
 
 	return rval
 }

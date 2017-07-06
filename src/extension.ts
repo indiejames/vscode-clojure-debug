@@ -762,9 +762,11 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 }
 
 function filterCallTraces(output: string) {
-	if (output.match(/TRACE t\d+:/)) {
+	if (output.match(/<TRACE: t(\d+?)>.*?<\/TRACE: t\1>/)) {
 		// Output from tracing calls
 		callTreeProvider.addTrace(output)
+	} else {
+		pout(output)
 	}
 }
 
@@ -778,7 +780,6 @@ function connect(reqId: number, sock:SocketIO.Socket, host: string, port: number
 		(msg: any) => {
 			if (msg["out"]) {
 				filterCallTraces(msg["out"])
-				pout(msg["out"])
 			} else {
 				if (msg["err"]) {
 					perr(msg["err"])
