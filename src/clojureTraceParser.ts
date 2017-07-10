@@ -10,7 +10,7 @@
 import {parse, toJS} from 'jsedn';
 
 // Takes a string for a functions args and converts it to JSON. Tagged epxressions are split into
-// tuple vectors consisting of the tag as a stirng and an expression for the value, e.g.,
+// tuple vectors consisting of the tag as a string and an expression for the value, e.g.,
 //
 //     #TestRecord{:x 1, :y 2, :z 3} => ["#TestRecord" {:x 1, :y 2, :z 3}]
 //
@@ -26,10 +26,21 @@ function parseArgsExpression(exp: string): string {
 	}
 }
 
+export function parseTrace(trace: string): any {
+	let parsedExp
+	try {
+		parsedExp = parse(trace)
+		// parsedExp = JSON.parse(trace)
+	} catch (e) {
+		console.log(e)
+	}
+	return toJS(parsedExp)
+}
+
 // Returns an array of maps of trace information obtained from parsing the given string.
 // Traces have the form of 'TRACE t1234: | (some clojure code)' or
 // 'TRACE t1234: => some clojure expression'. There may be more than one trace in the input.
-export function parseTrace(trace: string): any[] {
+export function parseTraces(trace: string): any[] {
 	let rval = []
 	let matches = trace.match(/<TRACE: t(\d+?)>.*?<\/TRACE: t\1>/g) || []
 

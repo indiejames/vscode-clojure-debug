@@ -289,7 +289,7 @@ function initSideChannel(sideChannelPort: number) {
 		// });
 
 		sock.on('trace', (data) => {
-			callTreeProvider.addTrace(data)
+			//callTreeProvider.addTrace(data)
 		})
 
 		sock.on('eval-code', (data) => {
@@ -764,7 +764,7 @@ function setUpReplActions(context: ExtensionContext, rconn: ReplConnection){
 function filterCallTraces(output: string) {
 	if (output.match(/<TRACE: t(\d+?)>.*?<\/TRACE: t\1>/)) {
 		// Output from tracing calls
-		callTreeProvider.addTrace(output)
+		//callTreeProvider.addTrace(output)
 	} else {
 		pout(output)
 	}
@@ -912,8 +912,6 @@ function startSession(config: any): StartSessionResult {
 
 export function activate(context: ExtensionContext) {
 	console.log("Starting Clojure extension...");
-
-	parseTrace("TRACE t19407: (repl-test.core/two {:a \"A\", :y {:x 7, :z [1 2 #repl_test.core.TestRecord{:x 1, :y 2, :z 3}]}})")
 
 	let cfg = workspace.getConfiguration("clojure");
 	window.setStatusBarMessage("Activating Extension");

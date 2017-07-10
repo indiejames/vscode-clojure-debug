@@ -2,7 +2,7 @@ import {commands, Event, EventEmitter, ExtensionContext, ProviderResult, TreeDat
 	    TreeItemCollapsibleState, Uri, window} from 'vscode'
 import * as path from 'path'
 import * as walk from 'tree-walk'
-import {parseTrace} from './clojureTraceParser'
+import { parseTrace, parseTraces } from './clojureTraceParser'
 import {ReplConnection} from './replConnection'
 import {normalizePath} from './clojureDefinitionProvider'
 
@@ -88,15 +88,14 @@ function getValString(value: any): string {
 export class FunctionCallNode extends CallNode {
 	// the file and line number for this function
 	public depth
-	private context: ExtensionContext
 	public file: string
 	public line: number
 
 	constructor(label: string, public parent: CallNode, context: ExtensionContext) {
 		super(label, parent)
-		this.context = context
 
 		// these get added to this nodes children automatically in their constructors
+		const jumpNode = new JumpNode(this, context)
 		const argsNode = new CallNode("Args", this)
 		argsNode.collapsibleState = TreeItemCollapsibleState.Collapsed
 		const rvalNode = new CallNode("Return", this)
@@ -104,8 +103,31 @@ export class FunctionCallNode extends CallNode {
 
 		this.collapsibleState = TreeItemCollapsibleState.Expanded
 		this.iconPath = {
-			light: this.context.asAbsolutePath(path.join('resources', 'light', 'function-mathematical-symbol.svg')),
-			dark: this.context.asAbsolutePath(path.join('resources', 'dark', 'function-mathematical-symbol.svg'))
+			light: context.asAbsolutePath(path.join('resources', 'light', 'function-mathematical-symbol.svg')),
+			dark: context.asAbsolutePath(path.join('resources', 'dark', 'function-mathematical-symbol.svg'))
+		}
+	}
+
+	// needed to allow the node's command to be updated after the file and line are obtained
+	// asynchronously
+	public updateCommand(){
+		this.command = {command: "clojure.openFile",
+	                    arguments: [this.file, this.line],
+						title: "Open File"}
+	}
+}
+
+// Jump nodes show icons that can be used to jump to the code definition for a function.
+export class JumpNode extends CallNode {
+	public file: string
+	public line: number
+
+	constructor(public parent, context: ExtensionContext) {
+		super("", parent)
+		this.collapsibleState = TreeItemCollapsibleState.None
+		this.iconPath = {
+			light: context.asAbsolutePath(path.join('resources', 'light', 'right-arrow.svg')),
+			dark: context.asAbsolutePath(path.join('resources', 'dark', 'right-arrow.svg'))
 		}
 	}
 
@@ -129,8 +151,7 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 	private _onDidChangeTreeData: EventEmitter<any> = new EventEmitter<any>();
 	readonly onDidChangeTreeData: Event<any> = this._onDidChangeTreeData.event;
 	private root: FunctionCallNode = null
-	private head: FunctionCallNode = null
-	private nodeMap: Map<any, CallNode>
+	private headMap: Map<string, CallNode> = null
 	private isTracing: boolean = false
 	private namespaceRegex: string
 	private replConnection: ReplConnection
@@ -162,16 +183,17 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 
 	public startTracing() {
 		this.root = new FunctionCallNode("root", null, this.context)
-		this.root.depth = -1
-		this.head = this.root
-		this.nodeMap = new Map<any, CallNode>()
+		this.root.depth = -2
+		this.headMap = new Map<string, FunctionCallNode>()
 
 		if (this.isTracing) {
+			const self = this
 			// tell Clojure to stop tracing
 			this.replConnection.stopTrace((err: any, result: any) => {
 				if (err) {
 					window.showErrorMessage("Error stopping trace on REPL")
 				} else {
+					self.addTrace(result[0]["trace"])
 					window.setStatusBarMessage("Tracing Deactivated")
 					this.isTracing = false
 				}
@@ -252,7 +274,7 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 					newNode.collapsibleState = TreeItemCollapsibleState.None
 				}
 
-				// TODO I think this doens't work if two values are
+				// TODO I think this doesn't work if two values are
 				// the same
 				if (val) {
 					valueNodeMap[val] = newNode
@@ -266,67 +288,74 @@ export class CallTraceTreeProvider implements TreeDataProvider<CallNode> {
 
 	}
 
-	// Add the return value for an existing trace
-	public finalizeTrace(trace: {}) {
-		const traceId = trace["traceId"]
-		const node = this.nodeMap[traceId]
-		if (node) {
-			const rval = trace["result"]
-			const rvalNode = node.getChildren()[1]
-			this.addValueNodeSubTree(rvalNode, rval)
-		}
+	public addTraceStep(threadName: string, head: FunctionCallNode, trace: any) {
+		const depth = trace["depth"]
+		const fname = trace["fname"]
+		const args = trace["args"]
+		const value = trace["value"]
+		const nsFunc = fname.split("/")
+
+		const newNode = new FunctionCallNode(fname, head, this.context)
+
+		newNode.depth = depth
+		const argsNode = newNode.getChildren()[1]
+		this.addValueNodeSubTree(argsNode, args)
+		const rvalNode = newNode.getChildren()[2]
+		this.addValueNodeSubTree(rvalNode, value)
+		this.headMap[threadName] = newNode
+
+		this.replConnection.findDefinition(nsFunc[0], nsFunc[1], (err: any, result: any) => {
+			if(err) {
+				window.showErrorMessage("Can't find file for " + fname)
+			} else {
+				let res = result[0];
+				if (res["message"]) {
+					// hack to get around false triggers, but keep warning about protocols
+					if (res["message"].match(/^Definition lookup for protocol methods.*$/)) {
+						window.showInformationMessage(res["message"]);
+					}
+
+				} else {
+					const jumpNode = newNode.getChildren()[0] as JumpNode
+					jumpNode.file = normalizePath(res["path"]);
+					jumpNode.line = res["line"] - 1;
+
+					jumpNode.updateCommand()
+					this.refresh()
+				}
+			}
+		})
+	}
+
+	public addTrace(traces: string) {
+		const traceMap = parseTrace(traces)
+		Object.keys(traceMap).sort().forEach(key => {
+			const threadName: string = key
+			const threadTrace: any = traceMap[threadName]
+			Object.keys(threadTrace).sort().forEach(key => {
+				const trace: any = threadTrace[key]
+				const depth = trace["depth"]
+
+				let head = this.headMap[threadName]
+				if (!head) {
+					head = new CallNode(threadName, this.root)
+					head.collapsibleState = TreeItemCollapsibleState.Expanded
+					head.depth = -1
+				}
+
+				if (depth <= head.depth) {
+					head = head.parent as CallNode
+				}
+
+				this.addTraceStep(threadName, head, trace)
+
+			})
+
+		})
+
 
 		this.refresh()
+
 	}
 
-	// Add a function call and its arguments
-	private addStartTrace(head: FunctionCallNode, trace: {}) {
-		if (trace["depth"] <= head.depth) {
-			// need to move up the call tree
-			this.addStartTrace(head.parent as FunctionCallNode, trace)
-		} else {
-			const traceId = trace["traceId"]
-			const nsFuncStr: string = trace["funcName"]
-			const nsFunc = nsFuncStr.split("/")
-
-			const newNode = new FunctionCallNode(nsFuncStr, head, this.context)
-
-			this.replConnection.findDefinition(nsFunc[0], nsFunc[1], (err: any, result: any) => {
-				if(err) {
-					window.showErrorMessage("Can't find file for " + nsFuncStr)
-				} else {
-					let res = result[0];
-					if (res["message"]) {
-						// hack to get around false triggers, but keep warning about protocols
-						if (result["message"].match(/^Definition lookup for protocol methods.*$/)) {
-							window.showInformationMessage(res["message"]);
-						}
-
-					} else {
-						newNode.file = normalizePath(res["path"]);
-						newNode.line = res["line"] - 1;
-						newNode.updateCommand()
-					}
-				}
-			})
-			const depth = trace["depth"]
-			const args = trace["args"]
-			newNode.depth = depth
-			const argsNode = newNode.getChildren()[0]
-			this.addValueNodeSubTree(argsNode, args)
-			this.head = newNode
-			this.nodeMap[traceId] = newNode
-		}
-	}
-
-	public addTrace(trace: string) {
-		const pTraces = parseTrace(trace)
-		for (let pTrace of pTraces) {
-			if (pTrace["result"] != null) {
-				this.finalizeTrace(pTrace)
-			} else {
-				this.addStartTrace(this.head, pTrace)
-			}
-		}
-	}
 }
