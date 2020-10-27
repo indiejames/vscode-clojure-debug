@@ -10,7 +10,7 @@ import http = require('http');
 import s = require('socket.io');
 import { window, workspace, languages, commands, extensions, OutputChannel, Position, Range, CompletionItemProvider, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable, Extension, ExtensionContext, LanguageConfiguration, StatusBarItem, TextEditor, TextEditorEdit, Uri } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
-import nrepl_client = require('jg-nrepl-client');
+import nrepl_client = require('nrepl-client');
 import {ReplConnection} from './replConnection';
 import {readFileSync, existsSync} from 'fs-extra';
 import stripJsonComments = require('strip-json-comments');

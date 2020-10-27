@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 
 import {window, workspace, DocumentFormattingEditProvider, FormattingOptions, TextEdit, Range, Location, TextDocument, Position, Uri, CancellationToken} from 'vscode';
-import nrepl_client = require('jg-nrepl-client');
+import nrepl_client = require('nrepl-client');
 import edn = require('jsedn');
 import {EditorUtils} from './editorUtils';
 import {CompletionUtils} from './completionUtils';

@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 
 import {spawn} from 'child_process';
-import nrepl_client = require('jg-nrepl-client');
+import nrepl_client = require('nrepl-client');
 
 interface msgHandlerType { (msg: any)}
 interface callbackType { (err: any, result: any): void }

@@ -48,30 +48,29 @@
         "find": "^0.2.7",
         "fined": "^1.0.2",
         "fs-extra": "^0.30.0",
-        "jg-nrepl-client": "0.2.3",
-        "jsedn": "0.3.5",
+        "jsedn": "^0.3.5",
         "lowlight": "^1.6.0",
-        "socket.io": "^1.4.8",
-        "socket.io-client": "^1.4.8",
+        "nrepl-client": "^0.3.0",
+        "socket.io": "^2.3.0",
+        "socket.io-client": "^2.3.1",
         "strip-ansi": "3.0.1",
         "strip-json-comments": "^2.0.1",
-        "tmp": "^0.0.28",
-        "vscode-debugadapter": "^1.13.0",
-        "vscode-debugprotocol": "^1.13.0",
-        "vscode-languageclient": "^2.6.0",
-        "vscode-languageserver": "^2.6.0"
+        "tmp": "^0.2.1",
+        "vscode-debugadapter": "^1.42.1",
+        "vscode-debugprotocol": "^1.42.0",
+        "vscode-languageclient": "^6.1.3",
+        "vscode-languageserver": "^6.1.1"
     },
     "devDependencies": {
-        "typescript": "^2.0.3",
-        "vscode": "^1.0.0",
-        "mocha": "^2.3.3",
-        "@types/node": "^6.0.40",
-        "@types/mocha": "^2.2.32"
+        "typescript": "^4.0.5",
+        "vscode-test": "^1.1.37",
+        "mocha": "^8.2.0",
+        "@types/vscode": "^1.50.0",
+        "@types/node": "^14.14.5",
+        "@types/mocha": "^8.0.3"
     },
     "scripts": {
-        "prepublish": "node ./node_modules/typescript/bin/tsc -p ./src",
         "compile": "node ./node_modules/typescript/bin/tsc -p ./src",
-        "postinstall": "node ./node_modules/vscode/bin/install",
         "test": "node ./node_modules/mocha/bin/mocha -u tdd ./out/tests/"
     },
     "activationEvents": [
