@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 
 import {CompletionItemProvider, CompletionList, CompletionItem, CompletionItemKind, CancellationToken, TextDocument, Position} from 'vscode';
-import nrepl_client = require('jg-nrepl-client');
+import nrepl_client = require('nrepl-client');
 import edn = require('jsedn');
 import {EditorUtils} from './editorUtils';
 import {CompletionUtils} from './completionUtils';

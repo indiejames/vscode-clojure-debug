@@ -16,7 +16,7 @@ import {spawn} from 'child_process';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import nrepl_client = require('jg-nrepl-client');
+import nrepl_client = require('nrepl-client');
 import s = require('socket.io-client');
 import tmp = require('tmp');
 import {ReplConnection} from './replConnection';
@@ -85,7 +85,7 @@ export interface BaseRequestArguments {
 /**
  * This interface should always match the schema found in the clojure-debug extension manifest.
  */
-export interface AttachRequestArguments extends BaseRequestArguments {
+export interface AttachRequestArguments extends BaseRequestArguments, DebugProtocol.AttachRequestArguments {
 	// Host for the debugged REPL on attach requests
 	replHost: string;
 }
@@ -93,7 +93,7 @@ export interface AttachRequestArguments extends BaseRequestArguments {
 /**
  * This interface should always match the schema found in the clojure-debug extension manifest.
  */
-export interface LaunchRequestArguments extends BaseRequestArguments {
+export interface LaunchRequestArguments extends BaseRequestArguments, DebugProtocol.LaunchRequestArguments {
 	// Console type for launch requests
 	console: string;
 	// The command to run with arguments
